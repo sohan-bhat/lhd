@@ -37,6 +37,9 @@ def weight_change(weights_before: np.ndarray, weights_after: np.ndarray) -> floa
     layer). A value of 1 means the change was as large as the
     weights themselves.
 
+    Pass the layer's weights and bias together as one flattened
+    array, so the size being divided by is never close to zero.
+
     Parameters
     ----------
     weights_before : np.ndarray
@@ -86,9 +89,8 @@ def dead_unit_fraction(activations: np.ndarray, unit_axis = -1) -> float:
     ----------
     activations : np.ndarray
         The layer's outputs after ReLU, for the fixed probe batch.
-    unit_axis : int = -1
-        Which axis of the array indexes the units. Default is the
-        last axis.
+    unit_axis : int, default -1
+        Which axis of the array indexes the units.
 
     Returns
     -------
