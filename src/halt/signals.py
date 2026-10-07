@@ -5,6 +5,9 @@ touches a network object, so every signal can be tested alone.
 """
 import numpy as np
 
+def _norm(array: np.ndarray) -> float:
+    """Square root of the sum of squared entries, for any shape."""
+    return float(np.sqrt(np.sum(np.square(array))))
 
 def weight_norm(weights: np.ndarray) -> float:
     """Overall size of a layer's weights (Frobenius norm).
@@ -19,7 +22,7 @@ def weight_norm(weights: np.ndarray) -> float:
     float
         Square root of the sum of squared entries.
     """
-    return float(np.sqrt(np.sum(np.square(weights))))
+    return _norm(weights)
 
 def weight_change(weights_before: np.ndarray, weights_after: np.ndarray) -> float:
     """How much a layer's weights moved, relative to their size.
@@ -44,4 +47,22 @@ def weight_change(weights_before: np.ndarray, weights_after: np.ndarray) -> floa
     delta_norm = np.linalg.norm(delta)
     before_norm = np.linalg.norm(weights_before)
     return float(delta_norm / (before_norm + 1e-12))
+
+def grad_norm(grad: np.ndarray) -> float:
+    """Overall size of a layer's gradient for one batch.
     
+        A value near 0 means the layer is receiving almost no
+        learning signal.
+    
+        Parameters
+        ----------
+        grad : np.ndarray
+            The gradient of the loss with respect to the layer's
+            weights, any shape.
+    
+        Returns
+        -------
+        float
+            Square root of the sum of squared entries.
+        """
+    return _norm(grad)
