@@ -78,7 +78,7 @@ def grad_norm(grad: np.ndarray) -> float:
     return _norm(grad)
 
 
-def dead_unit_fraction(activations: np.ndarray, unit_axis = -1) -> float:
+def dead_unit_fraction(activations: np.ndarray, unit_axis: int = -1) -> float:
     """Fraction of a layer's units that output zero for every input.
 
     A unit is one neuron in a dense layer or one filter in a conv
