@@ -1,4 +1,5 @@
 import numpy as np
+from halt.adapter import NetworkAdapter
 
 
 class TinyNet:
@@ -53,6 +54,40 @@ class TinyNet:
         return out
 
 
+class TinyAdapter(NetworkAdapter):
+    """Answers HALT's questions about a TinyNet."""
+    
+    def __init__(self, net):
+        self.net = net
+
+    def layer_names(self) -> list[str]:
+        """The two layers HALT watches in TinyNet."""
+        return ["dense1", "dense2"]
+
+    def parameters(self, name: str) -> dict[str, np.ndarray]:
+        """TinyNet's live weights and bias for the named layer."""
+        if name == "dense1":
+            return {"weights": self.net.W1, "bias": self.net.b1}
+        else:
+            return {"weights": self.net.W2, "bias": self.net.b2}
+
+    def gradients(self, name: str) -> dict[str, np.ndarray]:
+        """TinyNet's live gradients for the named layer."""
+        if name == "dense1":
+            return {"weights": self.net.dW1, "bias": self.net.db1}
+        else:
+            return {"weights": self.net.dW2, "bias": self.net.db2}
+
+    def probe_outputs(self, probe_batch: np.ndarray) -> dict[str, np.ndarray]:
+        """Each layer's output on the probe batch."""
+        out = self.net.forward(probe_batch)
+        return {"dense1": self.net.hidden, "dense2": out}
+
+    def unit_axis(self, name: str) -> int:
+        """Units are the last axis for both layers."""
+        return -1
+
+
 def test_forward():
     net = TinyNet(0)
     x = np.ones((5, 3))
@@ -61,3 +96,19 @@ def test_forward():
     assert out.shape == (5, 2)
     assert net.hidden is not None
     assert net.hidden.shape == (5, 4)
+
+def test_adapter_layer_names():
+    net = TinyNet()
+    adapter = TinyAdapter(net)
+    assert adapter.layer_names() == ["dense1", "dense2"]
+
+def test_adapter_returns_live_weights():
+    net = TinyNet()
+    adapter = TinyAdapter(net)
+    assert (adapter.parameters("dense1")["weights"] == net.W1).all()
+
+def test_adapter_probe_output_shapes():
+    net = TinyNet()
+    adapter = TinyAdapter(net)
+    assert adapter.probe_outputs(np.ones((5, 3)))["dense1"].shape == (5, 4)
+    assert adapter.probe_outputs(np.ones((5, 3)))["dense2"].shape == (5, 2)
