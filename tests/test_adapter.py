@@ -105,7 +105,7 @@ def test_adapter_layer_names():
 def test_adapter_returns_live_weights():
     net = TinyNet()
     adapter = TinyAdapter(net)
-    assert (adapter.parameters("dense1")["weights"] == net.W1).all()
+    assert adapter.parameters("dense1")["weights"] is net.W1
 
 def test_adapter_probe_output_shapes():
     net = TinyNet()
