@@ -52,6 +52,7 @@ class TinyNet:
         out = self.hidden @ self.W2 + self.b2
         return out
 
+
 def test_forward():
     net = TinyNet(0)
     x = np.ones((5, 3))
