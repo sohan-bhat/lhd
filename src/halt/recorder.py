@@ -96,7 +96,7 @@ class Recorder:
             w_change = weight_change(before, now)
             w_norm = weight_norm(now)
             norms = self._grad_norms[name]
-            g_norm = float(np.mean(norms))
+            g_norm = float(np.mean(norms)) if norms else float("nan")
             dead_units = dead_unit_fraction(probe_outs[name], self.adapter.unit_axis(name))
             b_change = None
             if "bias" in params and name in self._bias_before:

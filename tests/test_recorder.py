@@ -83,7 +83,7 @@ def test_end_epoch_appends_to_history():
     recorder.start_epoch()
     recorder.after_batch()
     recorder.end_epoch(epoch=1, train_accuracy=0.5, val_accuracy=0.4, seconds=1.0)
-    assert len(recorder.history) == 1.0
+    assert len(recorder.history) == 1
 
 
 def test_save_writes_readable_json(tmp_path):
