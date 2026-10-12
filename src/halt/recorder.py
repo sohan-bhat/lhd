@@ -3,6 +3,7 @@
 import numpy as np
 
 from halt.adapter import NetworkAdapter
+from halt.signals import grad_norm
 
 
 def flatten_parameters(arrays: dict[str, np.ndarray]) -> np.ndarray:
@@ -54,3 +55,13 @@ class Recorder:
         for name in self.adapter.layer_names():
             self._before[name] = flatten_parameters(self.adapter.parameters(name))
             self._grad_norms[name] = []
+
+    def after_batch(self) -> None:
+        """Record each layer's gradient norm for the batch that just finished.
+
+        Call once per batch, after the backward pass.
+        """
+        for name in self.adapter.layer_names():
+            grads = self.adapter.gradients(name)
+            flat_grads = flatten_parameters(grads)
+            self._grad_norms[name].append(grad_norm(flat_grads))
