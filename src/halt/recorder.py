@@ -1,5 +1,7 @@
 """Records HALT's signals for every watched layer, every epoch."""
 
+import json
+
 import numpy as np
 
 from halt.adapter import NetworkAdapter
@@ -113,4 +115,20 @@ class Recorder:
         }
         self.history.append(entry)
         return entry
-            
+
+    def save(self, path: str, metadata: dict) -> None:
+        """Write the run to a JSON file.
+
+        Parameters
+        ----------
+        path : str
+            Where to write the file.
+        metadata : dict
+            Facts about the run, such as seed, architecture, and fault label.
+        """
+        data = {
+            "metadata": metadata,
+            "history": self.history
+        }
+        with open(path, "w") as f:
+            json.dump(data, f, indent=2)

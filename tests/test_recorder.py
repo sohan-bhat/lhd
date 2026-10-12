@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 import pytest
 from tiny_net import TinyAdapter, TinyNet
@@ -44,7 +46,7 @@ def test_end_epoch_frozen_layer_reads_zero_change():
     recorder = Recorder(adapter, probe_batch=np.ones((5, 3)))
     recorder.start_epoch()
     recorder.after_batch()
-    entry = recorder.end_epoch(epoch=1, train_accuracy=0.5, val_accuracy=0.5, seconds=0.0)
+    entry = recorder.end_epoch(epoch=1, train_accuracy=0.5, val_accuracy=0.4, seconds=1.0)
     assert entry["layers"]["dense1"]["weight_change"] == 0.0
 
 
@@ -57,7 +59,7 @@ def test_end_epoch_averages_grad_norms():
     recorder.after_batch()
     net.dW1 = np.ones((3, 4)) * 3
     recorder.after_batch()
-    entry = recorder.end_epoch(epoch=1, train_accuracy=0.5, val_accuracy=0.5, seconds=0.0)
+    entry = recorder.end_epoch(epoch=1, train_accuracy=0.5, val_accuracy=0.4, seconds=1.0)
     assert entry["layers"]["dense1"]["grad_norm"] == pytest.approx(2 * np.sqrt(12))
 
 
@@ -69,7 +71,7 @@ def test_end_epoch_bias_change():
     recorder.start_epoch()
     net.b1 += 1.0
     recorder.after_batch()
-    entry = recorder.end_epoch(epoch=1, train_accuracy=0.5, val_accuracy=0.5, seconds=0.0)
+    entry = recorder.end_epoch(epoch=1, train_accuracy=0.5, val_accuracy=0.4, seconds=1.0)
     assert entry["layers"]["dense1"]["bias_change"] == pytest.approx(2.0)
 
 
@@ -80,5 +82,21 @@ def test_end_epoch_appends_to_history():
     recorder = Recorder(adapter, probe_batch=np.ones((5, 3)))
     recorder.start_epoch()
     recorder.after_batch()
-    recorder.end_epoch(epoch=1, train_accuracy=0.5, val_accuracy=0.5, seconds=0.0)
+    recorder.end_epoch(epoch=1, train_accuracy=0.5, val_accuracy=0.4, seconds=1.0)
     assert len(recorder.history) == 1.0
+
+
+def test_save_writes_readable_json(tmp_path):
+    net = TinyNet()
+    net.dW1 = np.ones((3, 4))
+    adapter = TinyAdapter(net)
+    recorder = Recorder(adapter, probe_batch=np.ones((5, 3)))
+    recorder.start_epoch()
+    recorder.after_batch()
+    recorder.end_epoch(epoch=1, train_accuracy=0.5, val_accuracy=0.4, seconds=1.0)
+    path = tmp_path / "run.json"
+    recorder.save(str(path), metadata={"seed": 0})
+    with open(path) as f:
+        data = json.load(f)
+    assert data["metadata"] == {"seed": 0}
+    assert len(data["history"]) == 1
