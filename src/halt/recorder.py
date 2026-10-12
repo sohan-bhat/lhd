@@ -98,7 +98,9 @@ class Recorder:
             norms = self._grad_norms[name]
             g_norm = float(np.mean(norms))
             dead_units = dead_unit_fraction(probe_outs[name], self.adapter.unit_axis(name))
-            b_change = weight_norm(params["bias"] - self._bias_before[name])
+            b_change = None
+            if "bias" in params and name in self._bias_before:
+                b_change = weight_norm(params["bias"] - self._bias_before[name])
             layer_signals[name] = {
                 "weight_change": w_change,
                 "weight_norm": w_norm,
