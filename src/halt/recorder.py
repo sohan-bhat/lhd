@@ -3,7 +3,7 @@
 import numpy as np
 
 from halt.adapter import NetworkAdapter
-from halt.signals import grad_norm
+from halt.signals import dead_unit_fraction, grad_norm, weight_change, weight_norm
 
 
 def flatten_parameters(arrays: dict[str, np.ndarray]) -> np.ndarray:
@@ -49,12 +49,16 @@ class Recorder:
         self.history = []
         self._before = {}
         self._grad_norms = {}
+        self._bias_before = {}
 
     def start_epoch(self) -> None:
         """Save each layer's starting parameters and clear its gradient list."""
         for name in self.adapter.layer_names():
-            self._before[name] = flatten_parameters(self.adapter.parameters(name))
+            params = self.adapter.parameters(name)
+            self._before[name] = flatten_parameters(params)
             self._grad_norms[name] = []
+            if "bias" in params:
+                self._bias_before[name] = params["bias"].copy()
 
     def after_batch(self) -> None:
         """Record each layer's gradient norm for the batch that just finished.
@@ -65,3 +69,48 @@ class Recorder:
             grads = self.adapter.gradients(name)
             flat_grads = flatten_parameters(grads)
             self._grad_norms[name].append(grad_norm(flat_grads))
+
+    def end_epoch(self, epoch: int, train_accuracy: float, val_accuracy: float, seconds: float) -> dict:
+        """Measure every layer's signals and add the epoch to history.
+
+        Per layer: weight_change, weight_norm, grad_norm (the average
+        over this epoch's batches), dead_unit_fraction (on the probe
+        batch), and bias_change (the size of the bias change alone, not
+        divided by anything; logged for analysis only).
+
+        Returns
+        -------
+        dict
+            {"epoch", "train_accuracy", "val_accuracy", "seconds",
+                "layers": {layer name: {signal name: value}}}
+        """
+        probe_outs = self.adapter.probe_outputs(self.probe_batch)
+        layer_signals = {}
+
+        for name in self.adapter.layer_names():
+            params = self.adapter.parameters(name)
+            now = flatten_parameters(params)
+            before = self._before[name]
+            w_change = weight_change(before, now)
+            w_norm = weight_norm(now)
+            norms = self._grad_norms[name]
+            g_norm = float(np.mean(norms))
+            dead_units = dead_unit_fraction(probe_outs[name], self.adapter.unit_axis(name))
+            b_change = weight_norm(params["bias"] - self._bias_before[name])
+            layer_signals[name] = {
+                "weight_change": w_change,
+                "weight_norm": w_norm,
+                "grad_norm": g_norm,
+                "dead_unit_fraction": dead_units,
+                "bias_change": b_change
+            }
+        entry = {
+            "epoch": epoch,
+            "train_accuracy": train_accuracy,
+            "val_accuracy": val_accuracy,
+            "seconds": seconds,
+            "layers": layer_signals
+        }
+        self.history.append(entry)
+        return entry
+            

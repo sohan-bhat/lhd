@@ -35,3 +35,50 @@ def test_after_batch_records_one_grad_norm_per_call():
     recorder.after_batch()
     assert len(recorder._grad_norms["dense1"]) == 2
     assert recorder._grad_norms["dense1"][0] == pytest.approx(np.sqrt(12))
+
+
+def test_end_epoch_frozen_layer_reads_zero_change():
+    net = TinyNet()
+    net.dW1 = np.ones((3, 4))
+    adapter = TinyAdapter(net)
+    recorder = Recorder(adapter, probe_batch=np.ones((5, 3)))
+    recorder.start_epoch()
+    recorder.after_batch()
+    entry = recorder.end_epoch(epoch=1, train_accuracy=0.5, val_accuracy=0.5, seconds=0.0)
+    assert entry["layers"]["dense1"]["weight_change"] == 0.0
+
+
+def test_end_epoch_averages_grad_norms():
+    net = TinyNet()
+    net.dW1 = np.ones((3, 4))
+    adapter = TinyAdapter(net)
+    recorder = Recorder(adapter, probe_batch=np.ones((5, 3)))
+    recorder.start_epoch()
+    recorder.after_batch()
+    net.dW1 = np.ones((3, 4)) * 3
+    recorder.after_batch()
+    entry = recorder.end_epoch(epoch=1, train_accuracy=0.5, val_accuracy=0.5, seconds=0.0)
+    assert entry["layers"]["dense1"]["grad_norm"] == pytest.approx(2 * np.sqrt(12))
+
+
+def test_end_epoch_bias_change():
+    net = TinyNet()
+    net.dW1 = np.ones((3, 4))
+    adapter = TinyAdapter(net)
+    recorder = Recorder(adapter, probe_batch=np.ones((5, 3)))
+    recorder.start_epoch()
+    net.b1 += 1.0
+    recorder.after_batch()
+    entry = recorder.end_epoch(epoch=1, train_accuracy=0.5, val_accuracy=0.5, seconds=0.0)
+    assert entry["layers"]["dense1"]["bias_change"] == pytest.approx(2.0)
+
+
+def test_end_epoch_appends_to_history():
+    net = TinyNet()
+    net.dW1 = np.ones((3, 4))
+    adapter = TinyAdapter(net)
+    recorder = Recorder(adapter, probe_batch=np.ones((5, 3)))
+    recorder.start_epoch()
+    recorder.after_batch()
+    recorder.end_epoch(epoch=1, train_accuracy=0.5, val_accuracy=0.5, seconds=0.0)
+    assert len(recorder.history) == 1.0
