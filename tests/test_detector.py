@@ -1,7 +1,7 @@
 import numpy as np
 
 from halt.baseline import SIGNALS
-from halt.detector import Detector, out_of_band
+from halt.detector import Detector, band_position, out_of_band
 
 
 def make_band(low, high, epochs=5):
@@ -41,6 +41,7 @@ def test_detector_fires_after_patience_epochs():
     assert detector.check(make_entry(1, 0.0)) is None
     assert detector.check(make_entry(2, 0.0)) is None
     fired = detector.check(make_entry(3, 0.0))
+    assert fired is not None
     assert fired["epoch"] == 3
     assert fired["layer"] == "dense1"
 
@@ -63,4 +64,17 @@ def test_detector_fires_only_once():
     for epoch in range(1, 4):
         detector.check(make_entry(epoch, 0.0))
     fired = detector.check(make_entry(4, 0.0))
+    assert fired is not None
     assert fired["epoch"] == 3
+
+
+def test_band_position_below():
+    assert band_position(0.0, 0.01, 0.05, 0.5, 0.0) == "below"
+
+
+def test_band_position_inside():
+    assert band_position(0.03, 0.01, 0.05, 0.5, 0.0) == "inside"
+
+
+def test_band_position_above():
+    assert band_position(1.0, 0.01, 0.05, 0.5, 0.0) == "above"

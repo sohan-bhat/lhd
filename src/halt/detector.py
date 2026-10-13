@@ -5,6 +5,24 @@ from typing import Optional
 from halt.baseline import SIGNALS
 
 
+def band_position(value: float, low: float, high: float,
+                  margin: float, floor: float) -> str:
+    """Where a value sits relative to the widened healthy range.
+
+    Uses the same widening as out_of_band.
+
+    Returns
+    -------
+    str
+        "below", "inside", or "above".
+    """
+    bottom = low * (1 - margin)
+    top = high * (1 + margin) + floor
+    if bottom <= value <= top:
+        return "inside"
+    return "below" if value < bottom else "above"
+
+
 def out_of_band(value: float, low: float, high: float,
                 margin: float, floor: float) -> bool:
     """Whether one signal value falls outside the widened healthy range.
@@ -32,9 +50,7 @@ def out_of_band(value: float, low: float, high: float,
     bool
         True if the value is outside the widened range.
     """
-    bottom = low * (1 - margin)
-    top = high * (1 + margin) + floor
-    return bool(value < bottom or value > top)
+    return band_position(value, low, high, margin, floor) != "inside"
 
 
 class Detector:
