@@ -1,8 +1,8 @@
 import numpy as np
+import pytest
 
 from halt.baseline import SIGNALS
 from halt.detector import Detector, band_position, out_of_band
-import pytest
 
 
 def make_band(low, high, epochs=5):

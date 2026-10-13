@@ -1,4 +1,5 @@
 """Decides when a layer's signals have left the healthy range for too long."""
+from __future__ import annotations
 
 import math
 from typing import Optional
@@ -79,7 +80,7 @@ class Detector:
         self._streaks = {}
         self.fired = None
 
-    def check(self, entry: dict) -> Optional[dict]:
+    def check(self, entry: dict) -> dict | None:
         """Update streaks with one epoch's signals and fire if a streak
         reaches patience.
 
