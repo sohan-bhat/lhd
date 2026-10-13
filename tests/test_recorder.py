@@ -100,3 +100,12 @@ def test_save_writes_readable_json(tmp_path):
         data = json.load(f)
     assert data["metadata"] == {"seed": 0}
     assert len(data["history"]) == 1
+
+
+def test_end_epoch_without_batches_raises():
+    net = TinyNet()
+    adapter = TinyAdapter(net)
+    recorder = Recorder(adapter, probe_batch=np.ones((5, 3)))
+    recorder.start_epoch()
+    with pytest.raises(ValueError):
+        recorder.end_epoch(epoch=1, train_accuracy=0.5, val_accuracy=0.4, seconds=1.0)

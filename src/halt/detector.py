@@ -16,10 +16,11 @@ def band_position(value: float, low: float, high: float,
     Returns
     -------
     str
-        "below", "inside", or "above".
+        "below", "inside", or "above", or "invalid" if the value is
+        nan or infinite (training blew up).
     """
-    if math.isnan(value):
-        raise ValueError("Value is nan meaning the signal was never measured")
+    if not math.isfinite(value):
+        return "invalid"
     bottom = low * (1 - margin)
     top = high * (1 + margin) + floor
     if bottom <= value <= top:

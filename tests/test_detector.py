@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 
 from halt.baseline import SIGNALS
 from halt.detector import Detector, band_position, out_of_band
@@ -81,6 +80,9 @@ def test_band_position_above():
     assert band_position(1.0, 0.01, 0.05, 0.5, 0.0) == "above"
 
 
-def test_band_position_rejects_nan():
-    with pytest.raises(ValueError):
-        band_position(float("nan"), 0.01, 0.05, 0.5, 0.0)
+def test_band_position_invalid_for_nan():
+    assert band_position(float("nan"), 0.01, 0.05, 0.5, 0.0) == "invalid"
+
+
+def test_band_position_invalid_for_inf():
+    assert band_position(float("inf"), 0.01, 0.05, 0.5, 0.0) == "invalid"
