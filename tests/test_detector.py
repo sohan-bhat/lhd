@@ -2,6 +2,7 @@ import numpy as np
 
 from halt.baseline import SIGNALS
 from halt.detector import Detector, band_position, out_of_band
+import pytest
 
 
 def make_band(low, high, epochs=5):
@@ -78,3 +79,8 @@ def test_band_position_inside():
 
 def test_band_position_above():
     assert band_position(1.0, 0.01, 0.05, 0.5, 0.0) == "above"
+
+
+def test_band_position_rejects_nan():
+    with pytest.raises(ValueError):
+        band_position(float("nan"), 0.01, 0.05, 0.5, 0.0)

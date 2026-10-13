@@ -1,5 +1,6 @@
 """Decides when a layer's signals have left the healthy range for too long."""
 
+import math
 from typing import Optional
 
 from halt.baseline import SIGNALS
@@ -16,6 +17,8 @@ def band_position(value: float, low: float, high: float,
     str
         "below", "inside", or "above".
     """
+    if math.isnan(value):
+        raise ValueError("Value is nan meaning the signal was never measured")
     bottom = low * (1 - margin)
     top = high * (1 + margin) + floor
     if bottom <= value <= top:
