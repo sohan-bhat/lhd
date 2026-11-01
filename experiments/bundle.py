@@ -28,10 +28,13 @@ def bundle_path(arch: str):
 def pack(arch: str) -> int:
     """Write every run file of an architecture into its bundle."""
     paths = sorted((RUNS / arch).glob("*.json"))
-    with gzip.open(bundle_path(arch), "wt") as f:
-        for path in paths:
-            with open(path) as run_file:
-                f.write(json.dumps(json.load(run_file), separators=(",", ":")) + "\n")
+    lines = []
+    for path in paths:
+        with open(path) as run_file:
+            lines.append(json.dumps(json.load(run_file), separators=(",", ":")) + "\n")
+    with open(bundle_path(arch), "wb") as raw, \
+            gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as f:
+        f.write("".join(lines).encode())
     return len(paths)
 
 
