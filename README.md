@@ -41,25 +41,19 @@ Experiments begin after science fair review approval.
 
 ## Running the experiments
 
-PyTorch no longer ships wheels for Intel Macs past 2.2, so the
-experiments run on Python 3.10 to 3.12 with torch 2.2 and numpy
-below 2. The core library still needs only numpy.
+The experiments use the exact package versions in
+`requirements-experiments.txt` on Python 3.10, since PyTorch has no
+Intel Mac wheels past 2.2. The core library still needs only numpy.
+The paper is compiled with tectonic.
 
-    python3.10 -m venv .venv-exp
-    source .venv-exp/bin/activate
-    pip install "torch==2.2.2" "torchvision==0.17.2" "numpy<2" pyarrow scipy matplotlib
-    pip install -e ".[dev]"
-    pytest
+    make setup
+    make test
 
-    python -m experiments.run --phase core --workers 5
-    python -m experiments.run --phase more --workers 5
-    python -m experiments.run --phase seeds --workers 5
-    python -m experiments.analyze
-    python -m experiments.figures
-    python -m experiments.report
-    python -m experiments.export
-    python -m experiments.methods
-    python -m experiments.paper
+    make runs       train every run, more than 100 CPU hours, resumable
+    make unpack     or skip training and unpack the saved runs
+    make results    tables, figures, methods record, and report
+    make paper      the paper in paper/lhd.pdf
+    make table3     print one table of the paper, from table1 to table5
 
 Datasets download on first use into `data/`. Each run is saved to
 `results/runs/<arch>/<run id>.json`, and finished runs are skipped,
