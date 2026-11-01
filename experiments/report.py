@@ -174,11 +174,31 @@ def misses() -> list[str]:
     lines = []
     wrong = read("wrong_layers.csv")
     alarms = read("false_alarms.csv")
+    causes = [r for r in read("runs.csv") if r["role"] == "fault" and r["detected"] == "True"
+              and r["layer_ok"] == "True" and r["cause_ok"] == "False"]
+    missed = defaultdict(list)
+    for r in read("runs.csv"):
+        if r["role"] == "fault" and r["detected"] == "False":
+            missed[(r["arch"], r["family"], r["fault_layer"] or "all")].append(r["seed"])
+    if missed:
+        lines += ["", f"Broken runs HALT never caught ({sum(len(v) for v in missed.values())}), "
+                  "grouped by fault and layer:", "",
+                  "| Architecture | Fault | Layer | Seeds missed |", "|---|---|---|---|"]
+        lines += [f"| {ARCH_NAMES[a]} | {FAMILY_NAMES.get(f, f)} | {layer} | {', '.join(seeds)} |"
+                  for (a, f, layer), seeds in sorted(missed.items())]
+    if not (wrong or alarms or causes or missed):
+        return ["", "None. Every caught run named the right layer and cause, "
+                "and no fresh healthy run was flagged."]
     if wrong:
         lines += ["", f"Runs where HALT named the wrong layer ({len(wrong)}):", "",
                   "| Run | Planted in | HALT named | Cause named | Signals |", "|---|---|---|---|---|"]
         lines += [f"| {r['run_id']} | {r['fault_layer']} | {r['halt_layer']} | {r['halt_cause']} | "
                   f"{r['halt_signals']} |" for r in wrong]
+    if causes:
+        lines += ["", f"Runs where HALT found the right layer but named the wrong cause ({len(causes)}):", "",
+                  "| Run | Planted | HALT named | Signals | Epoch |", "|---|---|---|---|---|"]
+        lines += [f"| {r['run_id']} | {r['fault_type']} | {r['halt_cause']} | {r['halt_signals']} | "
+                  f"{r['halt_epoch']} |" for r in causes]
     if alarms:
         lines += ["", f"False alarms on fresh healthy runs ({len(alarms)}):", "",
                   "| Run | Epoch | Layer | Cause named | Signals |", "|---|---|---|---|---|"]

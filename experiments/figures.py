@@ -207,8 +207,9 @@ def cumulative_detection(rows: list[dict]) -> None:
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
         ax.set_title(f"{ARCH_NAMES[arch]} ({len(faults)} broken runs)")
         ax.set_xlabel("Epoch")
-        ax.set_ylabel("Broken runs flagged (%)")
+    axes[0][0].set_ylabel("Broken runs flagged (%)")
     axes[0][0].legend(loc="center right")
+    fig.subplots_adjust(wspace=0.22)
     save(fig, "cumulative_detection")
 
 
