@@ -15,7 +15,7 @@
 \usepackage[hidelinks]{hyperref}
 
 \title{Early Detection of Silent Training Failures in Neural Networks}
-\author{Sohan Bhat}
+\author{Sohan Bhat\\ \small \texttt{sohanrambhat@gmail.com}}
 \date{November 2026}
 
 \begin{document}
@@ -23,7 +23,7 @@
 \maketitle
 
 \begin{abstract}
-During training, neural networks can develop defects that raise no error, so the run completes and returns a degraded model that is easy to mistake for a hard problem. This work presents LHD (Layer Health Diagnostics), a monitor that logs four signals for every layer at the end of each epoch (weight change, gradient norm, weight norm, and the fraction of dead units) and compares each one with the range it stays within during healthy runs of the same network. When a signal stays outside that range for three epochs in a row, LHD names the layer and a likely cause and stops the run. Across 645 training runs of a fully connected network, a CNN, and a small transformer, with frozen layers and dead units planted in known layers, LHD caught 411 of 470 broken runs, named the planted layer in 98\% of them, and flagged 3 of 110 fresh healthy runs. Averaged within each seed, it fired 9.1 epochs before the accuracy curve (95\% interval 8.4 to 9.7). A check for weights that never change caught every frozen layer two epochs sooner, so LHD helps most with dead units, where it caught 78\% of faults while the fixed thresholds of existing tools either missed most of them or flagged many healthy runs.
+During training, neural networks can develop defects that raise no error, so the run completes and returns a degraded model that is easy to mistake for a hard problem. This work presents LHD (Layer Health Diagnostics), a monitor that logs four signals for every layer at the end of each epoch (weight change, gradient norm, weight norm, and the fraction of dead units) and compares each one with the range it stays within during healthy runs of the same network. When a signal stays outside that range for three epochs in a row, LHD names the layer and a likely cause and stops the run. LHD was tested on 885 training runs of a fully connected network, a CNN, and a small transformer, in which frozen layers and dead units were planted in known layers. On the 105 broken runs whose fault cost two or more points of final accuracy, LHD caught 94 and the accuracy curve caught 60. Across all 470 broken runs with these faults, LHD caught 87\% (95\% interval 84 to 90\%) and named the planted layer in 98\% of the runs it caught, while it flagged 3 of 150 fresh healthy runs (0.7 to 5.7\%). On the 162 runs that both LHD and the accuracy curve caught, LHD fired 4.6 epochs earlier on average. A check for weights that never change caught every frozen layer two epochs sooner, so LHD helps most with dead units, where it caught 78\% of faults while the fixed thresholds used by existing tools either missed most of them or flagged many healthy runs.
 \end{abstract}
 
 \section{Introduction}
@@ -32,7 +32,7 @@ During training, neural networks can develop defects, yet nothing fails visibly 
 
 Since training runs consume significant compute, every silent failure that goes undetected wastes it. The evidence existed in the form of raw numbers in the weights and biases, but perceiving that is challenging since nothing in standard practice surfaces them. To address this, this work presents LHD (Layer Health Diagnostics), a monitor that reads these numbers, catches the failure within a few epochs, identifies the broken layer and its likely cause, and halts the run before compute is wasted.
 
-To test LHD, 645 networks were trained, and every rule and setting was fixed before the first broken run. LHD caught 411 of 470 broken runs, usually at epoch 3, while the accuracy curve caught 166 of 470, and it was earlier on average for 30 of 30 seed groups. It also flagged 3 of 110 fresh healthy runs, against 6 of 110 for the accuracy curve. However, a simple check for weights that do not change caught every frozen layer at epoch 1, two epochs before LHD, so the advantage of LHD comes from dead units. For those, it caught 78\% with 3 false alarms, while the default rule of SageMaker Debugger caught 53\% and flagged 12 of 110 healthy runs. Because the faults were planted to show up in the signals LHD measures, these results describe planted faults rather than bugs found in real projects.
+The clearest result is on the faults that did real damage. Of the 105 broken runs whose fault cost two or more points of final accuracy, LHD caught 94 and the accuracy curve caught 60. Those runs are a minority, since 223 of the 470 planted faults cost less than half a point. Across all 470 broken runs with a frozen layer or dead units, LHD caught 411 of 470, usually at epoch 3, while the accuracy curve caught 166 of 470. On the 162 runs both caught, LHD was earlier by 4.6 epochs on average, and averaged within each seed, all 30 seed groups favored LHD. LHD also flagged 3 of 150 fresh healthy runs, against 7 of 150 for the accuracy curve. However, a simple check for weights that do not change caught every frozen layer two epochs before LHD, so the advantage of LHD comes from dead units. There it caught 78\% with 3 false alarms, while the default rule of SageMaker Debugger, held to the same three epochs and counted only when it named the planted layer, caught 40\% and flagged 22 of 150 healthy runs. Only frozen layers and dead units were planted in the main study, and they were planted to show up in the signals LHD measures, so these results describe planted faults rather than bugs found in real projects.
 
 
 \section{Related Work}
@@ -41,11 +41,15 @@ To test LHD, 645 networks were trained, and every rule and setting was fixed bef
 
 \paragraph{wandb.ai.} Weights \& Biases (wandb) is the industry standard for experiment tracking through a dashboard where one line of code in a project can log live gradient and weight histograms during training \citep{biewald2020}. Still, it is limited by only displaying the numbers and nothing more, since a human still needs to watch, understand what healthy numbers look like, and catch the anomaly.
 
-\paragraph{wandb-callbacks.} Wandb-callbacks is a small community add-on package for wandb that includes a dead-ReLU warning callback, which by default warns when at least 80\% of a layer's units never activate \citep{groeger_wandbcallbacks}. However, it covers only one failure mode with a single signal, provides no diagnosis or halting, and is an unmaintained hobby package rather than a supported tool.
+\paragraph{wandb-callbacks.} Wandb-callbacks is a small community add-on package for wandb that includes a dead-ReLU warning callback, which by default warns when at least 80\% of a layer's units never activate \citep{groeger_wandbcallbacks}. However, it covers only one failure mode with a single signal and provides no diagnosis or halting.
+
+\paragraph{DeepLocalize.} DeepLocalize, published at the 2021 International Conference on Software Engineering, watches the values a network produces at each layer during training and, when it finds a numerical error, traces the error back to the layer that caused it \citep{wardat2021}. However, it only reports faults that lead to numerical errors and does not suggest how to fix them \citep{wardat2022}.
+
+\paragraph{UMLAUT.} UMLAUT, presented at the 2021 ACM Conference on Human Factors in Computing Systems, checks a deep learning program's structure and its model's behavior against debugging heuristics drawn from experts, then shows readable error messages next to the code and the model's output in a single interface \citep{schoop2021}. In a study with 15 participants, people using it found and fixed significantly more bugs than without it. Still, its heuristics fire on models with no known bugs, and the authors of DeepDiagnosis observed it warning of possible overfitting on 68 of 78 such MNIST models \citep{wardat2022}.
 
 \paragraph{SageMaker Debugger.} Amazon SageMaker Debugger records tensors during training jobs on Amazon's cloud and checks them with built-in rules such as DeadRelu, VanishingGradient, ExplodingTensor, UnchangedTensor, and WeightUpdateRatio \citep{aws_rules}. Any rule can be paired with an action that stops the training job when the rule fires \citep{aws_actions}, so detection and halting are already automated. However, its dead unit, gradient, and unchanged tensor rules compare a signal against a fixed default threshold. DeadRelu, for example, fires when more than 50\% of a layer's ReLUs are active less than 1\% of the time, and a user training a different network has to pick a new threshold by hand. Its SimilarAcrossRuns rule compares a job with one other completed job rather than with the range seen across many healthy runs. Amazon's documentation also states that Debugger is no longer open to new customers.
 
-\paragraph{AutoTrainer.} AutoTrainer is a training monitor and automatic repair system published at the 2021 International Conference on Software Engineering \citep{zhang2021}. During training, it checks gradients, weights, and the loss and accuracy curves against preset thresholds to detect five problems: vanishing gradients, exploding gradients, dying ReLU, oscillating loss, and slow convergence. When it finds one, it retrains the model with built-in fixes such as replacing the activation function, adding batch normalization, or changing the weight initializer. However, it does not report which layer is at fault \citep{wardat2022}, and its default thresholds are the same for every network.
+\paragraph{AutoTrainer.} AutoTrainer is a training monitor and automatic repair system published at the 2021 International Conference on Software Engineering \citep{zhang2021}. During training, it checks gradients, weights, and the loss and accuracy curves against preset thresholds to detect five problems: vanishing gradients, exploding gradients, dying ReLU, oscillating loss, and slow convergence. When it finds one, it retrains the model with built-in fixes such as replacing the activation function, adding batch normalization, or changing the weight initializer. However, it does not report which layer is at fault \citep{wardat2022}, and its default thresholds are the same for every network. A later study of model repair on 9 real and 21 artificial faulty models found that a random search did as well as or better than AutoTrainer and two hyperparameter tuning methods, and that all of them failed on larger models \citep{kim2023}.
 
 \paragraph{DeepDiagnosis.} DeepDiagnosis, published at the 2022 International Conference on Software Engineering, checks a model at the end of every training epoch for eight error symptoms, including dead nodes, unchanged weights, saturated activations, and vanishing or exploding gradients \citep{wardat2022}. When it finds a symptom, it reports the layer, maps the symptom to a likely root cause, and suggests a fix, which is close to the layer, cause, and suggested check that LHD reports. However, its checks also rely on fixed thresholds, such as counting a layer as having dead nodes when more than 70\% of its ReLU units are inactive. On 188 models from the AutoTrainer benchmark with no known bugs, it still reported symptoms, including dead nodes in 21 of the 35 CIFAR-10 models \citep{wardat2022}.
 
@@ -72,7 +76,7 @@ with margin $m = 0.5$ and floor $f = 0.05$, and a value that is not a finite num
 
 \subsection{Alarm and diagnosis}
 
-LHD raises an alarm once one signal of one layer stays out of range for $p = 3$ epochs in a row. If several layers reach that point in the same epoch, it reports the first one in the order data flows through the network. The settings $m$, $f$, and $p$ came from the LHD library's own tests and were fixed before any broken run was trained. LHD then names a likely cause from the pattern across the alarmed layer's four signals (Table~\ref{tab:rules}), stops training, and reports the layer, the signals out of range, the cause, and a suggested check. For a frozen layer, for example, it suggests checking that the layer's parameters are passed to the optimizer. Figure~\ref{fig:how_lhd_works} shows this on one CNN run with a frozen layer.
+LHD raises an alarm once one signal of one layer stays out of range for $p = 3$ epochs in a row. If several layers reach that point in the same epoch, it reports the first one in the order data flows through the network. The settings $m$, $f$, and $p$ come from the tests of the LHD library, written on 12 October 2026, and were committed to the experiment code on 31 October 2026 (commit \href{https://github.com/sohan-bhat/lhd/commit/f55a811}{\texttt{f55a811}}) before any of the study's training runs started. An earlier draft of this work defined the threshold as a multiple of the largest healthy value, and the rule above replaced it, adding the floor and a margin below the lowest healthy value, before any run was trained. LHD then names a likely cause from the pattern across the alarmed layer's four signals (Table~\ref{tab:rules}), stops training, and reports the layer, the signals out of range, the cause, and a suggested check. For a frozen layer, for example, it suggests checking that the layer's parameters are passed to the optimizer. The main study planted only frozen layers and dead units, so it tested only the frozen layer and dead unit rules. The vanishing gradient and runaway weights rules were exercised only by the extra faults in Section~\ref{sec:extra}, and the divergence rule never fired in any run. Figure~\ref{fig:how_lhd_works} shows LHD stopping one CNN run with a frozen layer.
 
 \begin{table}[t]
 \centering
@@ -105,22 +109,23 @@ any other pattern & unrecognized \\
 
 \subsection{Networks and data}
 
-LHD was tested on three networks with different structures (Table~\ref{tab:networks}). The fully connected network has hidden layers of 256, 128, and 64 units. The CNN has three convolutions with 8, 16, and 32 filters, each followed by a ReLU and max pooling, then a dense layer of 64 units and the output layer. The transformer predicts the next character with a width of 64, 4 attention heads, 2 blocks, and a feed-forward layer of 256 units that uses a ReLU, so dead units can be counted the same way in all three. After every epoch, validation accuracy is measured on the dataset's test split. The CNN is scored on a fixed random subset of 4,000 test images and the transformer on 512 fixed windows of 64 characters from the last 10\% of the text.
+LHD was tested on three networks with different structures (Table~\ref{tab:networks}). The fully connected network has hidden layers of 256, 128, and 64 units. The CNN has three convolutions with 8, 16, and 32 filters, each followed by a ReLU and max pooling, then a dense layer of 64 units and the output layer. The transformer predicts the next character with a width of 64, 4 attention heads, 2 blocks, and a feed-forward layer of 256 units that uses a ReLU, so dead units can be counted the same way in all three. After every epoch, validation accuracy is measured on the dataset's test split. The CNN is scored on a fixed random subset of 4,000 test images and the transformer on 512 fixed windows of 64 characters from the last 10\% of the text. LHD watches every layer with weights: fc1 to fc4 in the fully connected network; conv1, conv2, conv3, fc1, and fc2 in the CNN; and 11 layers in the transformer, namely the token and position embeddings (tok, pos), the attention input and output projections of each block (b0.qkv, b0.proj, b1.qkv, b1.proj), the two feed-forward layers of each block (b0.ff1, b0.ff2, b1.ff1, b1.ff2), and the output layer (head). The layers followed by a ReLU, where units can die, are fc1 to fc3 in the fully connected network, conv1 to conv3 and fc1 in the CNN, and b0.ff1 and b1.ff1 in the transformer.
 
 \begin{table}[t]
 \centering
 \small
-\caption{The three networks and the runs trained for each. Calibration runs set the healthy range, and fresh healthy runs measure false alarms.}
+\caption{The three networks and the runs trained for each. Calibration runs set the healthy range, fresh healthy runs measure false alarms, and the main results use the runs with a frozen layer or dead units. Runs with other faults are reported in Section~\ref{sec:extra}.}
 \label{tab:networks}
-\begin{tabular}{@{}llrrrrr@{}}
+\begin{tabular}{@{}llrrrrrr@{}}
 \toprule
- & & & & \multicolumn{3}{c}{Runs} \\
-\cmidrule(l){5-7}
-Network & Dataset & Parameters & Epochs & Calibration & Fresh healthy & Broken \\
+ & & & & \multicolumn{4}{c}{Runs} \\
+\cmidrule(l){5-8}
+ & & & & & Fresh & Frozen or & Other \\
+Network & Dataset & Parameters & Epochs & Calibration & healthy & dead units & faults \\
 \midrule
-Fully connected & Fashion-MNIST & 242,762 & 20 & 20 & 50 & 135 \\
-Transformer & Tiny Shakespeare & 112,577 & 15 & 20 & 30 & 170 \\
-CNN & GTSRB & 41,659 & 15 & 20 & 30 & 170 \\
+Fully connected & Fashion-MNIST & 242,762 & 20 & 20 & 50 & 130 & 55 \\
+Transformer & Tiny Shakespeare & 112,577 & 15 & 20 & 50 & 170 & 85 \\
+CNN & GTSRB & 41,659 & 15 & 20 & 50 & 170 & 65 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -129,7 +134,7 @@ Every run used Adam with a learning rate of 0.001 and a cosine schedule on one C
 
 \subsection{Planted faults}
 
-Each broken run has one fault planted in one layer at the start of training. A frozen layer has its weights and bias put back after every optimizer step, so gradients are computed but never applied, which is the same failure as a layer left out of the optimizer. Dead units are made by setting the incoming weights of 10\%, 25\%, or 50\% of a layer's units to 0 and their bias to $-1$, so their ReLU output is 0 for every input, and the optimizer's running averages for those units are cleared. Frozen layers were planted in every watched layer and dead units in every layer followed by a ReLU.
+Each broken run has one fault planted in one layer at the start of training. A frozen layer has its weights and bias put back after every optimizer step, so gradients are computed but never applied, which is the same failure as a layer left out of the optimizer. Dead units are made by setting the incoming weights of 10\%, 25\%, or 50\% of a layer's units to 0 and their bias to $-1$, so their ReLU output is 0 for every input. The units are drawn at random without replacement by a generator seeded with the run's seed plus 7919, and their number is the fraction times the layer's width, rounded, with at least one unit. The optimizer's running averages for those units are cleared. Frozen layers were planted in every watched layer and dead units in every layer followed by a ReLU. A third set of runs added faults beyond these two, reported in Section~\ref{sec:extra}.
 
 \subsection{Runs}
 
@@ -137,20 +142,22 @@ Calibration runs used seeds 0 to 19 and were used only to set the healthy range.
 
 \subsection{Detectors compared}
 
-The accuracy curve raises suspicion when validation accuracy falls below the lowest calibration value for that epoch 3 epochs in a row. It uses the same patience as LHD and no margin, which makes it more sensitive than LHD's own rule. A version that needs only one epoch and a version based on the loss curve were also scored. Two kinds of fixed rule that need no healthy runs test whether LHD does better than checks anyone could write by hand. The zero update check fires when some layer's weights do not move at all in an epoch, like the UnchangedTensor rule of SageMaker Debugger. The dead unit checks fire when some ReLU layer has at least a fixed share of dead units, at 50\% (the default of SageMaker Debugger's DeadRelu rule), 70\% (DeepDiagnosis), 80\% (the default of wandb-callbacks), or a single dead unit (its verbose mode). SageMaker counts a ReLU as inactive when it fires less than 1\% of the time, which is close to LHD's definition but not the same.
+The accuracy curve raises suspicion when validation accuracy falls below the lowest calibration value for that epoch 3 epochs in a row. It uses the same patience as LHD and no margin, which makes it more sensitive than LHD's own rule. A version that needs only one epoch and a version based on the loss curve were also scored. Two kinds of fixed rule that need no healthy runs test whether LHD does better than checks anyone could write by hand. The zero update check fires when some layer's weights do not move at all in an epoch, like the UnchangedTensor rule of SageMaker Debugger. The dead unit checks fire when some ReLU layer has at least a fixed share of dead units, at 50\% (the default of SageMaker Debugger's DeadRelu rule), 70\% (DeepDiagnosis), 80\% (the default of wandb-callbacks), or a single dead unit (its verbose mode). SageMaker counts a ReLU as inactive when it fires less than 1\% of the time, which is close to LHD's definition but not the same. Each fixed rule was scored twice, once firing on the first epoch its condition holds and once, like LHD, only after the condition holds for three epochs in a row. A broken run counts toward a fixed rule's right layer rate only when the layer it names is the planted layer.
 
 \subsection{Measures and statistics}
 
-A broken run is caught when a detector fires at or after the fault's onset, and a false alarm is any alarm on a fresh healthy run. The gap is the accuracy curve's epoch minus LHD's epoch, with ``never'' counted as one epoch past the end of the run. Runs that share a seed share their starting weights and batch order, and runs that share a fault and layer share the same break, so single runs are not independent. The main tests therefore average the gap within each seed and within each fault condition and apply a one sided Wilcoxon signed rank test to those averages. The 95\% interval for the mean gap comes from a bootstrap with 10,000 draws that resamples whole seeds.
+A broken run is caught when a detector fires at or after the fault's onset, and a false alarm is any alarm on a fresh healthy run. The gap is the accuracy curve's epoch minus LHD's epoch, with ``never'' counted as one epoch past the end of the run. Runs that share a seed share their starting weights and batch order, and runs that share a fault and layer share the same break, so single runs are not independent. The main tests therefore average the gap within each seed and within each fault condition and apply a one sided Wilcoxon signed rank test to those averages. The 95\% interval for the mean gap comes from a bootstrap with 10,000 draws that resamples whole seeds. Rates are given with 95\% Wilson score intervals.
 
 
 \section{Results}
 
 \subsection{Detection and timing}
 
-Across the three networks, LHD caught 411 of 470 broken runs and the accuracy curve caught 166 of 470 (Table~\ref{tab:headline}). Of the runs LHD caught, the accuracy curve never noticed 61\%, and 66\% of all broken runs finished with a final accuracy inside the healthy range. The median alarm came at epoch 3, which is the earliest possible alarm for a fault planted at epoch 1 when three epochs out of range are required, and Figure~\ref{fig:detection_over_time} shows the share of broken runs each method had flagged by each epoch. Averaged within each seed, LHD was earlier than the accuracy curve for 30 of 30 seed groups ($p = 9.3 \times 10^{-10}$), and averaged within each fault condition it was earlier for 41 of 47 ($p < 10^{-10}$). The mean gap was 9.1 epochs, with a 95\% interval of 8.4 to 9.7 from the seed bootstrap.
+Across the three networks, LHD caught 411 of 470 broken runs (87\%, 95\% interval 84 to 90\%) and the accuracy curve caught 166 of 470 (Table~\ref{tab:headline}). Of the runs LHD caught, the accuracy curve never noticed 61\%, and 66\% of all broken runs finished with a final accuracy inside the healthy range. The median alarm came at epoch 3, which is the earliest possible alarm for a fault planted at epoch 1 when three epochs out of range are required, and Figure~\ref{fig:detection_over_time} shows the share of broken runs each method had flagged by each epoch.
 
-On fresh healthy runs, LHD raised 3 false alarms in 110 runs: one run in the fully connected network's fc2 at epoch 16, where only 1.6\% of units were dead, fewer than in any calibration run (lowest 3.9\%); two runs in the CNN's conv2 at epochs 3 and 4, where 6.2\% of units were dead and no calibration run had a single dead unit there. When no calibration run has a dead unit in a layer, the top of its range is the floor of 0.05, so one dead filter out of 16 is enough to cross it. An alarm for too few dead units does not point to any fault, and checking the dead unit fraction against only the top of its range would remove it.
+On the 162 runs that both LHD and the accuracy curve caught, LHD fired 4.6 epochs earlier on average (median 3), the accuracy curve was earlier in one run, and 26 were ties. Averaged within each seed, all 30 seed groups favored LHD, which is the most extreme result a one sided Wilcoxon test can give with 30 groups. Averaged within each fault condition, 41 of 47 conditions favored LHD. Of the other 6, neither detector fired in two conditions, both fired at the same epoch in one condition, and the accuracy curve was earlier in three conditions, all in layers where LHD missed most of the planted dead units. Counting a run the accuracy curve never caught as one epoch past its end, the mean gap over all broken runs was 9.1 epochs (95\% interval 8.4 to 9.7 from a bootstrap over seeds), but that figure leans on the runs the accuracy curve missed, so the gap on runs both caught is the fairer measure. The two other curve checks did no better. Requiring only one epoch below the healthy range, the accuracy curve caught 291 of 470 broken runs but flagged 44 of 150 healthy runs, and the loss curve, held to three epochs above its range, caught 143 of 470 and flagged 9 of 150.
+
+On fresh healthy runs, LHD raised 3 false alarms in 150 runs: one run in the fully connected network's fc2 at epoch 16, where only 1.6\% of units were dead, fewer than in any calibration run (lowest 3.9\%); two runs in the CNN's conv2 at epochs 3 and 4, where 6.2\% of units were dead and no calibration run had a single dead unit there. When no calibration run has a dead unit in a layer, the top of its range is the floor of 0.05, so one dead filter out of 16 is enough to cross it. An alarm for too few dead units does not point to any fault, and checking the dead unit fraction against only the top of its range would remove it.
 
 \begin{table}[t]
 \centering
@@ -165,7 +172,7 @@ On fresh healthy runs, LHD raised 3 false alarms in 110 runs: one run in the ful
 \midrule
 Broken runs caught & \textbf{84\%} & 26\% & \textbf{100\%} & 48\% & \textbf{78\%} & 29\% \\
 Median epoch of the alarm & \textbf{3} & 17 & \textbf{3} & 5 & \textbf{3} & 7 \\
-Healthy runs flagged & \textbf{1 of 50} & 1 of 50 & \textbf{0 of 30} & 5 of 30 & \textbf{2 of 30} & 0 of 30 \\
+Healthy runs flagged & \textbf{1 of 50} & 1 of 50 & \textbf{0 of 50} & 6 of 50 & \textbf{2 of 50} & 0 of 50 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -180,14 +187,38 @@ Healthy runs flagged & \textbf{1 of 50} & 1 of 50 & \textbf{0 of 30} & 5 of 30 &
 
 \subsection{Comparison with other detectors}
 
-For frozen layers, LHD adds nothing over the zero update check, which caught 200 of 200 at epoch 1 with no false alarms, two epochs before LHD. A frozen layer's weight change is exactly 0, so a check for an exact 0 needs neither a healthy range nor patience.
+The fixed rules were scored the same way as LHD. Each one had to hold for three epochs in a row, and a broken run counts as caught only when the rule named the planted layer (Table~\ref{tab:detectors}). Requiring three epochs instead of one changed little, since a layer's dead unit fraction rarely drops back once it crosses a threshold, so false alarms did not change and dead unit catches fell by at most 2. Counting only the planted layer mattered more. Counted at any layer, the 50\% rule caught more runs with 10\% dead units (26) than with 25\% (25), because it fired on units that died on their own in other layers. Counted only at the planted layer, it caught 8 and 10.
 
-Dead units are different, because healthy networks lose units on their own and the amount varies widely. In healthy calibration runs of the CNN's dense layer, between 36\% and 70\% of units were dead, while no calibration run of the transformer had a single dead unit in its ReLU layers. A single fixed threshold therefore misses faults in one network or flags healthy runs in another (Figure~\ref{fig:detectors_tradeoff}). LHD caught 78\% of dead unit faults with 3 false alarms in 110 healthy runs. A 25\% rule came closest at 83\%, but it flagged 31 healthy runs, and a rule that fires on a single dead unit caught 100\% while flagging 80. The defaults of SageMaker Debugger (50\%), DeepDiagnosis (70\%), and wandb-callbacks (80\%) caught 53\%, 4\%, and 0\%. Some of these catches have nothing to do with the planted fault, because the same rules also fire on units that died naturally. The 50\% rule caught 28 of 90 runs with 10\% dead units but only 25 of 90 with 25\%.
+For frozen layers, LHD adds nothing over the zero update check, which caught 200 of 200 at the planted layer with no false alarms, and which fires at epoch 1, two epochs before LHD, when a single epoch is enough. A frozen layer's weight change is exactly 0, so a check for an exact 0 needs neither a healthy range nor patience.
+
+Dead units are different, because healthy networks lose units on their own and the amount varies widely. In healthy calibration runs of the CNN's dense layer, between 36\% and 70\% of units were dead, while no calibration run of the transformer had a single dead unit in its ReLU layers. A single fixed threshold therefore misses faults in one network or flags healthy runs in another (Figure~\ref{fig:detectors_tradeoff}). LHD caught 78\% of dead unit faults at the planted layer with 3 false alarms in 150 healthy runs. The 25\% rule came closest at 71\% but flagged 51 healthy runs, a rule that fires on a single dead unit caught 74\% while flagging 100, and the default rule of SageMaker Debugger caught 40\% while flagging 22.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Each detector held to three epochs in a row, with a broken run counted only when the detector named the planted layer. The accuracy and loss curves name no layer, so they are compared in Table~\ref{tab:headline} instead.}
+\label{tab:detectors}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+ & \multicolumn{2}{c}{Caught at the planted layer} & \\
+\cmidrule(lr){2-3}
+Detector & Frozen layers & Dead units & Healthy runs flagged \\
+\midrule
+\textbf{LHD} & \textbf{97\%} & \textbf{78\%} & \textbf{3 of 150} \\
+Zero update check & 100\% & 0\% & 0 of 150 \\
+25\% dead rule & 0\% & 71\% & 51 of 150 \\
+SageMaker Debugger (50\%) & 0\% & 40\% & 22 of 150 \\
+DeepDiagnosis (70\%) & 0\% & 4\% & 0 of 150 \\
+wandb-callbacks (80\%) & 0\% & 0\% & 0 of 150 \\
+Any dead unit (wandb-callbacks verbose) & 2\% & 74\% & 100 of 150 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figures/detectors_tradeoff.pdf}
-\caption{Dead unit faults caught against healthy runs flagged, for every detector on the same runs, pooled over the three networks. Detectors toward the upper left catch more faults while flagging fewer healthy runs.}
+\caption{Dead unit faults caught at the planted layer against healthy runs flagged, for LHD and the fixed rules held to three epochs, pooled over the three networks. Detectors toward the upper left catch more faults while flagging fewer healthy runs.}
 \label{fig:detectors_tradeoff}
 \end{figure}
 
@@ -206,7 +237,7 @@ With 10\%, 25\%, and 50\% of a layer's units killed, LHD caught 57\%, 88\%, and 
 
 \subsection{Faults that cost accuracy}
 
-Most planted faults did little harm. In 223 of 470 broken runs, the final accuracy was less than half a point below the healthy twin's, and the accuracy curve missing those runs is partly the curve being right. Among the 105 runs that lost 2 points or more, LHD caught 94 and the accuracy curve caught 60. Only one fault cost much on average. A frozen CNN layer lowered final accuracy by 11.1 points against the healthy twin, about as much as the frozen convolution in the GTSRB model that motivated this work, while 50\% dead units in the CNN cost 3.1 points and no fault in the other two networks cost more than 0.8 points on average.
+Most planted faults did little harm. In 223 of 470 broken runs, the final accuracy was less than half a point below the healthy twin's, and the accuracy curve missing those runs is partly the curve being right. Among the 105 runs that lost 2 points or more, LHD caught 94 and the accuracy curve caught 60. A frozen CNN layer cost the most, lowering final accuracy by 11.1 points on average against the healthy twin, about as much as the frozen convolution in the GTSRB model that motivated this work. Half of a CNN layer's units dead cost 3.1 points, and no fault in the other two networks cost more than 0.8 points on average.
 
 \subsection{Diagnosis}
 
@@ -244,21 +275,48 @@ Only dead unit fraction & 52\% & $-$36 & 45\% & $-$40 \\
 
 \subsection{Settings and calibration}
 
-Thresholds placed right at the edge of the healthy range flagged 69\% of healthy runs. Widening them by the margin of 0.5 used here cut that to 3\%, while the share of broken runs caught fell only from 98\% to 87\%. The range also needs enough calibration runs. Built from 2 runs, it flagged up to 22\% of healthy runs (in the CNN), and built from all 20, at most 7\%.
+These checks were run after the main results, by replaying the same saved runs, and the settings were fixed before them, not picked from them. Thresholds placed right at the edge of the healthy range flagged 71\% of healthy runs. Widening them by the margin of 0.5 used here cut that to 2\%, while the share of broken runs caught fell only from 98\% to 87\%. The range also needs enough calibration runs. Built from 2 runs, it flagged up to 22\% of healthy runs (in the CNN), and built from all 20, at most 4\%.
 
 \subsection{Cost}
 
-Monitoring added 11.6\% for the fully connected network, 5.8\% for the transformer, and 2.2\% for the CNN to the training time, measured on fresh healthy runs on one CPU thread. Most of that time goes to the gradient norm, read after every batch, and to the probe batch, run once per epoch, so the overhead is largest for the network with the cheapest epochs. Stopping each broken run at LHD's alarm would have saved 70\% of its training on average, and all runs together took 94 hours of CPU time on one laptop.
+Monitoring added 11.6\% for the fully connected network, 5.9\% for the transformer, and 2.2\% for the CNN to the training time, measured on fresh healthy runs on one CPU thread. Most of that time goes to the gradient norm, read after every batch, and to the probe batch, run once per epoch, so the overhead is largest for the network with the cheapest epochs. Stopping each broken run at LHD's alarm would have saved 70\% of its training on average, and all runs together took 107 hours of CPU time on one laptop.
+
+\subsection{Faults beyond frozen layers and dead units}
+\label{sec:extra}
+
+A third set of runs tested faults the rules were not built around: a frozen layer or 50\% dead units planted at epoch 6, a cut that stops gradients from reaching earlier layers, and a learning rate raised 10 or 100 times at epoch 6 (Table~\ref{tab:extra}). LHD caught 100 of 100 runs with a frozen layer planted at epoch 6, naming the layer and cause in 100 of them, while the accuracy curve caught 20. It caught 40 of 45 runs with half a layer's units killed at epoch 6, naming the layer and cause in 40. For the gradient cuts, it caught 30 of 30, named a layer before the cut in 30, and called the cause a vanishing gradient, which is the only test of that rule. LHD also fired on every learning rate jump, but the causes it named are mixed. For a tenfold jump it named an unrecognized pattern in nine runs and dead units in six runs, and for a hundredfold jump it named dead units in five runs, runaway weights in five runs, and a vanishing gradient in five runs. No run produced a signal that was not a finite number, so the divergence rule never fired.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Faults beyond the main study, pooled over the three networks.}
+\label{tab:extra}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Fault & Runs & LHD & Accuracy curve \\
+\midrule
+Frozen layer at epoch 6 & 100 & \textbf{100\%} & 20\% \\
+50\% dead units at epoch 6 & 45 & \textbf{89\%} & 16\% \\
+Gradient cut & 30 & \textbf{100\%} & 100\% \\
+Learning rate $\times 10$ at epoch 6 & 15 & \textbf{100\%} & 33\% \\
+Learning rate $\times 100$ at epoch 6 & 15 & \textbf{100\%} & 100\% \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \section{Discussion and Limitations}
 
 The results support the hypothesis for planted faults. Per layer signals exposed a broken layer within the first few epochs, usually before the accuracy curve showed anything, and LHD rarely flagged healthy runs. A frozen layer, however, is caught just as well and sooner by a check for weights that never change, so for that fault the only gain is that the same rules also cover it. For dead units, a range measured on healthy runs of the same network did better than every fixed threshold tested, including the defaults of three existing tools.
 
-The faults were planted to show up in the signals LHD measures, so the detection and diagnosis rates describe how well LHD separates these faults from normal variation, not how often it would catch bugs in real projects. Many planted faults also cost less than one point of accuracy, which means stopping those runs saves compute on runs that would have produced a nearly normal model. LHD misses dead units in layers where healthy runs already lose many units, because the healthy range treats that loss as normal. Building the range takes about 10 to 20 healthy runs of the same network, which costs more than LHD can save for a model trained only once, and it assumes those runs are themselves healthy. Finally, the networks are small and were trained for 15 to 20 epochs on a laptop CPU, the transformer reaches only about 37\% next character accuracy, and large networks, long runs, other optimizers, and GPU training were not tested.
+The faults were planted to show up in the signals LHD measures, so the detection and diagnosis rates describe how well LHD separates these faults from normal variation, not how often it would catch bugs in real projects. Many planted faults also cost less than one point of accuracy, which means stopping those runs saves compute on runs that would have produced a nearly normal model. LHD misses dead units in layers where healthy runs already lose many units, because the healthy range treats that loss as normal. Building the range takes about 10 to 20 healthy runs of the same network, which costs more than LHD can save for a model trained only once, and it assumes those runs are themselves healthy. The floor of 0.05 is also too low for small layers. One dead filter out of 16 is 6.25\%, already above the floor, so a later version should scale the floor to the layer's width. Finally, the networks are small and were trained for 15 to 20 epochs on a laptop CPU, the transformer reaches only about 37\% next character accuracy, and large networks, long runs, other optimizers, and GPU training were not tested.
 
 \section{Conclusion}
 
-This work presented LHD, a monitor that compares four signals of every layer with ranges measured on healthy runs of the same network and stops a run when one stays out of range. On 645 runs across three networks, it caught 87\% of planted frozen layers and dead units, usually within three epochs, named the right layer in 98\% of those runs, and flagged 3 of 110 healthy runs. Its advantage over existing tools is clearest for dead units, where a healthy range for each layer avoided both the misses and the false alarms of fixed thresholds. The next step is to test LHD on real bugs collected from training code.
+This work presented LHD, a monitor that compares four signals of every layer with ranges measured on healthy runs of the same network and stops a run when one stays out of range. On 885 runs across three networks, it caught 87\% of planted frozen layers and dead units, usually within three epochs, named the right layer in 98\% of those runs, and flagged 3 of 150 healthy runs. Its advantage over existing tools is clearest for dead units, where a healthy range for each layer avoided both the misses and the false alarms of fixed thresholds. The next step is to test LHD on real bugs collected from training code.
+
+\section*{Use of generative AI}
+
+Claude, an AI assistant made by Anthropic, wrote the experiment scripts that trained and scored the networks, ran the training runs, wrote the analysis and figure code, and drafted parts of this paper, including the results and the related work on existing tools. The idea, the hypothesis, and the experimental design come from the author's earlier proposal, and the author directed the study and decided what to test and what to change in the paper. The author is responsible for all of its content.
 
 \section*{Code and data}
 
@@ -309,11 +367,29 @@ Karpathy, A. (2019).
 \newblock Blog post, April 25, 2019.
 \newblock \url{https://karpathy.github.io/2019/04/25/recipe/}
 
+\bibitem[Kim et~al.(2023)]{kim2023}
+Kim, J., Humbatova, N., Jahangirova, G., Tonella, P., and Yoo, S. (2023).
+\newblock Repairing DNN architecture: Are we there yet?
+\newblock In \emph{2023 IEEE Conference on Software Testing, Verification and Validation (ICST)}, pp.~234--245. IEEE.
+\newblock \url{https://doi.org/10.1109/ICST57152.2023.00030}. Preprint: arXiv:2301.11568.
+
+\bibitem[Schoop et~al.(2021)]{schoop2021}
+Schoop, E., Huang, F., and Hartmann, B. (2021).
+\newblock UMLAUT: Debugging deep learning programs using program structure and model behavior.
+\newblock In \emph{Proceedings of the 2021 CHI Conference on Human Factors in Computing Systems}, pp.~1--16. ACM.
+\newblock \url{https://doi.org/10.1145/3411764.3445538}
+
 \bibitem[Stallkamp et~al.(2012)]{stallkamp2012}
 Stallkamp, J., Schlipsing, M., Salmen, J., and Igel, C. (2012).
 \newblock Man vs.\ computer: Benchmarking machine learning algorithms for traffic sign recognition.
 \newblock \emph{Neural Networks}, 32:323--332.
 \newblock \url{https://doi.org/10.1016/j.neunet.2012.02.016}
+
+\bibitem[Wardat et~al.(2021)]{wardat2021}
+Wardat, M., Le, W., and Rajan, H. (2021).
+\newblock DeepLocalize: Fault localization for deep neural networks.
+\newblock In \emph{2021 IEEE/ACM 43rd International Conference on Software Engineering (ICSE)}, pp.~251--262. IEEE.
+\newblock \url{https://doi.org/10.1109/ICSE43902.2021.00034}
 
 \bibitem[Wardat et~al.(2022)]{wardat2022}
 Wardat, M., Cruz, B.~D., Le, W., and Rajan, H. (2022).
