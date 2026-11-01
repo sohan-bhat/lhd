@@ -18,11 +18,11 @@ from experiments.evaluate import (
     HARM_BINS,
     RESULTS,
     SETTINGS,
-    _first,
     clustered_tests,
     load_runs,
     paired_tests,
     rate,
+    right_layers,
     score_arch,
     summarize_faults,
     summarize_healthy,
@@ -38,13 +38,22 @@ DETECTORS = (
     ("Accuracy curve, 1 epoch below healthy", "acc1_epoch"),
     ("Loss curve, 3 epochs above healthy", "loss_epoch"),
     ("Zero update check", "zero_update_epoch"),
+    ("Zero update check, 3 epochs", "zero_update_p3_epoch"),
     ("Dead units check, 25%", "dead25_check_epoch"),
+    ("Dead units check, 25%, 3 epochs", "dead25_check_p3_epoch"),
     ("Dead units check, 50% (SageMaker DeadRelu default)", "dead50_check_epoch"),
+    ("Dead units check, 50% (SageMaker DeadRelu default), 3 epochs", "dead50_check_p3_epoch"),
     ("Dead units check, 70% (DeepDiagnosis Dead Node)", "dead70_check_epoch"),
+    ("Dead units check, 70% (DeepDiagnosis Dead Node), 3 epochs", "dead70_check_p3_epoch"),
     ("Dead units check, 80% (wandb-callbacks default)", "dead80_check_epoch"),
+    ("Dead units check, 80% (wandb-callbacks default), 3 epochs", "dead80_check_p3_epoch"),
     ("Any dead unit (wandb-callbacks verbose)", "deadany_check_epoch"),
+    ("Any dead unit (wandb-callbacks verbose), 3 epochs", "deadany_check_p3_epoch"),
     ("Zero update or dead units 50%", "simple_epoch"),
+    ("Zero update or dead units 50%, 3 epochs", "simple_p3_epoch"),
 )
+NO_LAYER = ("acc_epoch", "acc1_epoch", "loss_epoch")
+COMBINED = {"simple_epoch": "", "simple_p3_epoch": "_p3"}
 MARGINS = (0.0, 0.1, 0.25, 0.5, 0.75)
 FLOORS = (0.0, 0.02, 0.05, 0.1)
 PATIENCES = (1, 2, 3, 4, 5)
@@ -120,10 +129,27 @@ def false_alarms(rows: list[dict]) -> list[dict]:
     return [{k: r[k] for k in keep} for r in rows if r["role"] == "fresh" and r["fired"]]
 
 
+def _alarm(row: dict, key: str) -> tuple:
+    """Epoch and named layer of a detector's first alarm on a run.
+
+    The layer is None for detectors that name no layer. The combined
+    rule names the layer of whichever of its two checks fired first,
+    and the zero update check's layer on a tie.
+    """
+    if key in COMBINED:
+        suffix = COMBINED[key]
+        zero = (row[f"zero_update{suffix}_epoch"], row[f"zero_update{suffix}_layer"])
+        dead = (row[f"dead50_check{suffix}_epoch"], row[f"dead50_check{suffix}_layer"])
+        if dead[0] is not None and (zero[0] is None or dead[0] < zero[0]):
+            return dead
+        return zero
+    if key in NO_LAYER:
+        return row[key], None
+    return row[key], row[key[: -len("_epoch")] + "_layer"]
+
+
 def _detector_epoch(row: dict, key: str):
-    if key == "simple_epoch":
-        return _first(row["zero_update_epoch"], row["dead50_check_epoch"])
-    return row[key]
+    return _alarm(row, key)[0]
 
 
 def _caught(row: dict, key: str) -> bool:
@@ -131,11 +157,30 @@ def _caught(row: dict, key: str) -> bool:
     return epoch is not None and epoch >= row["onset"]
 
 
+def _caught_right_layer(row: dict, key: str) -> bool | None:
+    """Whether a detector caught a broken run and named the planted layer.
+
+    None when the detector names no layer or the fault has no layer.
+    LHD uses its own layer_ok. Every detector is held to the same
+    layers as LHD: the planted layer for frozen layers and dead units,
+    and the layers upstream of the cut for a cut gradient.
+    """
+    right = right_layers(row["arch"], row["fault_type"], row["fault_layer"])
+    if key in NO_LAYER or not right:
+        return None
+    if key == "lhd_epoch":
+        return bool(row["detected"] and row["layer_ok"])
+    return _caught(row, key) and _alarm(row, key)[1] in right
+
+
 def detector_table(rows: list[dict]) -> list[dict]:
     """Every detector on the same runs: broken runs caught, when, and healthy runs flagged.
 
     One row per architecture (and pooled) and fault family (and the
-    proposal's four families together) and detector.
+    proposal's four families together) and detector. The
+    caught_right_layer columns count broken runs caught with the
+    planted layer named, and stay empty for detectors that name no
+    layer and for faults that have no layer.
     """
     table = []
     archs = sorted({r["arch"] for r in rows}) + ["pooled"]
@@ -150,6 +195,8 @@ def detector_table(rows: list[dict]) -> list[dict]:
                 continue
             for name, key in DETECTORS:
                 caught = rate([{"x": _caught(r, key)} for r in group], "x")
+                right = rate([{"x": _caught_right_layer(r, key)} for r in group], "x")
+                named = right["n"] > 0
                 epochs = [_detector_epoch(r, key) for r in group if _caught(r, key)]
                 lhd_c = [r["lhd_epoch"] if r["detected"] else r["epochs"] + 1 for r in group]
                 other_c = [_detector_epoch(r, key) if _caught(r, key) else r["epochs"] + 1 for r in group]
@@ -158,6 +205,10 @@ def detector_table(rows: list[dict]) -> list[dict]:
                     "arch": arch, "family": fam, "detector": name, "broken_runs": len(group),
                     "caught": caught["k"], "caught_rate": caught["rate"],
                     "caught_low": caught["low"], "caught_high": caught["high"],
+                    "caught_right_layer": right["k"] if named else None,
+                    "caught_right_layer_rate": right["rate"] if named else None,
+                    "caught_right_layer_low": right["low"] if named else None,
+                    "caught_right_layer_high": right["high"] if named else None,
                     "median_epoch": _median_float(epochs),
                     "lhd_earlier": sum(h < o for h, o in zip(lhd_c, other_c)),
                     "this_earlier": sum(o < h for h, o in zip(lhd_c, other_c)),
