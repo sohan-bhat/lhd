@@ -1,3 +1,4 @@
-arch,run_id,halt_epoch,halt_layer,halt_cause,halt_signals
+arch,run_id,lhd_epoch,lhd_layer,lhd_cause,lhd_signals
+mlp,mlp-fresh-none-s1046,16,fc2,unrecognized,dead_unit_fraction
 cnn,cnn-fresh-none-s1015,4,conv2,dead_units,dead_unit_fraction
 cnn,cnn-fresh-none-s1028,3,conv2,dead_units,dead_unit_fraction

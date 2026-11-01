@@ -2,6 +2,8 @@ arch,phase,role,runs
 mlp,core,calibration,20
 mlp,core,fault,65
 mlp,core,fresh,30
+mlp,more,fault,5
+mlp,more,fresh,20
 mlp,seeds,fault,65
 transformer,core,calibration,20
 transformer,core,fault,85
@@ -10,4 +12,4 @@ transformer,seeds,fault,85
 cnn,core,calibration,20
 cnn,core,fault,85
 cnn,core,fresh,30
-cnn,seeds,fault,20
+cnn,seeds,fault,85
