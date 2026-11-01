@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 from typing import Optional
 
-from halt.baseline import SIGNALS
+from lhd.baseline import SIGNALS
 
 
 def band_position(value: float, low: float, high: float,

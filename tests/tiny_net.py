@@ -1,10 +1,10 @@
 import numpy as np
 
-from halt.adapter import NetworkAdapter
+from lhd.adapter import NetworkAdapter
 
 
 class TinyNet:
-    """A two-layer network used only for testing HALT.
+    """A two-layer network used only for testing LHD.
 
     Layout: input (3 numbers) -> dense1 (4 units, ReLU) ->
     dense2 (2 units, no activation).
@@ -56,13 +56,13 @@ class TinyNet:
 
 
 class TinyAdapter(NetworkAdapter):
-    """Answers HALT's questions about a TinyNet."""
+    """Answers LHD's questions about a TinyNet."""
 
     def __init__(self, net):
         self.net = net
 
     def layer_names(self) -> list[str]:
-        """The two layers HALT watches in TinyNet."""
+        """The two layers LHD watches in TinyNet."""
         return ["dense1", "dense2"]
 
     def parameters(self, name: str) -> dict[str, np.ndarray]:

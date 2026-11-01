@@ -1,7 +1,7 @@
 import numpy as np
 
-from halt.baseline import SIGNALS
-from halt.diagnosis import diagnose, positions
+from lhd.baseline import SIGNALS
+from lhd.diagnosis import diagnose, positions
 
 
 def make_band(low, high, epochs=5):

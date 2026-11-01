@@ -2,9 +2,9 @@ import numpy as np
 import pytest
 from tiny_net import TinyAdapter, TinyNet
 
-from halt.faults import FrozenLayer, kill_units
-from halt.recorder import Recorder
-from halt.signals import dead_unit_fraction
+from lhd.faults import FrozenLayer, kill_units
+from lhd.recorder import Recorder
+from lhd.signals import dead_unit_fraction
 
 
 def test_frozen_layer_restores_after_update():

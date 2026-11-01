@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from halt.signals import dead_unit_fraction, grad_norm, weight_change, weight_norm
+from lhd.signals import dead_unit_fraction, grad_norm, weight_change, weight_norm
 
 
 def test_weight_norm_matches_3_4_5_triangle():

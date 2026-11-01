@@ -1,6 +1,6 @@
-"""Lets HALT watch a PyTorch model.
+"""Lets LHD watch a PyTorch model.
 
-The model must live on the CPU. HALT reads and writes parameters
+The model must live on the CPU. LHD reads and writes parameters
 through numpy views that share memory with the tensors, so faults
 planted through this adapter change the real model.
 """
@@ -11,7 +11,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from halt.adapter import NetworkAdapter
+from lhd.adapter import NetworkAdapter
 
 
 def _numpy_view(tensor: torch.Tensor) -> np.ndarray:
@@ -27,7 +27,7 @@ def _grad_array(param: nn.Parameter) -> np.ndarray:
 
 
 class TorchAdapter(NetworkAdapter):
-    """Answers HALT's questions about a PyTorch model.
+    """Answers LHD's questions about a PyTorch model.
 
     Parameters
     ----------

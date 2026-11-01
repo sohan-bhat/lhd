@@ -6,7 +6,7 @@ torch = pytest.importorskip("torch")
 from torch import nn  # noqa: E402
 
 from experiments.train import PlantedFault  # noqa: E402
-from halt.torch_adapter import TorchAdapter  # noqa: E402
+from lhd.torch_adapter import TorchAdapter  # noqa: E402
 
 
 class Wide(nn.Module):
@@ -20,13 +20,13 @@ class Wide(nn.Module):
     def forward(self, x):
         return self.fc2(self.act(self.fc1(x)))
 
-    def halt_layers(self):
+    def lhd_layers(self):
         return {"fc1": (self.fc1, self.act, -1), "fc2": (self.fc2, self.fc2, -1)}
 
 
 def setup(spec, lr=0.05):
     model = Wide()
-    adapter = TorchAdapter(model, model.halt_layers())
+    adapter = TorchAdapter(model, model.lhd_layers())
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     fault = PlantedFault(spec, model, adapter, optimizer, seed=0)
     return model, adapter, optimizer, fault

@@ -1,10 +1,10 @@
 import numpy as np
 from tiny_net import TinyAdapter, TinyNet
 
-from halt.baseline import SIGNALS
-from halt.faults import FrozenLayer
-from halt.monitor import Monitor
-from halt.replay import replay
+from lhd.baseline import SIGNALS
+from lhd.faults import FrozenLayer
+from lhd.monitor import Monitor
+from lhd.replay import replay
 
 
 def wide_band(epochs):

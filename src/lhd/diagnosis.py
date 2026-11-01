@@ -1,7 +1,7 @@
 """Turns the pattern across a layer's signals into a likely cause."""
 
-from halt.baseline import SIGNALS
-from halt.detector import band_position
+from lhd.baseline import SIGNALS
+from lhd.detector import band_position
 
 CHECKS = {
     "diverged": "A signal became nan or infinite, so training blew up. "
@@ -14,7 +14,7 @@ CHECKS = {
                           "Check the layers after it and the initialization.",
     "runaway_weights": "The weights are growing far past the healthy range. "
                        "Check the learning rate.",
-    "unrecognized": "The signals left the healthy range in a pattern HALT "
+    "unrecognized": "The signals left the healthy range in a pattern LHD "
                     "has no rule for. Inspect this layer by hand.",
 }
 

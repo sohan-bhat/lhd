@@ -5,10 +5,10 @@ torch = pytest.importorskip("torch")
 
 from torch import nn  # noqa: E402
 
-from halt.faults import FrozenLayer, kill_units  # noqa: E402
-from halt.recorder import Recorder  # noqa: E402
-from halt.signals import dead_unit_fraction  # noqa: E402
-from halt.torch_adapter import TorchAdapter  # noqa: E402
+from lhd.faults import FrozenLayer, kill_units  # noqa: E402
+from lhd.recorder import Recorder  # noqa: E402
+from lhd.signals import dead_unit_fraction  # noqa: E402
+from lhd.torch_adapter import TorchAdapter  # noqa: E402
 
 
 class Small(nn.Module):
@@ -22,13 +22,13 @@ class Small(nn.Module):
     def forward(self, x):
         return self.fc2(self.act(self.fc1(x)))
 
-    def halt_layers(self):
+    def lhd_layers(self):
         return {"fc1": (self.fc1, self.act, -1), "fc2": (self.fc2, self.fc2, -1)}
 
 
 def make():
     model = Small()
-    return model, TorchAdapter(model, model.halt_layers())
+    return model, TorchAdapter(model, model.lhd_layers())
 
 
 def probe():

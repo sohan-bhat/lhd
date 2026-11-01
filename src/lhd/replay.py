@@ -1,4 +1,4 @@
-"""Runs a saved history through HALT after the fact.
+"""Runs a saved history through LHD after the fact.
 
 Replay makes the same decisions, in the same order, as a Monitor
 watching the run live, so one saved run can be checked against any
@@ -7,8 +7,8 @@ healthy band and any setting without training it again.
 
 from __future__ import annotations
 
-from halt.detector import Detector
-from halt.diagnosis import diagnose, positions
+from lhd.detector import Detector
+from lhd.diagnosis import diagnose, positions
 
 
 def replay(history: list[dict], band: dict, margin: float, floor: float,
@@ -27,7 +27,7 @@ def replay(history: list[dict], band: dict, margin: float, floor: float,
     Returns
     -------
     dict or None
-        None if HALT never fires. Otherwise the report Monitor would
+        None if LHD never fires. Otherwise the report Monitor would
         return, {"epoch", "layer", "signals", "cause", "check"}, plus
         "positions", the place of every signal of the flagged layer.
     """

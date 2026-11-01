@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from tiny_net import TinyAdapter, TinyNet
 
-from halt.recorder import Recorder, flatten_parameters
+from lhd.recorder import Recorder, flatten_parameters
 
 
 def test_flattened_params_shape():

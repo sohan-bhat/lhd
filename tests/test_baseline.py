@@ -2,8 +2,8 @@ import numpy as np
 import pytest
 from tiny_net import TinyAdapter, TinyNet
 
-from halt.baseline import healthy_band, load_history
-from halt.recorder import Recorder
+from lhd.baseline import healthy_band, load_history
+from lhd.recorder import Recorder
 
 
 def make_history(weight_changes):

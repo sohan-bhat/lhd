@@ -1,13 +1,13 @@
-"""HALT's front door: watches a run and says when to stop."""
+"""LHD's front door: watches a run and says when to stop."""
 
 from typing import Optional
 
 import numpy as np
 
-from halt.adapter import NetworkAdapter
-from halt.detector import Detector
-from halt.diagnosis import diagnose, positions
-from halt.recorder import Recorder
+from lhd.adapter import NetworkAdapter
+from lhd.detector import Detector
+from lhd.diagnosis import diagnose, positions
+from lhd.recorder import Recorder
 
 
 class Monitor:
@@ -37,7 +37,7 @@ class Monitor:
 
     def end_epoch(self, epoch: int, train_accuracy: float,
                   val_accuracy: float, seconds: float) -> Optional[dict]:
-        """Record the epoch, check it, and return a report if HALT fires.
+        """Record the epoch, check it, and return a report if LHD fires.
 
         Returns
         -------

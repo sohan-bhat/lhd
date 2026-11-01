@@ -13,7 +13,7 @@ from experiments.evaluate import (  # noqa: E402
     wilson,
 )
 from experiments.grid import build_grid, cut_affects, dead_layers, watched_layers  # noqa: E402
-from halt.baseline import SIGNALS  # noqa: E402
+from lhd.baseline import SIGNALS  # noqa: E402
 
 
 def curve(values, key="val_accuracy"):
@@ -63,7 +63,7 @@ def test_rate_skips_none():
 def test_paired_tests_count_direction():
     rows = [{"role": "fault", "gap": g} for g in (3, 5, 0, -1, 7)]
     result = paired_tests(rows)
-    assert (result["halt_earlier"], result["acc_earlier"], result["ties"]) == (3, 1, 1)
+    assert (result["lhd_earlier"], result["acc_earlier"], result["ties"]) == (3, 1, 1)
 
 
 def test_grid_ids_unique_and_seeds_split():
@@ -97,7 +97,7 @@ def fake_run(role, seed, fault, weight_change, acc):
     history = [{"epoch": e, "val_accuracy": acc, "val_loss": 1.0, "layers": layers}
                for e in range(1, 7)]
     meta = {"arch": "mlp", "run_id": f"{role}-{seed}", "role": role, "seed": seed,
-            "fault": fault, "halt_seconds": 1.0, "total_seconds": 10.0}
+            "fault": fault, "lhd_seconds": 1.0, "total_seconds": 10.0}
     return {"metadata": meta, "history": history}
 
 
@@ -110,7 +110,7 @@ def test_score_arch_end_to_end():
     assert rows["fresh"]["fired"] is False
     fault = rows["fault"]
     assert fault["detected"] and fault["layer_ok"] and fault["cause_ok"]
-    assert fault["halt_epoch"] == 3
+    assert fault["lhd_epoch"] == 3
     assert fault["acc_epoch"] is None
     assert fault["gap"] == 7 - 3
     assert fault["compute_saved"] == pytest.approx(0.5)
@@ -124,9 +124,9 @@ def test_clustered_tests_average_within_groups():
              "gap": g} for s, layer, g in ((1, "fc1", 4), (1, "fc2", 6), (2, "fc1", 2), (2, "fc2", -2))]
     result = clustered_tests(rows, draws=200)
     seed = result["by_seed"]
-    assert (seed["groups"], seed["halt_earlier"], seed["acc_earlier"], seed["ties"]) == (2, 1, 0, 1)
+    assert (seed["groups"], seed["lhd_earlier"], seed["acc_earlier"], seed["ties"]) == (2, 1, 0, 1)
     assert result["by_condition"]["groups"] == 2
-    assert result["by_condition"]["halt_earlier"] == 2
+    assert result["by_condition"]["lhd_earlier"] == 2
     low, high = result["mean_gap_ci"]
     assert low <= 2.5 <= high
 

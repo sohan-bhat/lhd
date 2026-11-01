@@ -1,4 +1,4 @@
-"""Switches that plant known faults in a network, for HALT's experiments.
+"""Switches that plant known faults in a network, for LHD's experiments.
 
 Every fault works through the adapter, so it works on any network.
 Faults change the network's arrays in place.
@@ -6,7 +6,7 @@ Faults change the network's arrays in place.
 
 import numpy as np
 
-from halt.adapter import NetworkAdapter
+from lhd.adapter import NetworkAdapter
 
 
 class FrozenLayer:

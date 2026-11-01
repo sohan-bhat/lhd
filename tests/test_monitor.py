@@ -1,9 +1,9 @@
 import numpy as np
 from tiny_net import TinyAdapter, TinyNet
 
-from halt.baseline import SIGNALS
-from halt.faults import FrozenLayer
-from halt.monitor import Monitor
+from lhd.baseline import SIGNALS
+from lhd.faults import FrozenLayer
+from lhd.monitor import Monitor
 
 
 def wide_band(epochs=3):

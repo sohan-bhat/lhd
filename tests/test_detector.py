@@ -1,7 +1,7 @@
 import numpy as np
 
-from halt.baseline import SIGNALS
-from halt.detector import Detector, band_position, out_of_band
+from lhd.baseline import SIGNALS
+from lhd.detector import Detector, band_position, out_of_band
 
 
 def make_band(low, high, epochs=5):

@@ -1,6 +1,6 @@
-"""The boundary between HALT and any neural network.
+"""The boundary between LHD and any neural network.
 
-HALT never reads a network directly. It asks an adapter, and each
+LHD never reads a network directly. It asks an adapter, and each
 kind of network gets its own adapter that answers in that
 network's terms.
 """
@@ -13,20 +13,20 @@ import numpy as np
 class NetworkAdapter(ABC):
     """Template that every network adapter must fill in.
 
-    HALT only watches layers with trainable parameters. Layers
+    LHD only watches layers with trainable parameters. Layers
     without any (pooling, flatten, activations) are skipped.
     """
 
     @abstractmethod
     def layer_names(self) -> list[str]:
-        """Names of the trainable layers HALT should watch, in order."""
+        """Names of the trainable layers LHD should watch, in order."""
 
     @abstractmethod
     def parameters(self, name: str) -> dict[str, np.ndarray]:
         """The layer's current parameters, keyed by role.
 
         Use the key "weights" for the main weight array and "bias"
-        for the bias. Return the live arrays; HALT makes its own
+        for the bias. Return the live arrays; LHD makes its own
         copies when it needs them.
         """
 

@@ -1,4 +1,4 @@
-"""Healthy ranges for HALT's signals, built only from healthy runs."""
+"""Healthy ranges for LHD's signals, built only from healthy runs."""
 
 import json
 

@@ -1,11 +1,11 @@
-"""Records HALT's signals for every watched layer, every epoch."""
+"""Records LHD's signals for every watched layer, every epoch."""
 
 import json
 
 import numpy as np
 
-from halt.adapter import NetworkAdapter
-from halt.signals import dead_unit_fraction, grad_norm, weight_change, weight_norm
+from lhd.adapter import NetworkAdapter
+from lhd.signals import dead_unit_fraction, grad_norm, weight_change, weight_norm
 
 
 def flatten_parameters(arrays: dict[str, np.ndarray]) -> np.ndarray:
@@ -13,7 +13,7 @@ def flatten_parameters(arrays: dict[str, np.ndarray]) -> np.ndarray:
 
     Arrays are joined in sorted key order, so the same layer always
     produces its numbers in the same order. That matters because
-    HALT subtracts the start-of-epoch vector from the end-of-epoch
+    LHD subtracts the start-of-epoch vector from the end-of-epoch
     vector entry by entry.
 
     Parameters
@@ -32,12 +32,12 @@ def flatten_parameters(arrays: dict[str, np.ndarray]) -> np.ndarray:
 
 
 class Recorder:
-    """Collects HALT's signals for one training run.
+    """Collects LHD's signals for one training run.
 
     Attributes
     ----------
     adapter : NetworkAdapter
-        Answers HALT's questions about the network being watched.
+        Answers LHD's questions about the network being watched.
     probe_batch : np.ndarray
         Fixed inputs used every epoch to measure dead units.
     history : list[dict]
