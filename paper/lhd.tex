@@ -23,7 +23,7 @@
 \maketitle
 
 \begin{abstract}
-During training, neural networks can develop defects that raise no error, so the run completes and returns a degraded model that is easy to mistake for a hard problem. This work presents LHD (Layer Health Diagnostics), a monitor that logs four signals for every layer at the end of each epoch (weight change, gradient norm, weight norm, and the fraction of dead units) and compares each one with the range it stays within during healthy runs of the same network. When a signal stays outside that range for three epochs in a row, LHD names the layer and a likely cause and stops the run. Across 645 training runs of a fully connected network, a CNN, and a small transformer, with frozen layers and dead units planted in known layers, LHD caught 411 of 470 broken runs, named the planted layer in 98\% of them, and flagged 3 of 110 fresh healthy runs. Averaged within each seed, it fired 9.1 epochs before the accuracy curve (95\% interval 8.4 to 9.7). A check for weights that never change caught every frozen layer two epochs sooner, so the benefit of LHD lies in dead units, where it caught 78\% of faults while the fixed thresholds of existing tools either missed most of them or flagged many healthy runs.
+During training, neural networks can develop defects that raise no error, so the run completes and returns a degraded model that is easy to mistake for a hard problem. This work presents LHD (Layer Health Diagnostics), a monitor that logs four signals for every layer at the end of each epoch (weight change, gradient norm, weight norm, and the fraction of dead units) and compares each one with the range it stays within during healthy runs of the same network. When a signal stays outside that range for three epochs in a row, LHD names the layer and a likely cause and stops the run. Across 645 training runs of a fully connected network, a CNN, and a small transformer, with frozen layers and dead units planted in known layers, LHD caught 411 of 470 broken runs, named the planted layer in 98\% of them, and flagged 3 of 110 fresh healthy runs. Averaged within each seed, it fired 9.1 epochs before the accuracy curve (95\% interval 8.4 to 9.7). A check for weights that never change caught every frozen layer two epochs sooner, so LHD helps most with dead units, where it caught 78\% of faults while the fixed thresholds of existing tools either missed most of them or flagged many healthy runs.
 \end{abstract}
 
 \section{Introduction}
@@ -148,7 +148,7 @@ A broken run is caught when a detector fires at or after the fault's onset, and 
 
 \subsection{Detection and timing}
 
-Across the three networks, LHD caught 411 of 470 broken runs and the accuracy curve caught 166 of 470 (Table~\ref{tab:headline}). Of the runs LHD caught, the accuracy curve never noticed 61\%, and 66\% of all broken runs finished with a final accuracy inside the healthy range. The median alarm came at epoch 3, which is the earliest possible alarm for a fault planted at epoch 1 when three epochs out of range are required, and Figure~\ref{fig:detection_over_time} shows how quickly each method caught up. Averaged within each seed, LHD was earlier than the accuracy curve for 30 of 30 seed groups ($p = 9.3 \times 10^{-10}$), and averaged within each fault condition it was earlier for 41 of 47 ($p < 10^{-10}$). The mean gap was 9.1 epochs, with a 95\% interval of 8.4 to 9.7 from the seed bootstrap.
+Across the three networks, LHD caught 411 of 470 broken runs and the accuracy curve caught 166 of 470 (Table~\ref{tab:headline}). Of the runs LHD caught, the accuracy curve never noticed 61\%, and 66\% of all broken runs finished with a final accuracy inside the healthy range. The median alarm came at epoch 3, which is the earliest possible alarm for a fault planted at epoch 1 when three epochs out of range are required, and Figure~\ref{fig:detection_over_time} shows the share of broken runs each method had flagged by each epoch. Averaged within each seed, LHD was earlier than the accuracy curve for 30 of 30 seed groups ($p = 9.3 \times 10^{-10}$), and averaged within each fault condition it was earlier for 41 of 47 ($p < 10^{-10}$). The mean gap was 9.1 epochs, with a 95\% interval of 8.4 to 9.7 from the seed bootstrap.
 
 On fresh healthy runs, LHD raised 3 false alarms in 110 runs: one run in the fully connected network's fc2 at epoch 16, where only 1.6\% of units were dead, fewer than in any calibration run (lowest 3.9\%); two runs in the CNN's conv2 at epochs 3 and 4, where 6.2\% of units were dead and no calibration run had a single dead unit there. When no calibration run has a dead unit in a layer, the top of its range is the floor of 0.05, so one dead filter out of 16 is enough to cross it. An alarm for too few dead units does not point to any fault, and checking the dead unit fraction against only the top of its range would remove it.
 
@@ -187,50 +187,34 @@ Dead units are different, because healthy networks lose units on their own and t
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figures/detectors_tradeoff.pdf}
-\caption{Dead unit faults caught against healthy runs flagged, for every detector on the same runs, pooled over the three networks. A good detector sits in the upper left.}
+\caption{Dead unit faults caught against healthy runs flagged, for every detector on the same runs, pooled over the three networks. Detectors toward the upper left catch more faults while flagging fewer healthy runs.}
 \label{fig:detectors_tradeoff}
 \end{figure}
 
 
 \subsection{How many units must die}
 
-The more of a layer's units were killed, the more often LHD caught the fault, and it stayed well ahead of the accuracy curve at every level (Figure~\ref{fig:dose_response}). Its misses came from a few layers: CNN conv3 at 10\% (1 of 10 caught), CNN fc1 at 10\% (0 of 10 caught), CNN fc1 at 25\% (0 of 10 caught), CNN fc1 at 50\% (1 of 10 caught), fully connected network fc2 at 10\% (0 of 10 caught), fully connected network fc3 at 10\% (0 of 10 caught), fully connected network fc3 at 25\% (9 of 10 caught). In each of them, healthy runs already lose a share of units on their own, so the planted fault stayed inside the healthy range. The CNN's dense layer is the clearest case, since its healthy range already covers most of the planted values.
+With 10\%, 25\%, and 50\% of a layer's units killed, LHD caught 57\%, 88\%, and 90\% of runs, against 7\%, 9\%, and 29\% for the accuracy curve. Its misses came from a few layers: CNN conv3 at 10\% (1 of 10 caught), CNN fc1 at 10\% (0 of 10 caught), CNN fc1 at 25\% (0 of 10 caught), CNN fc1 at 50\% (1 of 10 caught), fully connected network fc2 at 10\% (0 of 10 caught), fully connected network fc3 at 10\% (0 of 10 caught), fully connected network fc3 at 25\% (9 of 10 caught). In each of them, healthy runs already lose a share of units on their own, so the planted fault stayed inside the healthy range. The CNN's dense layer is the clearest case, since its healthy range already covers most of the planted values, and it shows up as the pale row of Figure~\ref{fig:per_layer}.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\linewidth]{figures/dose_response.pdf}
-\caption{Share of dead unit faults caught as more of a layer's units are killed, for (a) LHD and (b) the accuracy curve.}
-\label{fig:dose_response}
+\includegraphics[width=\linewidth]{figures/per_layer.pdf}
+\caption{Share of broken runs in which LHD caught the fault and named both the planted layer and the right cause, for every layer and fault. Each cell is 10 broken runs. Blank cells are faults that were not planted, since dead units only go into layers followed by a ReLU.}
+\label{fig:per_layer}
 \end{figure}
 
 
 \subsection{Faults that cost accuracy}
 
-Most planted faults did little harm. In 223 of 470 broken runs, the final accuracy was less than half a point below the healthy twin's, and the accuracy curve missing those runs is partly the curve being right (Figure~\ref{fig:harm}). Among the 105 runs that lost 2 points or more, LHD caught 94 and the accuracy curve caught 60. Figure~\ref{fig:accuracy_curves} shows why the accuracy curve struggles. Averaged by fault, broken runs stay inside the healthy accuracy range for most of training. The exception is a frozen layer in the CNN, which cost about as much as the frozen convolution in the GTSRB model that motivated this work.
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figures/harm.pdf}
-\caption{Broken runs caught by LHD and by the accuracy curve, split by how much final accuracy each fault cost against its healthy twin.}
-\label{fig:harm}
-\end{figure}
-
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figures/accuracy_curves.pdf}
-\caption{Validation accuracy over training. The shaded band is the range of the calibration runs, the dark line is the mean of fresh healthy runs, and the colored lines are the means of broken runs with a frozen layer or 50\% dead units.}
-\label{fig:accuracy_curves}
-\end{figure}
-
+Most planted faults did little harm. In 223 of 470 broken runs, the final accuracy was less than half a point below the healthy twin's, and the accuracy curve missing those runs is partly the curve being right. Among the 105 runs that lost 2 points or more, LHD caught 94 and the accuracy curve caught 60. Only one fault cost much on average. A frozen CNN layer lowered final accuracy by 11.1 points against the healthy twin, about as much as the frozen convolution in the GTSRB model that motivated this work, while 50\% dead units in the CNN cost 3.1 points and no fault in the other two networks cost more than 0.8 points on average.
 
 \subsection{Diagnosis}
 
-When LHD caught a broken run, it named the planted layer 98.1\% of the time and the planted cause 96.8\% of the time. It named the wrong layer in 8 caught runs (50\% dead units in fc1 in the CNN, reported as fc2 (1); a frozen conv2 in the CNN, reported as conv1 (1); a frozen conv3 in the CNN, reported as conv2 (1); a frozen fc1 in the CNN, reported as conv1 (1); a frozen fc1 in the CNN, reported as conv2 (1); a frozen fc1 in the CNN, reported as conv3 (3)). In each of these, the reported layer's own signal was out of range, with too many dead units in 5 and another signal in 3, so LHD found a real effect of the fault in a different layer. In the seven frozen cases, the planted layer's weight change crossed its range in the same epoch, but LHD names only the first layer in data flow order, so reporting every layer out of range would have included the planted one. It found the right layer but named the wrong cause in 5 runs (a frozen b1.qkv in the transformer, called a vanishing gradient (5)). A frozen attention projection also lowers the gradient that reaches it, so its pattern matches a vanishing gradient. The high rate of naming the right cause is largely built into the design, since the planted faults produce exactly the signal patterns the rules look for.
+When LHD caught a broken run, it named the planted layer 98.1\% of the time and the planted cause 96.8\% of the time (Figure~\ref{fig:per_layer}). It named the wrong layer in 8 caught runs (50\% dead units in fc1 in the CNN, reported as fc2 (1); a frozen conv2 in the CNN, reported as conv1 (1); a frozen conv3 in the CNN, reported as conv2 (1); a frozen fc1 in the CNN, reported as conv1 (1); a frozen fc1 in the CNN, reported as conv2 (1); a frozen fc1 in the CNN, reported as conv3 (3)). In each of these, the reported layer's own signal was out of range, with too many dead units in 5 and another signal in 3, so LHD found a real effect of the fault in a different layer. In the seven frozen cases, the planted layer's weight change crossed its range in the same epoch, but LHD names only the first layer in data flow order, so reporting every layer out of range would have included the planted one. It found the right layer but named the wrong cause in 5 runs (a frozen b1.qkv in the transformer, called a vanishing gradient (5)). A frozen attention projection also lowers the gradient that reaches it, so its pattern matches a vanishing gradient. The high rate of naming the right cause is largely built into the design, since the planted faults produce exactly the signal patterns the rules look for.
 
 \subsection{What each signal adds}
 
-Table~\ref{tab:ablation} replays the same runs with each signal removed, or with one signal used alone. Without the dead unit fraction, LHD caught 43\% of broken runs instead of 87\%, so that signal carries most of the detection. Without the weight change, it named the right layer and cause in 45\% instead of 85\%, since the weight change is what separates a frozen layer from other faults. Removing the weight norm or the gradient norm changed little, because none of the planted faults was designed to move them.
+Table~\ref{tab:ablation} shows the same runs replayed with each signal removed, or with one signal used alone. Without the dead unit fraction, LHD caught 43\% of broken runs instead of 87\%, so that signal carries most of the detection. Without the weight change, it named the right layer and cause in 45\% instead of 85\%, since the weight change is what separates a frozen layer from other faults. Removing the weight norm or the gradient norm changed little, because none of the planted faults was designed to move them.
 
 \begin{table}[t]
 \centering
@@ -260,27 +244,11 @@ Only dead unit fraction & 52\% & $-$36 & 45\% & $-$40 \\
 
 \subsection{Settings and calibration}
 
-Thresholds placed right at the edge of the healthy range flagged 69\% of healthy runs. Widening them by the margin of 0.5 used here cut that to 3\%, while the share of broken runs caught fell only from 98\% to 87\% (Figure~\ref{fig:margin}). The range also needs enough calibration runs. Built from 2 runs, it flagged up to 22\% of healthy runs (in the CNN), and built from all 20, at most 7\% (Figure~\ref{fig:calibration_size}).
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figures/margin.pdf}
-\caption{Broken runs caught and healthy runs flagged as the margin around the healthy range grows, pooled over the three networks, with a floor of 0.05 and a patience of 3 epochs.}
-\label{fig:margin}
-\end{figure}
-
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figures/calibration_size.pdf}
-\caption{Healthy runs flagged when the healthy range is built from fewer calibration runs, averaged over 20 random draws for each size.}
-\label{fig:calibration_size}
-\end{figure}
-
+Thresholds placed right at the edge of the healthy range flagged 69\% of healthy runs. Widening them by the margin of 0.5 used here cut that to 3\%, while the share of broken runs caught fell only from 98\% to 87\%. The range also needs enough calibration runs. Built from 2 runs, it flagged up to 22\% of healthy runs (in the CNN), and built from all 20, at most 7\%.
 
 \subsection{Cost}
 
-Monitoring added 11.6\% for the fully connected network, 5.8\% for the transformer, 2.2\% for the CNN to training time, measured on fresh healthy runs on one CPU thread. Most of that time goes to the gradient norm, read after every batch, and to the probe batch, run once per epoch, so the network with the cheapest epochs pays the largest share. Stopping each broken run at LHD's alarm would have saved 70\% of its training on average, and all runs together took 94 hours of CPU time on one laptop.
+Monitoring added 11.6\% for the fully connected network, 5.8\% for the transformer, and 2.2\% for the CNN to the training time, measured on fresh healthy runs on one CPU thread. Most of that time goes to the gradient norm, read after every batch, and to the probe batch, run once per epoch, so the overhead is largest for the network with the cheapest epochs. Stopping each broken run at LHD's alarm would have saved 70\% of its training on average, and all runs together took 94 hours of CPU time on one laptop.
 
 \section{Discussion and Limitations}
 
