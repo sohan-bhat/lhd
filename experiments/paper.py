@@ -228,7 +228,7 @@ def preamble() -> str:
 \usepackage[hidelinks]{hyperref}
 
 \title{Early Detection of Silent Training Failures in Neural Networks}
-\author{Sohan Bhat\\\\ \\small Heritage High School, Frisco, Texas\\\\ \\small \\texttt{sohanrambhat@gmail.com}}
+\author{Sohan Bhat\\ \small \texttt{sohanrambhat@gmail.com}}
 \date{November 2026}
 
 \begin{document}
@@ -816,7 +816,7 @@ This work presented LHD, a monitor that compares four signals of every layer wit
 
 \\section*{{Use of generative AI}}
 
-Claude, an AI assistant made by Anthropic, wrote most of the experiment and analysis code, ran the training runs, and drafted parts of this text under the author's direction. The author designed the study, chose its methods, and is responsible for all of its content.
+Generative AI (Claude, by Anthropic) was used for data collection and testing, and for some of the writing. The author is responsible for all of the content.
 
 \\section*{{Code and data}}
 
