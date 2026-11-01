@@ -45,7 +45,13 @@ def read(name: str) -> list[dict]:
 
 
 def pct(k: float, n: float, digits: int = 0) -> str:
-    return "n/a" if not n else f"{100 * k / n:.{digits}f}\\%"
+    """A percent rounded half up, so 96.5 shows as 97 rather than 96."""
+    from decimal import ROUND_HALF_UP, Decimal
+
+    if not n:
+        return "n/a"
+    value = (Decimal(100) * Decimal(k) / Decimal(n)).quantize(Decimal(1).scaleb(-digits), rounding=ROUND_HALF_UP)
+    return f"{value}\\%"
 
 
 def rate(stat: dict, digits: int = 0) -> str:
@@ -138,7 +144,14 @@ class Data:
         return sum(int(r["runs"]) for r in self.counts)
 
     def role_count(self, arch: str, role: str) -> int:
-        return sum(int(r["runs"]) for r in self.counts if r["arch"] == arch and r["role"] == role)
+        """Runs of one role, counted from the same runs the results use."""
+        return int(self.summary["archs"][arch]["runs"].get(role, 0))
+
+    def main_count(self, arch: str) -> int:
+        return int(self.summary["archs"][arch]["proposal"]["runs"])
+
+    def other_count(self, arch: str) -> int:
+        return self.role_count(arch, "fault") - self.main_count(arch)
 
     def detector(self, name: str, families) -> dict:
         rows = [r for r in self.detectors if r["detector"] == name and r["family"] in families]
@@ -192,22 +205,22 @@ class Data:
         return sum(r["detected"] == "True" for r in rows) / len(rows) if rows else 0.0
 
     def composition(self) -> dict:
-        calibration = sum(int(r["runs"]) for r in self.counts if r["role"] == "calibration")
-        fresh = sum(int(r["runs"]) for r in self.counts if r["role"] == "fresh")
-        main = sum(int(r["runs"]) for r in self.counts if r["role"] == "fault" and r["phase"] != "more")
-        other = sum(int(r["runs"]) for r in self.counts if r["role"] == "fault" and r["phase"] == "more")
+        """Run counts by kind, from the same runs the results use. Runs with other faults
+        count only once all of them are trained, since only then does the paper report them."""
+        calibration = sum(self.role_count(a, "calibration") for a in self.archs)
+        fresh = sum(self.role_count(a, "fresh") for a in self.archs)
+        main = sum(self.main_count(a) for a in self.archs)
+        other = sum(self.other_count(a) for a in self.archs) if self.more_complete() else 0
         return {"calibration": calibration, "fresh": fresh, "main": main, "other": other,
                 "total": calibration + fresh + main + other}
 
     def more_complete(self) -> bool:
+        """Whether every run with a fault beyond frozen layers and dead units has been trained and scored."""
         planned = defaultdict(int)
         for spec in build_grid("more"):
-            planned[spec["arch"]] += 1
-        done = defaultdict(int)
-        for r in self.counts:
-            if r["phase"] == "more":
-                done[r["arch"]] += int(r["runs"])
-        return all(done[a] >= n for a, n in planned.items())
+            if spec["role"] == "fault":
+                planned[spec["arch"]] += 1
+        return all(self.other_count(a) >= n for a, n in planned.items() if a in self.archs)
 
 
 def preamble() -> str:
@@ -351,12 +364,15 @@ def setup(d: Data) -> str:
     rows = []
     for a in d.archs:
         n = d.networks[a]
-        main = sum(int(r["runs"]) for r in d.counts if r["arch"] == a and r["role"] == "fault" and r["phase"] != "more")
-        other = sum(int(r["runs"]) for r in d.counts if r["arch"] == a and r["role"] == "fault" and r["phase"] == "more")
+        other = f" & {d.other_count(a)}" if d.more_complete() else ""
         rows.append(f"{NAMES[a]} & {DATASETS[a]} & {int(n['parameters']):,} & {n['epochs']} & "
-                    f"{d.role_count(a, 'calibration')} & {d.role_count(a, 'fresh')} & {main} & {other} \\\\")
+                    f"{d.role_count(a, 'calibration')} & {d.role_count(a, 'fresh')} & {d.main_count(a)}{other} \\\\")
     extra = (" A third set of runs added faults beyond these two, reported in Section~\\ref{sec:extra}."
              if d.more_complete() else "")
+    done = d.more_complete()
+    extra_col, run_cols, last_col = ("r", 4, 8) if done else ("", 3, 7)
+    extra_h1, extra_h2 = (" & Other", " & faults") if done else ("", "")
+    extra_caption = " Runs with other faults are reported in Section~\\ref{sec:extra}." if done else ""
     return f"""\\section{{Experimental Setup}}
 
 \\subsection{{Networks and data}}
@@ -366,14 +382,14 @@ LHD was tested on three networks with different structures (Table~\\ref{{tab:net
 \\begin{{table}}[t]
 \\centering
 \\small
-\\caption{{The three networks and the runs trained for each. Calibration runs set the healthy range, fresh healthy runs measure false alarms, and the results in Section~5 use the runs with a frozen layer or dead units. Runs with other faults appear only in Section~\\ref{{sec:extra}}.}}
+\\caption{{The three networks and the runs trained for each. Calibration runs set the healthy range, fresh healthy runs measure false alarms, and the main results use the runs with a frozen layer or dead units.{extra_caption}}}
 \\label{{tab:networks}}
-\\begin{{tabular}}{{@{{}}llrrrrrr@{{}}}}
+\\begin{{tabular}}{{@{{}}llrrrrr{extra_col}@{{}}}}
 \\toprule
- & & & & \\multicolumn{{4}}{{c}}{{Runs}} \\\\
-\\cmidrule(l){{5-8}}
- & & & & & Fresh & Frozen or & Other \\\\
-Network & Dataset & Parameters & Epochs & Calibration & healthy & dead units & faults \\\\
+ & & & & \\multicolumn{{{run_cols}}}{{c}}{{Runs}} \\\\
+\\cmidrule(l){{5-{last_col}}}
+ & & & & & Fresh & Frozen or{extra_h1} \\\\
+Network & Dataset & Parameters & Epochs & Calibration & healthy & dead units{extra_h2} \\\\
 \\midrule
 {chr(10).join(rows)}
 \\bottomrule
@@ -479,11 +495,17 @@ def detection_section(d: Data) -> str:
                  else " (" + listing([f"{fault_name(fam, layer)} in the {PROSE[a]}" for a, fam, layer in cond["acc"]]) + ")")
         parts.append(f"the accuracy curve was earlier in {count_word(len(cond['acc']), 'condition')}{where}")
     cond_text = (". Of the other " + str(cond["groups"] - cond["lhd"]) + ", " + listing(parts)) if parts else ""
+    fam = ("frozen",) + DEAD
+    a1, a1_fa = d.detector("Accuracy curve, 1 epoch below healthy", fam), d.detector_alarms("Accuracy curve, 1 epoch below healthy")
+    lc, lc_fa = d.detector("Loss curve, 3 epochs above healthy", fam), d.detector_alarms("Loss curve, 3 epochs above healthy")
+    curve_text = (f"The two other curve checks did no better. Requiring only one epoch below the healthy range, the accuracy "
+                  f"curve caught {kofn(a1)} broken runs but flagged {kofn(a1_fa)} healthy runs, and the loss curve, held to "
+                  f"three epochs above its range, caught {kofn(lc)} and flagged {kofn(lc_fa)}.")
     return f"""\\subsection{{Detection and timing}}
 
 Across the three networks, LHD caught {kofn(p['detected'])} broken runs ({rate(p['detected'])}, 95\\% interval {interval(p['detected'])}) and the accuracy curve caught {kofn(p['acc_detected'])} (Table~\\ref{{tab:headline}}). Of the runs LHD caught, the accuracy curve never noticed {rate(d.pooled['acc_never_on_detected'])}, and {rate(p['silent_share'])} of all broken runs finished with a final accuracy inside the healthy range. The median alarm came at epoch {p['lhd_median_epoch']:.0f}, which is the earliest possible alarm for a fault planted at epoch 1 when three epochs out of range are required, and Figure~\\ref{{fig:detection_over_time}} shows the share of broken runs each method had flagged by each epoch.
 
-On the {both['n']} runs that both LHD and the accuracy curve caught, LHD fired {both['mean']:.1f} epochs earlier on average (median {both['median']:.0f}), the accuracy curve was earlier in {count_word(both['acc_earlier'], 'run')}, and {both['ties']} were ties. Averaged within each seed, {seed_text}. Averaged within each fault condition, {cond['lhd']} of {cond['groups']} conditions favored LHD{cond_text}. Counting a run the accuracy curve never caught as one epoch past its end, the mean gap over all broken runs was {p['mean_gap']:.1f} epochs (95\\% interval {c['mean_gap_ci'][0]:.1f} to {c['mean_gap_ci'][1]:.1f} from a bootstrap over seeds), but that figure leans on the runs the accuracy curve missed, so the gap on runs both caught is the fairer measure.
+On the {both['n']} runs that both LHD and the accuracy curve caught, LHD fired {both['mean']:.1f} epochs earlier on average (median {both['median']:.0f}), the accuracy curve was earlier in {count_word(both['acc_earlier'], 'run')}, and {both['ties']} were ties. Averaged within each seed, {seed_text}. Averaged within each fault condition, {cond['lhd']} of {cond['groups']} conditions favored LHD{cond_text}. Counting a run the accuracy curve never caught as one epoch past its end, the mean gap over all broken runs was {p['mean_gap']:.1f} epochs (95\\% interval {c['mean_gap_ci'][0]:.1f} to {c['mean_gap_ci'][1]:.1f} from a bootstrap over seeds), but that figure leans on the runs the accuracy curve missed, so the gap on runs both caught is the fairer measure. {curve_text}
 
 {false_alarm_text(d)}
 
@@ -816,7 +838,7 @@ This work presented LHD, a monitor that compares four signals of every layer wit
 
 \\section*{{Use of generative AI}}
 
-Generative AI (Claude, by Anthropic) was used for data collection and testing, and for some of the writing. The author is responsible for all of the content.
+Claude, an AI assistant made by Anthropic, wrote the experiment scripts that trained and scored the networks, ran the training runs, wrote the analysis and figure code, and drafted parts of this paper, including the results and the related work on existing tools. The idea, the hypothesis, and the experimental design come from the author's earlier proposal, and the author directed the study and decided what to test and what to change in the paper. The author is responsible for all of its content.
 
 \\section*{{Code and data}}
 
