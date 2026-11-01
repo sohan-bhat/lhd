@@ -1,51 +1,51 @@
 metric,mlp,transformer,cnn,pooled
-proposal runs,130,170,105,405
-proposal detected,83.8% (109/130),100.0% (170/170),78.1% (82/105),89.1% (361/405)
-proposal detected 95% interval,76.6 to 89.2%,97.8 to 100.0%,69.3 to 84.9%,85.7 to 91.8%
-proposal fired_before_onset,0.0% (0/130),0.0% (0/170),0.0% (0/105),0.0% (0/405)
-proposal fired_before_onset 95% interval,0.0 to 2.9%,0.0 to 2.2%,0.0 to 3.5%,0.0 to 0.9%
-proposal layer_ok,100.0% (109/109),100.0% (170/170),96.3% (79/82),99.2% (358/361)
-proposal layer_ok 95% interval,96.6 to 100.0%,97.8 to 100.0%,89.8 to 98.7%,97.6 to 99.7%
-proposal cause_ok,100.0% (109/109),97.1% (165/170),96.3% (79/82),97.8% (353/361)
-proposal cause_ok 95% interval,96.6 to 100.0%,93.3 to 98.7%,89.8 to 98.7%,95.7 to 98.9%
-proposal acc_detected,26.2% (34/130),48.2% (82/170),27.6% (29/105),35.8% (145/405)
-proposal acc_detected 95% interval,19.4 to 34.3%,40.8 to 55.7%,20.0 to 36.8%,31.3 to 40.6%
-proposal halt_first,76.2% (99/130),97.6% (166/170),73.3% (77/105),84.4% (342/405)
-proposal halt_first 95% interval,68.1 to 82.7%,94.1 to 99.1%,64.2 to 80.9%,80.6 to 87.6%
-proposal halt_median_epoch,3.0,3.0,3.0,3.0
-proposal acc_median_epoch,17.0,5.0,8.0,6.0
-proposal halt_median_delay,3.0,3.0,3.0,3.0
-proposal acc_median_delay,17.0,5.0,8.0,6.0
-proposal mean_gap,12.3846,8.2647,7.8286,9.4741
-proposal mean_compute_saved,0.6769,0.8,0.6248,0.7151
-proposal silent_share,69.2% (90/130),58.8% (100/170),70.5% (74/105),65.2% (264/405)
-proposal silent_share 95% interval,60.8 to 76.5%,51.3 to 65.9%,61.2 to 78.4%,60.4 to 69.7%
-proposal zero_update_detected,30.8% (40/130),64.7% (110/170),31.4% (33/105),45.2% (183/405)
-proposal zero_update_detected 95% interval,23.5 to 39.2%,57.3 to 71.5%,23.3 to 40.8%,40.4 to 50.1%
-proposal simple_detected,53.8% (70/130),76.5% (130/170),79.0% (83/105),69.9% (283/405)
-proposal simple_detected 95% interval,45.3 to 62.2%,69.6 to 82.2%,70.3 to 85.7%,65.2 to 74.1%
+proposal runs,130,170,170,470
+proposal detected,83.8% (109/130),100.0% (170/170),77.6% (132/170),87.4% (411/470)
+proposal detected 95% interval,76.6 to 89.2%,97.8 to 100.0%,70.8 to 83.3%,84.1 to 90.1%
+proposal fired_before_onset,0.0% (0/130),0.0% (0/170),0.0% (0/170),0.0% (0/470)
+proposal fired_before_onset 95% interval,0.0 to 2.9%,0.0 to 2.2%,0.0 to 2.2%,0.0 to 0.8%
+proposal layer_ok,100.0% (109/109),100.0% (170/170),93.9% (124/132),98.1% (403/411)
+proposal layer_ok 95% interval,96.6 to 100.0%,97.8 to 100.0%,88.5 to 96.9%,96.2 to 99.0%
+proposal cause_ok,100.0% (109/109),97.1% (165/170),93.9% (124/132),96.8% (398/411)
+proposal cause_ok 95% interval,96.6 to 100.0%,93.3 to 98.7%,88.5 to 96.9%,94.7 to 98.1%
+proposal acc_detected,26.2% (34/130),48.2% (82/170),29.4% (50/170),35.3% (166/470)
+proposal acc_detected 95% interval,19.4 to 34.3%,40.8 to 55.7%,23.1 to 36.7%,31.1 to 39.7%
+proposal lhd_first,76.2% (99/130),97.6% (166/170),70.0% (119/170),81.7% (384/470)
+proposal lhd_first 95% interval,68.1 to 82.7%,94.1 to 99.1%,62.7 to 76.4%,78.0 to 84.9%
+proposal lhd_median_epoch,3.0,3.0,3.0,3.0
+proposal acc_median_epoch,17.0,5.0,7.0,6.0
+proposal lhd_median_delay,3.0,3.0,3.0,3.0
+proposal acc_median_delay,17.0,5.0,7.0,6.0
+proposal mean_gap,12.3846,8.2647,7.4235,9.1
+proposal mean_compute_saved,0.6769,0.8,0.6165,0.6996
+proposal silent_share,69.2% (90/130),58.8% (100/170),69.4% (118/170),65.5% (308/470)
+proposal silent_share 95% interval,60.8 to 76.5%,51.3 to 65.9%,62.1 to 75.8%,61.1 to 69.7%
+proposal zero_update_detected,30.8% (40/130),64.7% (110/170),29.4% (50/170),42.6% (200/470)
+proposal zero_update_detected 95% interval,23.5 to 39.2%,57.3 to 71.5%,23.1 to 36.7%,38.2 to 47.1%
+proposal simple_detected,53.8% (70/130),76.5% (130/170),84.1% (143/170),73.0% (343/470)
+proposal simple_detected 95% interval,45.3 to 62.2%,69.6 to 82.2%,77.9 to 88.8%,68.8 to 76.8%
 proposal simple_median_epoch,1.0,1.0,1.0,1.0
-proposal halt_before_simple,30.0% (39/130),23.5% (40/170),15.2% (16/105),23.5% (95/405)
-proposal halt_before_simple 95% interval,22.8 to 38.4%,17.8 to 30.4%,9.6 to 23.3%,19.6 to 27.8%
-proposal simple_before_halt,53.8% (70/130),76.5% (130/170),79.0% (83/105),69.9% (283/405)
-proposal simple_before_halt 95% interval,45.3 to 62.2%,69.6 to 82.2%,70.3 to 85.7%,65.2 to 74.1%
-proposal mean_acc_drop_vs_twin,0.0032,0.0058,0.0451,0.0152
-healthy runs,30,30,30,90
-healthy halt_false_alarm,0.0% (0/30),0.0% (0/30),6.7% (2/30),2.2% (2/90)
-healthy halt_false_alarm 95% interval,0.0 to 11.4%,0.0 to 11.4%,1.8 to 21.3%,0.6 to 7.7%
-healthy acc_false_alarm,3.3% (1/30),16.7% (5/30),0.0% (0/30),6.7% (6/90)
-healthy acc_false_alarm 95% interval,0.6 to 16.7%,7.3 to 33.6%,0.0 to 11.4%,3.1 to 13.8%
-healthy acc1_false_alarm,70.0% (21/30),26.7% (8/30),0.0% (0/30),32.2% (29/90)
-healthy acc1_false_alarm 95% interval,52.1 to 83.3%,14.2 to 44.4%,0.0 to 11.4%,23.5 to 42.4%
-healthy loss_false_alarm,6.7% (2/30),13.3% (4/30),0.0% (0/30),6.7% (6/90)
-healthy loss_false_alarm 95% interval,1.8 to 21.3%,5.3 to 29.7%,0.0 to 11.4%,3.1 to 13.8%
-healthy zero_update_false_alarm,0.0% (0/30),0.0% (0/30),0.0% (0/30),0.0% (0/90)
-healthy zero_update_false_alarm 95% interval,0.0 to 11.4%,0.0 to 11.4%,0.0 to 11.4%,0.0 to 4.1%
-healthy simple_false_alarm,0.0% (0/30),0.0% (0/30),40.0% (12/30),13.3% (12/90)
-healthy simple_false_alarm 95% interval,0.0 to 11.4%,0.0 to 11.4%,24.6 to 57.7%,7.8 to 21.9%
-healthy overhead,0.1168,0.0583,0.0223,0.0658
-clustered by_seed halt earlier,10 of 10,10 of 10,7 of 7,27 of 27
-clustered by_seed wilcoxon p,0.0009765625,0.0009765625,0.0078125,7.450580596923828e-09
-clustered by_condition halt earlier,10 of 13,17 of 17,14 of 17,41 of 47
-clustered by_condition wilcoxon p,0.001220703125,7.62939453125e-06,6.103515625e-05,7.958078640513122e-13
-"mean epochs earlier, seed bootstrap 95% interval",11.91 to 12.85,6.45 to 9.81,7.18 to 8.49,8.68 to 10.17
+proposal lhd_before_simple,30.0% (39/130),23.5% (40/170),12.4% (21/170),21.3% (100/470)
+proposal lhd_before_simple 95% interval,22.8 to 38.4%,17.8 to 30.4%,8.2 to 18.1%,17.8 to 25.2%
+proposal simple_before_lhd,53.8% (70/130),76.5% (130/170),84.1% (143/170),73.0% (343/470)
+proposal simple_before_lhd 95% interval,45.3 to 62.2%,69.6 to 82.2%,77.9 to 88.8%,68.8 to 76.8%
+proposal mean_acc_drop_vs_twin,0.0032,0.0058,0.0441,0.019
+healthy runs,50,30,30,110
+healthy lhd_false_alarm,2.0% (1/50),0.0% (0/30),6.7% (2/30),2.7% (3/110)
+healthy lhd_false_alarm 95% interval,0.4 to 10.5%,0.0 to 11.4%,1.8 to 21.3%,0.9 to 7.7%
+healthy acc_false_alarm,2.0% (1/50),16.7% (5/30),0.0% (0/30),5.5% (6/110)
+healthy acc_false_alarm 95% interval,0.4 to 10.5%,7.3 to 33.6%,0.0 to 11.4%,2.5 to 11.4%
+healthy acc1_false_alarm,60.0% (30/50),26.7% (8/30),0.0% (0/30),34.5% (38/110)
+healthy acc1_false_alarm 95% interval,46.2 to 72.4%,14.2 to 44.4%,0.0 to 11.4%,26.3 to 43.8%
+healthy loss_false_alarm,6.0% (3/50),13.3% (4/30),0.0% (0/30),6.4% (7/110)
+healthy loss_false_alarm 95% interval,2.1 to 16.2%,5.3 to 29.7%,0.0 to 11.4%,3.1 to 12.6%
+healthy zero_update_false_alarm,0.0% (0/50),0.0% (0/30),0.0% (0/30),0.0% (0/110)
+healthy zero_update_false_alarm 95% interval,0.0 to 7.1%,0.0 to 11.4%,0.0 to 11.4%,0.0 to 3.4%
+healthy simple_false_alarm,0.0% (0/50),0.0% (0/30),40.0% (12/30),10.9% (12/110)
+healthy simple_false_alarm 95% interval,0.0 to 7.1%,0.0 to 11.4%,24.6 to 57.7%,6.4 to 18.1%
+healthy overhead,0.1162,0.0583,0.0223,0.0748
+clustered by_seed lhd earlier,10 of 10,10 of 10,10 of 10,30 of 30
+clustered by_seed wilcoxon p,0.0009765625,0.0009765625,0.0009765625,9.313225746154785e-10
+clustered by_condition lhd earlier,10 of 13,17 of 17,14 of 17,41 of 47
+clustered by_condition wilcoxon p,0.001220703125,7.62939453125e-06,0.000152587890625,1.4210854715202004e-12
+"mean epochs earlier, seed bootstrap 95% interval",11.91 to 12.85,6.45 to 9.81,6.72 to 8.05,8.40 to 9.71
