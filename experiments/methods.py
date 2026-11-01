@@ -132,8 +132,13 @@ def main() -> None:
         "",
         "## 1. What the study tests",
         "",
-        "The proposal asks whether per layer health signals can catch silent training failures earlier "
-        "than the accuracy curve. The study turns that into four measurable questions.",
+        "The proposal (Bhat, October 2026) states this hypothesis.",
+        "",
+        "> This work hypothesizes that per-layer internal signals (weight change, gradient norm, weight "
+        "norm, and fraction of zero outputs) will expose a broken layer within the first few epochs, before "
+        "the accuracy curve shows anything wrong, without flagging healthy runs.",
+        "",
+        "The study turns that into four measurable questions.",
         "",
         "1. Does HALT flag broken runs, and does it flag them earlier than the accuracy curve?",
         "2. When HALT flags a run, does it name the layer where the fault was planted and the right cause?",
@@ -274,11 +279,23 @@ def main() -> None:
             [f"Dead units check, {dead_checks}", "some layer has at least that share of dead units", "no",
              "after the core results"],
             ["Zero update or dead units 50%", "either of the two checks above", "no", "after the core results"],
+            ["SageMaker DeadRelu default", "the 50% dead units check above. SageMaker counts a ReLU as "
+             "inactive when it is active less than 1% of the time, close to HALT's never active", "no",
+             "after the core results"],
+            ["DeepDiagnosis Dead Node", "some ReLU layer has more than 70% inactive units, the check in "
+             "Wardat et al. (2022)", "no", "after the core results"],
+            ["wandb-callbacks default", "some ReLU layer has at least 80% dead units, the default of the "
+             "package's DeadReluCallback", "no", "after the core results"],
+            ["wandb-callbacks verbose", "some ReLU layer has at least one dead unit, the package's verbose "
+             "mode", "no", "after the core results"],
         ]),
         "",
         "The accuracy curve rule uses no margin, which makes it more sensitive than HALT's rule. The "
         "simple checks were added after the core results to test whether HALT does better than rules "
-        "anyone could write by hand. They can only make HALT look the same or worse.",
+        "anyone could write by hand. They can only make HALT look the same or worse. Every dead unit "
+        "check looks only at layers followed by a ReLU. The wandb-callbacks rules copy the dead ReLU "
+        "warning of the package cited in the proposal, which counts a unit as dead when it never fires "
+        "on the inputs it is given, the same definition HALT uses.",
         "",
         "## 10. Outcome measures",
         "",
@@ -340,7 +357,34 @@ def main() -> None:
              "can only make HALT look the same or worse"],
         ]),
         "",
-        "## 14. Where the data is",
+        "## 14. Where the code differs from the proposal's wording",
+        "",
+        *table(["Proposal says", "The study does", "Why"], [
+            ["the zero activation fraction is how much of a layer's outputs are exactly zero",
+             "the share of a layer's units that output exactly zero for every probe input, so a unit "
+             "counts only when it is dead for all inputs",
+             "this is how the HALT library's signal was written. The proposal's sentence that dead units "
+             "read near one fits both versions. The paper should describe the one in the code"],
+            ["HALT stops the run once a fault is confirmed",
+             "every run trains to the end and HALT's alarm is found by replaying the saved run",
+             "so every detector can be scored on the same full runs. Replay matches live HALT, which "
+             "`tests/test_replay.py` checks, and `experiments/demo.py` shows a live run being stopped"],
+            ["thresholds are set just outside the healthy range",
+             f"the range is widened by a margin of {m} and a floor of {f} before a value counts as out",
+             "thresholds right at the range's edge flag many healthy runs, which section 11's sweep shows"],
+            ["a layer is flagged after numerous consecutive epochs", f"{p} consecutive epochs",
+             "taken from the HALT library's tests"],
+            ["the CNN is trained first, then the fully connected network and the transformer",
+             "the fully connected network ran first, then the transformer, then the CNN",
+             "to fit the laptop's schedule. The rules were fixed before any of them ran"],
+            ["the frozen layer is tested first, followed by dead neurons",
+             "both faults ran in the same phase", "order does not change a replayed result"],
+            ["frozen layers and dead neurons",
+             "also late faults, cut gradients, learning rate jumps, 5 more seeds, and extra baselines",
+             "extra tests beyond the proposal, reported apart from its main results"],
+        ]),
+        "",
+        "## 15. Where the data is",
         "",
         *table(["File", "Contents"], [
             ["results/runs/<network>.jsonl.gz", "every saved run, one JSON object per line"],

@@ -252,13 +252,18 @@ def honest_section(summary: dict) -> list[str]:
     zero_prop = next(r for r in by["Zero update check"] if r["family"] == "proposal")
     halt_dead = _sum_rows(by["HALT"], DEAD_FAMILIES)
     dead_rules = []
-    for t in (25, 50, 75):
-        mine = by.get(f"Dead units check, {t}%", [])
+    for t in (25, 50, 70, 80):
+        mine = next((v for k, v in by.items() if k.startswith(f"Dead units check, {t}%")), [])
         if mine:
             caught = _sum_rows(mine, DEAD_FAMILIES)
             alarms = next(r for r in mine if r["family"] == "proposal")
             dead_rules.append(f"at {t}% caught {_kn(caught)} and flagged {alarms['false_alarms']} of "
                               f"{alarms['healthy_runs']} healthy runs")
+    anyrule = by.get("Any dead unit (wandb-callbacks verbose)", [])
+    if anyrule:
+        alarms = next(r for r in anyrule if r["family"] == "proposal")
+        dead_rules.append(f"and a rule that fires on any dead unit caught {_kn(_sum_rows(anyrule, DEAD_FAMILIES))} "
+                          f"but flagged {alarms['false_alarms']} of {alarms['healthy_runs']} healthy runs")
     harm = {r["harm"]: r for r in read("harm.csv") if r["scope"] == "proposal" and r["arch"] == "pooled"}
     clustered = pooled.get("proposal_clustered", {})
     lines = [
@@ -273,8 +278,9 @@ def honest_section(summary: dict) -> list[str]:
         f"- For frozen layers HALT adds nothing over a one line check. The zero update check caught "
         f"{_kn(zero_frozen)} at epoch 1 with {zero_prop['false_alarms']} false alarms in "
         f"{zero_prop['healthy_runs']} healthy runs, while HALT caught {_kn(halt_frozen)} at epoch 3.",
-        f"- For dead units HALT does better than the fixed thresholds tested. HALT caught {_kn(halt_dead)} "
-        f"with {healthy['halt_false_alarm']['k']} false alarms. A fixed dead unit rule "
+        f"- For dead units HALT does better than the fixed thresholds tested, including the defaults of "
+        "SageMaker Debugger (50%), DeepDiagnosis (70%), and wandb-callbacks (80%). HALT caught "
+        f"{_kn(halt_dead)} with {healthy['halt_false_alarm']['k']} false alarms. A fixed dead unit rule "
         + ", ".join(dead_rules) + ". Healthy networks differ in how many units die on their own, so one "
         "threshold cannot fit all of them, and HALT's per layer healthy range can.",
         "- HALT misses small dead unit faults in layers where healthy runs already lose many units, such as "
