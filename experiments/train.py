@@ -103,6 +103,20 @@ class PlantedFault:
         n = max(1, int(round(self.spec["fraction"] * count)))
         self.units = sorted(int(u) for u in self.rng.choice(count, size=n, replace=False))
         kill_units(self.adapter, name, self.units, weight_axis=0, bias_value=DEAD_BIAS)
+        self._clear_momentum(name)
+
+    def _clear_momentum(self, name: str) -> None:
+        """Zero Adam's running averages for the killed units.
+
+        A fault planted mid-run would otherwise keep moving the killed
+        weights on leftover momentum and could bring units back to life.
+        """
+        module = self.adapter.layers[name][0]
+        for param in (module.weight, module.bias):
+            state = self.optimizer.state.get(param, {})
+            for key in ("exp_avg", "exp_avg_sq"):
+                if key in state:
+                    state[key][self.units] = 0.0
 
     def after_step(self) -> None:
         """Undo any update to a frozen layer."""
