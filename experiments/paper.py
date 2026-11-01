@@ -31,8 +31,7 @@ NAMES = {"mlp": "Fully connected", "transformer": "Transformer", "cnn": "CNN"}
 PROSE = {"mlp": "fully connected network", "transformer": "transformer", "cnn": "CNN"}
 DATASETS = {"mlp": "Fashion-MNIST", "transformer": "Tiny Shakespeare", "cnn": "GTSRB"}
 DEAD = ("dead10", "dead25", "dead50")
-FIGURES = ("how_lhd_works", "detection_over_time", "detectors_tradeoff", "dose_response",
-           "accuracy_curves", "harm", "margin", "calibration_size")
+FIGURES = ("how_lhd_works", "detection_over_time", "detectors_tradeoff", "per_layer")
 SAGEMAKER = "Dead units check, 50% (SageMaker DeadRelu default)"
 DEEPDIAGNOSIS = "Dead units check, 70% (DeepDiagnosis Dead Node)"
 WANDB = "Dead units check, 80% (wandb-callbacks default)"
@@ -60,6 +59,13 @@ def kofn(stat: dict) -> str:
 def count(n: int, noun: str) -> str:
     word = WORDS.get(n, str(n))
     return f"{word} {noun}" if n == 1 else f"{word} {noun}s"
+
+
+def listing(items: list[str]) -> str:
+    """Items joined as English, with "and" before the last."""
+    if len(items) <= 2:
+        return " and ".join(items)
+    return ", ".join(items[:-1]) + ", and " + items[-1]
 
 
 def pval(p) -> str:
@@ -175,19 +181,11 @@ FIG = {
     "detection_over_time": figure("detection_over_time", "Share of broken runs flagged by each epoch, for LHD and the "
                                   "accuracy curve, in each network."),
     "detectors_tradeoff": figure("detectors_tradeoff", "Dead unit faults caught against healthy runs flagged, for "
-                                 "every detector on the same runs, pooled over the three networks. A good detector "
-                                 "sits in the upper left."),
-    "dose_response": figure("dose_response", "Share of dead unit faults caught as more of a layer's units are "
-                            "killed, for (a) LHD and (b) the accuracy curve."),
-    "accuracy_curves": figure("accuracy_curves", "Validation accuracy over training. The shaded band is the range of "
-                              "the calibration runs, the dark line is the mean of fresh healthy runs, and the colored "
-                              "lines are the means of broken runs with a frozen layer or 50\\% dead units."),
-    "harm": figure("harm", "Broken runs caught by LHD and by the accuracy curve, split by how much final accuracy "
-                   "each fault cost against its healthy twin."),
-    "margin": figure("margin", "Broken runs caught and healthy runs flagged as the margin around the healthy range "
-                     "grows, pooled over the three networks, with a floor of 0.05 and a patience of 3 epochs."),
-    "calibration_size": figure("calibration_size", "Healthy runs flagged when the healthy range is built from fewer "
-                               "calibration runs, averaged over 20 random draws for each size."),
+                                 "every detector on the same runs, pooled over the three networks. Detectors toward the "
+                                 "upper left catch more faults while flagging fewer healthy runs."),
+    "per_layer": figure("per_layer", "Share of broken runs in which LHD caught the fault and named both the planted "
+                        "layer and the right cause, for every layer and fault. Each cell is 10 broken runs. Blank cells "
+                        "are faults that were not planted, since dead units only go into layers followed by a ReLU."),
 }
 
 
@@ -196,7 +194,7 @@ def abstract(d: Data) -> str:
     lo, hi = c["mean_gap_ci"]
     dead = d.detector("LHD", DEAD)
     return f"""\\begin{{abstract}}
-During training, neural networks can develop defects that raise no error, so the run completes and returns a degraded model that is easy to mistake for a hard problem. This work presents LHD (Layer Health Diagnostics), a monitor that logs four signals for every layer at the end of each epoch (weight change, gradient norm, weight norm, and the fraction of dead units) and compares each one with the range it stays within during healthy runs of the same network. When a signal stays outside that range for three epochs in a row, LHD names the layer and a likely cause and stops the run. Across {d.total_runs()} training runs of a fully connected network, a CNN, and a small transformer, with frozen layers and dead units planted in known layers, LHD caught {kofn(p['detected'])} broken runs, named the planted layer in {rate(p['layer_ok'])} of them, and flagged {kofn(h['lhd_false_alarm'])} fresh healthy runs. Averaged within each seed, it fired {p['mean_gap']:.1f} epochs before the accuracy curve (95\\% interval {lo:.1f} to {hi:.1f}). A check for weights that never change caught every frozen layer two epochs sooner, so the benefit of LHD lies in dead units, where it caught {pct(dead['k'], dead['n'])} of faults while the fixed thresholds of existing tools either missed most of them or flagged many healthy runs.
+During training, neural networks can develop defects that raise no error, so the run completes and returns a degraded model that is easy to mistake for a hard problem. This work presents LHD (Layer Health Diagnostics), a monitor that logs four signals for every layer at the end of each epoch (weight change, gradient norm, weight norm, and the fraction of dead units) and compares each one with the range it stays within during healthy runs of the same network. When a signal stays outside that range for three epochs in a row, LHD names the layer and a likely cause and stops the run. Across {d.total_runs()} training runs of a fully connected network, a CNN, and a small transformer, with frozen layers and dead units planted in known layers, LHD caught {kofn(p['detected'])} broken runs, named the planted layer in {rate(p['layer_ok'])} of them, and flagged {kofn(h['lhd_false_alarm'])} fresh healthy runs. Averaged within each seed, it fired {p['mean_gap']:.1f} epochs before the accuracy curve (95\\% interval {lo:.1f} to {hi:.1f}). A check for weights that never change caught every frozen layer two epochs sooner, so LHD helps most with dead units, where it caught {pct(dead['k'], dead['n'])} of faults while the fixed thresholds of existing tools either missed most of them or flagged many healthy runs.
 \\end{{abstract}}
 """
 
@@ -374,7 +372,7 @@ def detection_section(d: Data) -> str:
                          f"{kofn(s[a]['healthy']['acc_false_alarm'])}" for a in d.archs)
     return f"""\\subsection{{Detection and timing}}
 
-Across the three networks, LHD caught {kofn(p['detected'])} broken runs and the accuracy curve caught {kofn(p['acc_detected'])} (Table~\\ref{{tab:headline}}). Of the runs LHD caught, the accuracy curve never noticed {rate(d.pooled['acc_never_on_detected'])}, and {rate(p['silent_share'])} of all broken runs finished with a final accuracy inside the healthy range. The median alarm came at epoch {p['lhd_median_epoch']:.0f}, which is the earliest possible alarm for a fault planted at epoch 1 when three epochs out of range are required, and Figure~\\ref{{fig:detection_over_time}} shows how quickly each method caught up. Averaged within each seed, LHD was earlier than the accuracy curve for {c['by_seed']['lhd_earlier']} of {c['by_seed']['groups']} seed groups ({pval(c['by_seed'].get('wilcoxon_p'))}), and averaged within each fault condition it was earlier for {c['by_condition']['lhd_earlier']} of {c['by_condition']['groups']} ({pval(c['by_condition'].get('wilcoxon_p'))}). The mean gap was {p['mean_gap']:.1f} epochs, with a 95\\% interval of {c['mean_gap_ci'][0]:.1f} to {c['mean_gap_ci'][1]:.1f} from the seed bootstrap.
+Across the three networks, LHD caught {kofn(p['detected'])} broken runs and the accuracy curve caught {kofn(p['acc_detected'])} (Table~\\ref{{tab:headline}}). Of the runs LHD caught, the accuracy curve never noticed {rate(d.pooled['acc_never_on_detected'])}, and {rate(p['silent_share'])} of all broken runs finished with a final accuracy inside the healthy range. The median alarm came at epoch {p['lhd_median_epoch']:.0f}, which is the earliest possible alarm for a fault planted at epoch 1 when three epochs out of range are required, and Figure~\\ref{{fig:detection_over_time}} shows the share of broken runs each method had flagged by each epoch. Averaged within each seed, LHD was earlier than the accuracy curve for {c['by_seed']['lhd_earlier']} of {c['by_seed']['groups']} seed groups ({pval(c['by_seed'].get('wilcoxon_p'))}), and averaged within each fault condition it was earlier for {c['by_condition']['lhd_earlier']} of {c['by_condition']['groups']} ({pval(c['by_condition'].get('wilcoxon_p'))}). The mean gap was {p['mean_gap']:.1f} epochs, with a 95\\% interval of {c['mean_gap_ci'][0]:.1f} to {c['mean_gap_ci'][1]:.1f} from the seed bootstrap.
 
 {false_alarm_text(d)}
 
@@ -431,12 +429,22 @@ def dose_section(d: Data) -> str:
     misses = [r for r in d.per_layer if r["family"] in DEAD and int(r["detected"]) < int(r["runs"])]
     miss_text = ", ".join(f"{PROSE[r['arch']]} {r['layer']} at {r['family'][4:]}\\% ({r['detected']} of {r['runs']} caught)"
                           for r in misses)
+    lhd = [d.detector("LHD", (f,)) for f in DEAD]
+    acc = [d.detector("Accuracy curve, 3 epochs below healthy", (f,)) for f in DEAD]
+    lhd_text = listing([pct(x["k"], x["n"]) for x in lhd])
+    acc_text = listing([pct(x["k"], x["n"]) for x in acc])
     return f"""\\subsection{{How many units must die}}
 
-The more of a layer's units were killed, the more often LHD caught the fault, and it stayed well ahead of the accuracy curve at every level (Figure~\\ref{{fig:dose_response}}). Its misses came from a few layers: {miss_text}. In each of them, healthy runs already lose a share of units on their own, so the planted fault stayed inside the healthy range. The CNN's dense layer is the clearest case, since its healthy range already covers most of the planted values.
+With 10\\%, 25\\%, and 50\\% of a layer's units killed, LHD caught {lhd_text} of runs, against {acc_text} for the accuracy curve. Its misses came from a few layers: {miss_text}. In each of them, healthy runs already lose a share of units on their own, so the planted fault stayed inside the healthy range. The CNN's dense layer is the clearest case, since its healthy range already covers most of the planted values, and it shows up as the pale row of Figure~\\ref{{fig:per_layer}}.
 
-{FIG['dose_response']}
+{FIG['per_layer']}
 """
+
+
+def mean_drop(d: Data, arch: str, family: str) -> float | None:
+    drops = [float(r["acc_drop_vs_twin"]) for r in d.runs
+             if r["arch"] == arch and r["family"] == family and r["acc_drop_vs_twin"] not in ("", None)]
+    return 100 * sum(drops) / len(drops) if drops else None
 
 
 def harm_section(d: Data) -> str:
@@ -447,15 +455,20 @@ def harm_section(d: Data) -> str:
     if low and high:
         text = (f"Most planted faults did little harm. In {low['broken_runs']} of {total} broken runs, the final accuracy "
                 f"was less than half a point below the healthy twin's, and the accuracy curve missing those runs is partly "
-                f"the curve being right (Figure~\\ref{{fig:harm}}). Among the {high['broken_runs']} runs that lost 2 points "
-                f"or more, LHD caught {high['lhd_caught']} and the accuracy curve caught {high['accuracy_caught']}.")
+                f"the curve being right. Among the {high['broken_runs']} runs that lost 2 points or more, LHD caught "
+                f"{high['lhd_caught']} and the accuracy curve caught {high['accuracy_caught']}.")
+    cnn_frozen, cnn_dead = mean_drop(d, "cnn", "frozen"), mean_drop(d, "cnn", "dead50")
+    others = [mean_drop(d, a, f) for a in d.archs if a != "cnn" for f in ("frozen",) + DEAD]
+    others = [v for v in others if v is not None]
+    cost = ""
+    if cnn_frozen is not None and others:
+        cost = (f" Only one fault cost much on average. A frozen CNN layer lowered final accuracy by {cnn_frozen:.1f} points "
+                f"against the healthy twin, about as much as the frozen convolution in the GTSRB model that motivated this "
+                f"work, while 50\\% dead units in the CNN cost {cnn_dead:.1f} points and no fault in the other two networks "
+                f"cost more than {max(others):.1f} points on average.")
     return f"""\\subsection{{Faults that cost accuracy}}
 
-{text} Figure~\\ref{{fig:accuracy_curves}} shows why the accuracy curve struggles. Averaged by fault, broken runs stay inside the healthy accuracy range for most of training. The exception is a frozen layer in the CNN, which cost about as much as the frozen convolution in the GTSRB model that motivated this work.
-
-{FIG['harm']}
-
-{FIG['accuracy_curves']}
+{text}{cost}
 """
 
 
@@ -499,7 +512,7 @@ def diagnosis_section(d: Data) -> str:
                            "matches a vanishing gradient.")
     return f"""\\subsection{{Diagnosis}}
 
-When LHD caught a broken run, it named the planted layer {rate(p['layer_ok'], 1)} of the time and the planted cause {rate(p['cause_ok'], 1)} of the time.{wrong_text}{cause_text} The high rate of naming the right cause is largely built into the design, since the planted faults produce exactly the signal patterns the rules look for.
+When LHD caught a broken run, it named the planted layer {rate(p['layer_ok'], 1)} of the time and the planted cause {rate(p['cause_ok'], 1)} of the time (Figure~\\ref{{fig:per_layer}}).{wrong_text}{cause_text} The high rate of naming the right cause is largely built into the design, since the planted faults produce exactly the signal patterns the rules look for.
 """
 
 
@@ -542,7 +555,7 @@ def ablation_section(d: Data) -> str:
     without_change = next(r for r in rows if r[0] in ("without weight_change", "without weight change"))
     return f"""\\subsection{{What each signal adds}}
 
-Table~\\ref{{tab:ablation}} replays the same runs with each signal removed, or with one signal used alone. Without the dead unit fraction, LHD caught {100 * without_dead[1]:.0f}\\% of broken runs instead of {100 * base[1]:.0f}\\%, so that signal carries most of the detection. Without the weight change, it named the right layer and cause in {100 * without_change[2]:.0f}\\% instead of {100 * base[2]:.0f}\\%, since the weight change is what separates a frozen layer from other faults. Removing the weight norm or the gradient norm changed little, because none of the planted faults was designed to move them.
+Table~\\ref{{tab:ablation}} shows the same runs replayed with each signal removed, or with one signal used alone. Without the dead unit fraction, LHD caught {100 * without_dead[1]:.0f}\\% of broken runs instead of {100 * base[1]:.0f}\\%, so that signal carries most of the detection. Without the weight change, it named the right layer and cause in {100 * without_change[2]:.0f}\\% instead of {100 * base[2]:.0f}\\%, since the weight change is what separates a frozen layer from other faults. Removing the weight norm or the gradient norm changed little, because none of the planted faults was designed to move them.
 
 \\begin{{table}}[t]
 \\centering
@@ -587,22 +600,18 @@ def settings_section(d: Data) -> str:
     full_arch, full = worst(20)
     return f"""\\subsection{{Settings and calibration}}
 
-Thresholds placed right at the edge of the healthy range flagged {100 * edge_fa:.0f}\\% of healthy runs. Widening them by the margin of {SETTINGS['margin']} used here cut that to {100 * used_fa:.0f}\\%, while the share of broken runs caught fell only from {100 * edge_caught:.0f}\\% to {100 * used_caught:.0f}\\% (Figure~\\ref{{fig:margin}}). The range also needs enough calibration runs. Built from 2 runs, it flagged up to {100 * small:.0f}\\% of healthy runs (in the {PROSE[small_arch]}), and built from all 20, at most {100 * full:.0f}\\% (Figure~\\ref{{fig:calibration_size}}).
-
-{FIG['margin']}
-
-{FIG['calibration_size']}
+Thresholds placed right at the edge of the healthy range flagged {100 * edge_fa:.0f}\\% of healthy runs. Widening them by the margin of {SETTINGS['margin']} used here cut that to {100 * used_fa:.0f}\\%, while the share of broken runs caught fell only from {100 * edge_caught:.0f}\\% to {100 * used_caught:.0f}\\%. The range also needs enough calibration runs. Built from 2 runs, it flagged up to {100 * small:.0f}\\% of healthy runs (in the {PROSE[small_arch]}), and built from all 20, at most {100 * full:.0f}\\%.
 """
 
 
 def cost_section(d: Data) -> str:
     s = d.summary["archs"]
-    overhead = ", ".join(f"{100 * s[a]['healthy']['overhead']:.1f}\\% for the {PROSE[a]}" for a in d.archs)
+    overhead = listing([f"{100 * s[a]['healthy']['overhead']:.1f}\\% for the {PROSE[a]}" for a in d.archs])
     p = d.pooled["proposal"]
     hours = float(d.compute["all"]["training_hours"])
     return f"""\\subsection{{Cost}}
 
-Monitoring added {overhead} to training time, measured on fresh healthy runs on one CPU thread. Most of that time goes to the gradient norm, read after every batch, and to the probe batch, run once per epoch, so the network with the cheapest epochs pays the largest share. Stopping each broken run at LHD's alarm would have saved {100 * p['mean_compute_saved']:.0f}\\% of its training on average, and all runs together took {hours:.0f} hours of CPU time on one laptop.
+Monitoring added {overhead} to the training time, measured on fresh healthy runs on one CPU thread. Most of that time goes to the gradient norm, read after every batch, and to the probe batch, run once per epoch, so the overhead is largest for the network with the cheapest epochs. Stopping each broken run at LHD's alarm would have saved {100 * p['mean_compute_saved']:.0f}\\% of its training on average, and all runs together took {hours:.0f} hours of CPU time on one laptop.
 """
 
 

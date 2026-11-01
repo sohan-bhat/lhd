@@ -18,12 +18,16 @@ from pathlib import Path
 import matplotlib
 import numpy as np
 from matplotlib import font_manager
-from matplotlib.colors import to_hex, to_rgb
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import LinearSegmentedColormap, Normalize, to_hex, to_rgb
 from matplotlib.figure import Figure
+from matplotlib.font_manager import FontProperties
+from matplotlib.patches import Rectangle
+from matplotlib.textpath import TextPath
 
 from experiments.evaluate import RESULTS, SETTINGS, load_runs, reference, split_runs
-from experiments.figures import AQUA, BAND, BLUE, MUTED, ORANGE, read_csv
-from experiments.grid import ARCH_ORDER
+from experiments.figures import BAND, BLUE, MUTED, ORANGE, RAMP, read_csv
+from experiments.grid import ARCH_ORDER, watched_layers
 from lhd.detector import band_position
 from lhd.replay import replay
 
@@ -50,13 +54,10 @@ def _deepen(color: str, amount: float) -> str:
 
 LHD_BLUE = _deepen(BLUE, 0.08)
 ACC_ORANGE = _deepen(ORANGE, 0.06)
-GREEN = _deepen(AQUA, 0.1)
 RULE_GRAY = _deepen(MUTED, 0.06)
-ARCH_COLORS = dict(zip(ARCH_ORDER, (LHD_BLUE, ACC_ORANGE, GREEN)))
 ARCH_LABEL = {"mlp": "Fully connected", "transformer": "Transformer", "cnn": "CNN"}
 PROPOSAL = ("frozen", "dead10", "dead25", "dead50")
 DEAD = ("dead10", "dead25", "dead50")
-DEAD_PCT = {"dead10": 10, "dead25": 25, "dead50": 50}
 ACC3 = "Accuracy curve, 3 epochs below healthy"
 TRADEOFF_LABELS = {
     "LHD": "LHD",
@@ -69,8 +70,9 @@ TRADEOFF_LABELS = {
     "Dead units check, 80% (wandb-callbacks default)": "wandb-callbacks (80%)",
     "Any dead unit (wandb-callbacks verbose)": "Any dead unit",
 }
-HARM_GROUPS = (("under 0.5 pts", "Lost under 0.5 points"), ("0.5 to 2 pts", "Lost 0.5 to 2 points"),
-               ("2 pts or more", "Lost 2 points or more"))
+FAULT_COLUMNS = (("frozen", "Frozen"), ("dead10", "Dead\n10%"), ("dead25", "Dead\n25%"), ("dead50", "Dead\n50%"))
+CELL_RAMP = LinearSegmentedColormap.from_list("cells", RAMP(np.linspace(0.12, 1, 256)))
+NOT_PLANTED = "#d6d6d6"
 _RAW: dict[str, list[dict]] = {}
 
 
@@ -148,11 +150,12 @@ def _figure(height: float, columns: int = 1, left: float = 0.5, right: float = 0
     return fig, axes
 
 
-def _panel(ax, letter: str, title: str) -> None:
-    """Panel letter at the top left, with a short plain title beside it."""
-    ax.annotate(f"({letter})", (0, 1), xycoords="axes fraction", xytext=(0, 9),
+def _panel(ax, letter: str, title: str, dx: float = 0, dy: float = 9) -> None:
+    """Panel letter at the top left, with a short plain title beside it.
+    dx and dy move both, in points, from the top left corner of the axes."""
+    ax.annotate(f"({letter})", (0, 1), xycoords="axes fraction", xytext=(dx, dy),
                 textcoords="offset points", fontsize=SIZE, color=TEXT, ha="left", va="baseline")
-    ax.annotate(title, (0, 1), xycoords="axes fraction", xytext=(14, 9), textcoords="offset points",
+    ax.annotate(title, (0, 1), xycoords="axes fraction", xytext=(dx + 14, dy), textcoords="offset points",
                 fontsize=TITLE_SIZE, color=TEXT, ha="left", va="baseline")
 
 
@@ -162,56 +165,9 @@ def _points_per_unit(ax, axis: str) -> float:
     box = ax.get_position()
     if axis == "y":
         low, high = ax.get_ylim()
-        return box.height * fig.get_figheight() * 72 / (high - low)
+        return box.height * fig.get_figheight() * 72 / abs(high - low)
     low, high = ax.get_xlim()
-    return box.width * fig.get_figwidth() * 72 / (high - low)
-
-
-def _spread(targets: list[float], step: float, low: float, high: float) -> list[float]:
-    """Positions at least step apart, each as close as it can be to its target."""
-    order = sorted(range(len(targets)), key=lambda i: targets[i])
-    spots = [targets[i] for i in order]
-    for _ in range(200):
-        moved = False
-        for k in range(1, len(spots)):
-            overlap = step - (spots[k] - spots[k - 1])
-            if overlap > 1e-9:
-                spots[k - 1] -= overlap / 2
-                spots[k] += overlap / 2
-                moved = True
-        if spots and spots[-1] > high:
-            shift = spots[-1] - high
-            spots = [s - shift for s in spots]
-            moved = True
-        if spots and spots[0] < low:
-            shift = low - spots[0]
-            spots = [s + shift for s in spots]
-        if not moved:
-            break
-    result = [0.0] * len(targets)
-    for k, i in enumerate(order):
-        result[i] = spots[k]
-    return result
-
-
-def _end_labels(ax, items: list[tuple], x: float, gap_pt: float = 10.5, pad_pt: float = 5,
-                low: float | None = None, high: float | None = None) -> None:
-    """Label line ends just right of x, nudged apart so no two touch.
-
-    items holds (y, text, color). A label moved off its line gets a
-    thin leader in the line's color. Text is always dark.
-    """
-    per_point = 1 / _points_per_unit(ax, "y")
-    y_low, y_high = ax.get_ylim()
-    spots = _spread([item[0] for item in items], gap_pt * per_point,
-                    y_low if low is None else low, y_high if high is None else high)
-    dx = pad_pt / _points_per_unit(ax, "x")
-    for (y, text, color), spot in zip(items, spots):
-        leader = abs(spot - y) * _points_per_unit(ax, "y") > 2
-        ax.annotate(text, (x, y), xytext=(x + dx * (2.4 if leader else 1), spot), textcoords="data",
-                    fontsize=SIZE, color=TEXT, va="center", ha="left", annotation_clip=False,
-                    arrowprops={"arrowstyle": "-", "color": color, "linewidth": 0.6, "relpos": (0, 0.5),
-                                "shrinkA": 1.5, "shrinkB": 1.5} if leader else None)
+    return box.width * fig.get_figwidth() * 72 / abs(high - low)
 
 
 def _rule(ax, x: float, text: str, ha: str = "left", y: float = 1.0) -> None:
@@ -439,165 +395,102 @@ def detectors_tradeoff() -> dict:
         dx, dy, ha = offsets.get(detector, (6, 0, "left"))
         ax.annotate(short, (x, y), xytext=(dx, dy), textcoords="offset points", ha=ha, va="center",
                     fontsize=SIZE, color=TEXT)
-    ax.annotate("", (8, 96), xytext=(19, 76), textcoords="data",
-                arrowprops={"arrowstyle": "-|>", "color": SOFT, "linewidth": 0.7, "mutation_scale": 7,
-                            "shrinkA": 0, "shrinkB": 0})
-    ax.annotate("better", (13.5, 86), xytext=(9, 3), textcoords="offset points", fontsize=SIZE, color=SOFT,
-                ha="left", va="center")
     ax.set_xlabel("New healthy runs flagged (%)")
     ax.set_ylabel("Dead unit faults caught (%)")
     _save(fig, "detectors_tradeoff")
     return points
 
 
-def dose_response() -> dict:
-    """Share of dead unit faults caught as more of a layer's units are killed."""
-    table = [r for r in read_csv("detectors.csv") if r["family"] in DEAD and r["arch"] in ARCH_COLORS]
-    fig, axes = _figure(2.8, 2, left=0.5, right=0.95, gaps=1.1, bottom=0.42, top=0.3)
-    found = {}
-    for k, (ax, detector, title) in enumerate(zip(axes, ("LHD", ACC3), ("LHD", "Accuracy curve"))):
-        ax.set_xlim(6, 54)
-        ax.set_ylim(-4, 106)
-        ends = []
-        for arch in ARCH_ORDER:
-            picked = {r["family"]: r for r in table if r["arch"] == arch and r["detector"] == detector}
-            fams = [f for f in DEAD if f in picked]
-            xs = [DEAD_PCT[f] for f in fams]
-            ys = [100 * picked[f]["caught_rate"] for f in fams]
-            ax.plot(xs, ys, color=ARCH_COLORS[arch], linewidth=DATA_WIDTH, zorder=3)
-            ax.plot(xs, ys, "o", color=ARCH_COLORS[arch], markersize=4.5, markeredgecolor=WHITE,
-                    markeredgewidth=0.8, zorder=4)
-            ends.append((ys[-1], ARCH_LABEL[arch], ARCH_COLORS[arch]))
-            found[(title, arch)] = ys
-        ax.set_xticks([10, 25, 50], ["10", "25", "50"])
-        _percent_axis(ax)
-        ax.set_xlabel("Units killed in one layer (%)")
-        _panel(ax, "ab"[k], title)
-        _end_labels(ax, ends, 50, gap_pt=11, low=-2, high=108)
-    axes[0].set_ylabel("Dead unit faults caught (%)")
-    _save(fig, "dose_response")
+
+def _text_width(text: str, size: float = SIZE) -> float:
+    """Printed width of one line of figure text, in inches."""
+    path = TextPath((0, 0), text, size=size, prop=FontProperties(family="serif"))
+    return path.get_extents().width / 72
+
+
+def _luminance(color) -> float:
+    """Relative luminance, used to choose dark or white text on a cell."""
+    channels = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in to_rgb(color)]
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+
+
+def per_layer_cells(rows: list[dict]) -> dict:
+    """For each network, planted layer and fault: [k, n], where k counts the
+    broken runs LHD caught, pinned on the planted layer and gave the right cause."""
+    cells = {arch: defaultdict(lambda: [0, 0]) for arch in ARCH_ORDER}
+    for r in rows:
+        if r["arch"] in cells and r["role"] == "fault" and r["onset"] == 1 and r["family"] in PROPOSAL:
+            cell = cells[r["arch"]][(r["fault_layer"], r["family"])]
+            cell[1] += 1
+            cell[0] += bool(r["detected"] and r["layer_ok"] and r["cause_ok"])
+    return cells
+
+
+def per_layer(rows: list[dict]) -> dict:
+    """For every planted layer and fault, the share of broken runs where LHD
+    caught the fault, named the planted layer and named the right cause."""
+    cells = per_layer_cells(rows)
+    layers = {arch: watched_layers(arch) for arch in ARCH_ORDER}
+    labels = {arch: max(_text_width(name) for name in layers[arch]) + 0.08 for arch in ARCH_ORDER}
+    cell_h, top, bottom, gap, right = 0.25, 0.66, 0.06, 0.2, 0.04
+    tallest = max(len(names) for names in layers.values())
+    height = top + tallest * cell_h + bottom
+    columns = len(FAULT_COLUMNS)
+    cell_w = (WIDTH - 0.03 - sum(labels.values()) - gap * (len(ARCH_ORDER) - 1) - right) / (columns * len(ARCH_ORDER))
+    fig = Figure(figsize=(WIDTH, height))
+    x, axes, found = 0.03, {}, {}
+    for k, arch in enumerate(ARCH_ORDER):
+        names = layers[arch]
+        x += labels[arch]
+        grid_h = len(names) * cell_h
+        ax = fig.add_axes((x / WIDTH, (height - top - grid_h) / height, columns * cell_w / WIDTH, grid_h / height))
+        x += columns * cell_w + gap
+        ax.set_xlim(0, columns)
+        ax.set_ylim(len(names), 0)
+        inset_x = 1.0 / _points_per_unit(ax, "x")
+        inset_y = 1.0 / _points_per_unit(ax, "y")
+        for i, layer in enumerate(names):
+            for j, (fam, _) in enumerate(FAULT_COLUMNS):
+                box = (j + inset_x, i + inset_y)
+                size = (1 - 2 * inset_x, 1 - 2 * inset_y)
+                cell = cells[arch].get((layer, fam))
+                if not cell or not cell[1]:
+                    ax.add_patch(Rectangle(box, *size, facecolor=WHITE, edgecolor=NOT_PLANTED, linewidth=0.6))
+                    continue
+                share = cell[0] / cell[1]
+                face = CELL_RAMP(share)
+                ax.add_patch(Rectangle(box, *size, facecolor=face, linewidth=0))
+                ax.text(j + 0.5, i + 0.5, f"{100 * share:.0f}%", ha="center", va="center", fontsize=SIZE,
+                        color=WHITE if _luminance(face) < 0.3 else TEXT)
+                found[(arch, layer, fam)] = tuple(cell)
+        ax.set_yticks(np.arange(len(names)) + 0.5, names)
+        ax.set_xticks(np.arange(columns) + 0.5, [label for _, label in FAULT_COLUMNS], linespacing=1.0)
+        ax.xaxis.tick_top()
+        ax.tick_params(length=0, pad=3)
+        ax.grid(False)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+        _panel(ax, "abc"[k], ARCH_LABEL[arch], dx=-labels[arch] * 72, dy=31)
+        axes[arch] = ax
+    first = axes[ARCH_ORDER[0]]
+    box = first.get_position()
+    bar_y = box.y0 * height - 0.62
+    bar = fig.add_axes((box.x0, bar_y / height, box.width, 0.09 / height))
+    colorbar = fig.colorbar(ScalarMappable(norm=Normalize(0, 100), cmap=CELL_RAMP), cax=bar,
+                            orientation="horizontal", ticks=[0, 50, 100])
+    colorbar.outline.set_visible(False)
+    bar.tick_params(length=2.5, width=0.6, color=SOFT, pad=2)
+    bar.annotate("Caught with the right\nlayer and cause (%)", (0, 1), xycoords="axes fraction", xytext=(0, 5),
+                 textcoords="offset points", ha="left", va="bottom", fontsize=SIZE, color=TEXT, linespacing=1.1)
+    key_y = bar_y - 0.48
+    key = fig.add_axes((box.x0, key_y / height, box.width, 0.14 / height))
+    key.set_axis_off()
+    key.set_xlim(0, box.width * WIDTH * 72)
+    key.set_ylim(0, 0.14 * 72)
+    key.add_patch(Rectangle((0.5, 0.5), 15, 9, facecolor=WHITE, edgecolor=NOT_PLANTED, linewidth=0.6))
+    key.text(21, 5, "Fault not planted", ha="left", va="center", fontsize=SIZE, color=TEXT)
+    _save(fig, "per_layer")
     return found
-
-
-def accuracy_curves(rows: list[dict]) -> dict:
-    """Validation accuracy of healthy runs and of two kinds of broken run."""
-    fig, axes = _figure(2.8, 3, left=0.45, right=1.0, gaps=0.38, bottom=0.42, top=0.3)
-    found = {}
-    for k, (ax, arch) in enumerate(zip(axes, ARCH_ORDER)):
-        groups = split_runs(_scored(arch, rows))
-        ref = reference(groups)
-        fam = {r["run_id"]: r["family"] for r in rows if r["arch"] == arch and r["role"] == "fault"
-               and r["onset"] == 1}
-        epochs = np.arange(1, len(groups["calibration"][0]["history"]) + 1)
-        low, high = 100 * ref["accuracy"]["low"], 100 * ref["accuracy"]["high"]
-        ax.fill_between(epochs, low, high, color=BAND, linewidth=0, zorder=0.5)
-        series = [("New healthy runs", TEXT, groups["fresh"]),
-                  ("Frozen layer", ACC_ORANGE,
-                   [r for r in groups["fault"] if fam.get(r["metadata"]["run_id"]) == "frozen"]),
-                  ("50% units dead", LHD_BLUE,
-                   [r for r in groups["fault"] if fam.get(r["metadata"]["run_id"]) == "dead50"])]
-        ends = [(high[-1], "Healthy range", BAND)]
-        for label, color, group in series:
-            mean = 100 * np.mean([[e["val_accuracy"] for e in r["history"]] for r in group], axis=0)
-            ax.plot(epochs, mean, color=color, linewidth={TEXT: 1.2, ACC_ORANGE: 1.7}.get(color, 1.15),
-                    zorder={TEXT: 4, ACC_ORANGE: 2}.get(color, 3))
-            ends.append((mean[-1], label, color))
-            found[(arch, label)] = (mean[-1], len(group))
-        found[(arch, "range")] = (low[-1], high[-1])
-        ax.set_xlim(1, epochs[-1])
-        ax.set_xticks([1] + list(range(5, epochs[-1] + 1, 5)))
-        ax.set_xlabel("Epoch")
-        _panel(ax, "abc"[k], ARCH_LABEL[arch])
-        if k == len(axes) - 1:
-            _end_labels(ax, ends, epochs[-1], gap_pt=10.5)
-    axes[0].set_ylabel("Validation accuracy (%)")
-    _save(fig, "accuracy_curves")
-    return found
-
-
-def harm() -> dict:
-    """Share of broken runs caught, grouped by how much final accuracy the fault cost."""
-    table = {r["harm"]: r for r in read_csv("harm.csv") if r["scope"] == "proposal" and r["arch"] == "pooled"}
-    groups = [(key, label) for key, label in HARM_GROUPS if key in table]
-    fig, (ax,) = _figure(3.0, 1, left=0.5, right=0.1, bottom=0.5, top=0.12)
-    ax.set_xlim(-0.6, len(groups) - 0.4)
-    ax.set_ylim(0, 108)
-    _percent_axis(ax)
-    width = 0.34
-    gap = 1.5 / _points_per_unit(ax, "x")
-    found = {}
-    for j, (name, key, color) in enumerate((("LHD", "lhd", LHD_BLUE), ("Accuracy\ncurve", "accuracy", ACC_ORANGE))):
-        for i, (group, _) in enumerate(groups):
-            x = i + (j - 0.5) * (width + gap)
-            value = 100 * table[group][f"{key}_rate"]
-            ax.bar(x, value, width=width, color=color, linewidth=0, zorder=3)
-            text = f"{value:.0f}%" if i else f"{name}\n{value:.0f}%"
-            ax.annotate(text, (x, value), xytext=(0, 2.5), textcoords="offset points", ha="center",
-                        va="bottom", fontsize=SIZE, color=TEXT, linespacing=1.05)
-            found[(key, group)] = (value, table[group][f"{key}_caught"], table[group]["broken_runs"])
-    ax.set_xticks(range(len(groups)), [f"{label}\n{table[g]['broken_runs']} broken runs" for g, label in groups])
-    ax.tick_params(axis="x", length=0, pad=4)
-    ax.set_ylabel("Broken runs caught (%)")
-    _save(fig, "harm")
-    return found
-
-
-def calibration_size() -> dict:
-    """Healthy runs flagged as the number of calibration runs grows."""
-    rows = read_csv("sweep_calibration.csv")
-    fig, (ax,) = _figure(2.9, 1, left=0.5, right=1.15, bottom=0.42, top=0.12)
-    ks = sorted({r["k"] for r in rows})
-    used = max(ks)
-    ax.set_xlim(0.8, used + 0.6)
-    ax.set_ylim(-1.5, 30)
-    ends, found = [], {}
-    for arch in ARCH_ORDER:
-        by_k = defaultdict(list)
-        for r in rows:
-            if r["arch"] == arch:
-                by_k[r["k"]].append(100 * r["false_alarm"])
-        mean = [float(np.mean(by_k[k])) for k in ks]
-        ax.plot(ks, mean, color=ARCH_COLORS[arch], linewidth=DATA_WIDTH, zorder=3)
-        ax.plot(ks, mean, "o", color=ARCH_COLORS[arch], markersize=4.5, markeredgecolor=WHITE,
-                markeredgewidth=0.8, zorder=4)
-        ends.append((mean[-1], ARCH_LABEL[arch], ARCH_COLORS[arch]))
-        found[arch] = dict(zip(ks, mean))
-    ax.set_xticks(ks)
-    ax.set_yticks(range(0, 31, 10))
-    _rule(ax, used, f"{used} used in the study", ha="right")
-    _end_labels(ax, ends, used + 0.6, gap_pt=10.5, pad_pt=3)
-    ax.set_xlabel("Healthy calibration runs used to build the range")
-    ax.set_ylabel("New healthy runs flagged (%)")
-    _save(fig, "calibration_size")
-    return found
-
-
-def margin() -> dict:
-    """Broken runs caught and healthy runs flagged as the healthy range is widened."""
-    rows = [r for r in read_csv("sweep_settings.csv")
-            if r["floor"] == SETTINGS["floor"] and r["patience"] == SETTINGS["patience"]]
-    margins = sorted({r["margin"] for r in rows})
-    caught, flagged = [], []
-    for m in margins:
-        picked = [r for r in rows if r["margin"] == m]
-        caught.append(100 * sum(r["detection"] * r["faults"] for r in picked) / sum(r["faults"] for r in picked))
-        flagged.append(100 * sum(r["false_alarm"] * r["fresh"] for r in picked) / sum(r["fresh"] for r in picked))
-    xs = [100 * m for m in margins]
-    fig, (ax,) = _figure(2.9, 1, left=0.5, right=1.45, bottom=0.42, top=0.12)
-    ax.set_xlim(-2, max(xs) + 2)
-    ax.set_ylim(-3, 106)
-    for ys, color in ((caught, LHD_BLUE), (flagged, ACC_ORANGE)):
-        ax.plot(xs, ys, color=color, linewidth=DATA_WIDTH, zorder=3)
-        ax.plot(xs, ys, "o", color=color, markersize=4.5, markeredgecolor=WHITE, markeredgewidth=0.8, zorder=4)
-    _percent_axis(ax)
-    ax.set_xticks(xs, [f"{x:g}" for x in xs])
-    _rule(ax, 100 * SETTINGS["margin"], "used in the study")
-    _end_labels(ax, [(caught[-1], "Broken runs caught", LHD_BLUE),
-                     (flagged[-1], "Healthy runs flagged", ACC_ORANGE)], max(xs) + 2, pad_pt=3)
-    ax.set_xlabel("Margin: how far the healthy range is widened (%)")
-    ax.set_ylabel("Runs (%)")
-    _save(fig, "margin")
-    return {"margin": margins, "caught": caught, "flagged": flagged}
 
 
 def main() -> None:
@@ -607,11 +500,7 @@ def main() -> None:
         "how_lhd_works": how_lhd_works(rows),
         "detection_over_time": detection_over_time(rows),
         "detectors_tradeoff": detectors_tradeoff(),
-        "dose_response": dose_response(),
-        "accuracy_curves": accuracy_curves(rows),
-        "harm": harm(),
-        "calibration_size": calibration_size(),
-        "margin": margin(),
+        "per_layer": per_layer(rows),
     }
     for name, values in results.items():
         print(name, values if name != "detection_over_time" else
