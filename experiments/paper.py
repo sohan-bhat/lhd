@@ -74,6 +74,12 @@ def listing(items: list[str]) -> str:
     return ", ".join(items[:-1]) + ", and " + items[-1]
 
 
+CAUSE_PHRASE = {"dead_units": "dead units", "unrecognized": "an unrecognized pattern",
+                "vanishing_gradient": "a vanishing gradient", "runaway_weights": "runaway weights",
+                "frozen_layer": "a frozen layer", "diverged": "divergence"}
+RULE_NAME = {"vanishing_gradient": "vanishing gradient", "runaway_weights": "runaway weights", "diverged": "divergence"}
+
+
 def fault_name(fam: str, layer: str) -> str:
     return f"a frozen {layer}" if fam == "frozen" else f"{fam[4:]}\\% dead units in {layer}"
 
@@ -214,6 +220,26 @@ class Data:
         return {"calibration": calibration, "fresh": fresh, "main": main, "other": other,
                 "total": calibration + fresh + main + other}
 
+    def extra(self, family: str) -> dict:
+        """Pooled counts and named causes for one fault family beyond the main study."""
+        from collections import Counter
+
+        out = {"causes": Counter(), "detected": [0, 0], "both": [0, 0], "acc": 0}
+        for a in self.archs:
+            out["causes"].update(self.summary["archs"][a]["confusion"].get(family, {}))
+            st = self.summary["archs"][a]["families"].get(family)
+            if not st:
+                continue
+            out["detected"][0] += st["detected"]["k"]
+            out["detected"][1] += st["detected"]["n"]
+            out["acc"] += st["acc_detected"]["k"]
+            if st["cause_ok"]["n"]:
+                both = sum(1 for r in self.runs if r["arch"] == a and r["family"] == family
+                           and r["layer_ok"] == "True" and r["cause_ok"] == "True")
+                out["both"][0] += both
+                out["both"][1] += st["detected"]["k"]
+        return out
+
     def more_complete(self) -> bool:
         """Whether every run with a fault beyond frozen layers and dead units has been trained and scored."""
         planned = defaultdict(int)
@@ -316,9 +342,20 @@ Since training runs consume significant compute, every silent failure that goes 
 
 def method(d: Data) -> str:
     m, f, pat = SETTINGS["margin"], SETTINGS["floor"], SETTINGS["patience"]
-    untested = (" The rules for divergence, vanishing gradients, and runaway weights were exercised only by the extra "
-                "faults in Section~\\ref{sec:extra}." if d.more_complete()
-                else " The rules for divergence, vanishing gradients, and runaway weights were not tested.")
+    if d.more_complete():
+        named = set()
+        for fam in ("latefrozen", "latedead50", "detach", "lr10", "lr100"):
+            named |= {c for c, n in d.extra(fam)["causes"].items() if n}
+        tested = [c for c in ("vanishing_gradient", "runaway_weights", "diverged") if c in named]
+        never = [c for c in ("vanishing_gradient", "runaway_weights", "diverged") if c not in named]
+        untested = (" The " + listing([RULE_NAME[c] for c in tested]) + " rule" + ("s were" if len(tested) > 1 else " was")
+                    + " exercised only by the extra faults in Section~\\ref{sec:extra}" if tested else " ")
+        if never:
+            untested += (", and the " if tested else "The ") + listing([RULE_NAME[c] for c in never]) + " rule" \
+                + ("s never" if len(never) > 1 else " never") + " fired in any run"
+        untested += "."
+    else:
+        untested = " The rules for divergence, vanishing gradients, and runaway weights were not tested."
     return f"""\\section{{Method}}
 
 \\subsection{{Signals}}
@@ -335,7 +372,7 @@ with margin $m = {m}$ and floor $f = {f}$, and a value that is not a finite numb
 
 \\subsection{{Alarm and diagnosis}}
 
-LHD raises an alarm once one signal of one layer stays out of range for $p = {pat}$ epochs in a row. If several layers reach that point in the same epoch, it reports the first one in the order data flows through the network. The settings $m$, $f$, and $p$ come from the tests of the LHD library, written on 12 October 2026, and were committed to the experiment code on 31 October 2026 (commit \\href{{https://github.com/sohan-bhat/lhd/commit/f55a811}}{{\\texttt{{f55a811}}}}) before any of the study's training runs started. An earlier draft of this work defined the threshold as a multiple of the largest healthy value, and the rule above replaced it, adding the floor and a margin below the lowest healthy value, before any run was trained. LHD then names a likely cause from the pattern across the alarmed layer's four signals (Table~\\ref{{tab:rules}}), stops training, and reports the layer, the signals out of range, the cause, and a suggested check. For a frozen layer, for example, it suggests checking that the layer's parameters are passed to the optimizer. The main study planted only frozen layers and dead units, so it tested only the frozen layer and dead unit rules.{untested} Figure~\\ref{{fig:how_lhd_works}} shows this on one CNN run with a frozen layer.
+LHD raises an alarm once one signal of one layer stays out of range for $p = {pat}$ epochs in a row. If several layers reach that point in the same epoch, it reports the first one in the order data flows through the network. The settings $m$, $f$, and $p$ come from the tests of the LHD library, written on 12 October 2026, and were committed to the experiment code on 31 October 2026 (commit \\href{{https://github.com/sohan-bhat/lhd/commit/f55a811}}{{\\texttt{{f55a811}}}}) before any of the study's training runs started. An earlier draft of this work defined the threshold as a multiple of the largest healthy value, and the rule above replaced it, adding the floor and a margin below the lowest healthy value, before any run was trained. LHD then names a likely cause from the pattern across the alarmed layer's four signals (Table~\\ref{{tab:rules}}), stops training, and reports the layer, the signals out of range, the cause, and a suggested check. For a frozen layer, for example, it suggests checking that the layer's parameters are passed to the optimizer. The main study planted only frozen layers and dead units, so it tested only the frozen layer and dead unit rules.{untested} Figure~\\ref{{fig:how_lhd_works}} shows LHD stopping one CNN run with a frozen layer.
 
 \\begin{{table}}[t]
 \\centering
@@ -802,10 +839,26 @@ def extra_section(d: Data) -> str:
                 acc += st["acc_detected"]["k"]
         if n:
             rows.append(f"{label} & {n} & \\textbf{{{pct(k, n)}}} & {pct(acc, n)} \\\\")
+    lf, ld, dc, l10, l100 = (d.extra(f) for f in ("latefrozen", "latedead50", "detach", "lr10", "lr100"))
+
+    def causes(info):
+        return listing([f"{CAUSE_PHRASE.get(c, c.replace('_', ' '))} in {count_word(n, 'run')}" for c, n in info["causes"].most_common()
+                        if c != "not detected"])
+
+    diverged = sum(d.extra(f)["causes"].get("diverged", 0) for f in ("lr10", "lr100", "detach", "latefrozen", "latedead50"))
+    extra_text = (f"LHD caught {lf['detected'][0]} of {lf['detected'][1]} runs with a frozen layer planted at epoch 6, naming the "
+                  f"layer and cause in {lf['both'][0]} of them, while the accuracy curve caught {lf['acc']}. It caught "
+                  f"{ld['detected'][0]} of {ld['detected'][1]} runs with half a layer's units killed at epoch 6, naming the layer "
+                  f"and cause in {ld['both'][0]}. For the gradient cuts, it caught {dc['detected'][0]} of {dc['detected'][1]}, "
+                  f"named a layer before the cut in {dc['both'][0]}, and called the cause a vanishing gradient, which is the "
+                  f"only test of that rule. LHD also fired on every learning rate jump, but the causes it named are mixed. For a "
+                  f"tenfold jump it named {causes(l10)}, and for a hundredfold jump it named {causes(l100)}.")
+    if diverged == 0:
+        extra_text += " No run produced a signal that was not a finite number, so the divergence rule never fired."
     return f"""\\subsection{{Faults beyond frozen layers and dead units}}
 \\label{{sec:extra}}
 
-A third set of runs tested faults the rules were not built around: a frozen layer or 50\\% dead units planted at epoch 6, a cut that stops gradients from reaching earlier layers, and a learning rate raised 10 or 100 times at epoch 6 (Table~\\ref{{tab:extra}}).
+A third set of runs tested faults the rules were not built around: a frozen layer or 50\\% dead units planted at epoch 6, a cut that stops gradients from reaching earlier layers, and a learning rate raised 10 or 100 times at epoch 6 (Table~\\ref{{tab:extra}}). {extra_text}
 
 \\begin{{table}}[t]
 \\centering
