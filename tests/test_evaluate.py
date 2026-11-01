@@ -149,6 +149,7 @@ def test_dead_check_uses_threshold_inclusively():
     history = layer_history([0.1, 0.5, 0.9], "dead_unit_fraction")
     assert dead_check_epoch(history, 0.5) == 2
     assert dead_check_epoch(history, 0.95) is None
+    assert dead_check_epoch(history, 0.5, layers={"fc2"}) is None
 
 
 def test_harm_bins_cover_every_drop():

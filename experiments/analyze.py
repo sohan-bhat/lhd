@@ -39,8 +39,10 @@ DETECTORS = (
     ("Loss curve, 3 epochs above healthy", "loss_epoch"),
     ("Zero update check", "zero_update_epoch"),
     ("Dead units check, 25%", "dead25_check_epoch"),
-    ("Dead units check, 50%", "dead50_check_epoch"),
-    ("Dead units check, 75%", "dead75_check_epoch"),
+    ("Dead units check, 50% (SageMaker DeadRelu default)", "dead50_check_epoch"),
+    ("Dead units check, 70% (DeepDiagnosis Dead Node)", "dead70_check_epoch"),
+    ("Dead units check, 80% (wandb-callbacks default)", "dead80_check_epoch"),
+    ("Any dead unit (wandb-callbacks verbose)", "deadany_check_epoch"),
     ("Zero update or dead units 50%", "simple_epoch"),
 )
 MARGINS = (0.0, 0.1, 0.25, 0.5, 0.75)

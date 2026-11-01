@@ -16,7 +16,7 @@ from pathlib import Path
 
 import numpy as np
 
-from experiments.grid import cut_affects
+from experiments.grid import cut_affects, dead_layers
 from halt.baseline import healthy_band
 from halt.replay import replay
 
@@ -95,7 +95,8 @@ def curve_alarm(history: list[dict], band: dict, key: str, direction: str,
     return None
 
 
-DEAD_CHECKS = (0.25, 0.5, 0.75)
+DEAD_CHECKS = (0.25, 0.5, 0.7, 0.8)
+ANY_DEAD = 1e-9
 HARM_BINS = ((None, 0.005, "under 0.5 pts"), (0.005, 0.02, "0.5 to 2 pts"), (0.02, None, "2 pts or more"))
 
 
@@ -111,15 +112,29 @@ def zero_update_epoch(history: list[dict]) -> int | None:
     return None
 
 
-def dead_check_epoch(history: list[dict], threshold: float) -> int | None:
+def dead_check_epoch(history: list[dict], threshold: float, layers=None) -> int | None:
     """First epoch in which some layer has at least `threshold` of its units dead.
 
-    A fixed rule that needs no healthy runs, used as a baseline.
+    A fixed rule that needs no healthy runs, used as a baseline. On ReLU
+    layers, threshold 0.5 matches the default of SageMaker Debugger's
+    DeadRelu rule, 0.7 the Dead Node check of DeepDiagnosis, and 0.8 the
+    default of the wandb-callbacks DeadReluCallback. ANY_DEAD matches
+    that callback's verbose mode, which warns on a single dead unit.
     """
     for entry in history:
-        if any(values["dead_unit_fraction"] >= threshold for values in entry["layers"].values()):
+        if any(values["dead_unit_fraction"] >= threshold for name, values in entry["layers"].items()
+               if layers is None or name in layers):
             return entry["epoch"]
     return None
+
+
+_RELU = {}
+
+
+def _relu_layers(arch: str) -> set[str]:
+    if arch not in _RELU:
+        _RELU[arch] = set(dead_layers(arch))
+    return _RELU[arch]
 
 
 def harm_bin(drop: float | None) -> str | None:
@@ -158,6 +173,7 @@ def score_run(run: dict, ref: dict, settings: dict, twins: dict[int, float]) -> 
     onset = fault.get("onset", 1)
     report = replay(history, ref["band"], **settings)
     patience = settings["patience"]
+    relu = _relu_layers(meta["arch"])
     halt_epoch = report["epoch"] if report else None
     final = history[-1]["val_accuracy"]
     row = {
@@ -179,7 +195,8 @@ def score_run(run: dict, ref: dict, settings: dict, twins: dict[int, float]) -> 
         "acc1_epoch": curve_alarm(history, ref["accuracy"], "val_accuracy", "below", 1),
         "loss_epoch": curve_alarm(history, ref["loss"], "val_loss", "above", patience),
         "zero_update_epoch": zero_update_epoch(history),
-        **{f"dead{int(t * 100)}_check_epoch": dead_check_epoch(history, t) for t in DEAD_CHECKS},
+        **{f"dead{int(t * 100)}_check_epoch": dead_check_epoch(history, t, relu) for t in DEAD_CHECKS},
+        "deadany_check_epoch": dead_check_epoch(history, ANY_DEAD, relu),
         "final_acc": final,
         "best_acc": max(e["val_accuracy"] for e in history),
         "healthy_final_mean": ref["final_mean"],
