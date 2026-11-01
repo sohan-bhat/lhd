@@ -178,8 +178,11 @@ def _family(fault: dict) -> str:
 
 
 def _mark_fire(ax, report) -> None:
-    """A thin vertical rule at the epoch HALT stops the run."""
+    """A thin vertical rule at the epoch HALT stops the run, with headroom
+    above the data for its label."""
     if report:
+        low, high = ax.get_ylim()
+        ax.set_ylim(low, high + 0.14 * (high - low))
         ax.axvline(report["epoch"], color=INK_2, linewidth=1)
         ax.annotate("HALT stops", (report["epoch"], 1), xycoords=("data", "axes fraction"),
                     xytext=(4, -12), textcoords="offset points", fontsize=8, color=INK_2)
