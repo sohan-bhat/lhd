@@ -58,17 +58,17 @@ RULE_GRAY = _deepen(MUTED, 0.06)
 ARCH_LABEL = {"mlp": "Fully connected", "transformer": "Transformer", "cnn": "CNN"}
 PROPOSAL = ("frozen", "dead10", "dead25", "dead50")
 DEAD = ("dead10", "dead25", "dead50")
-ACC3 = "Accuracy curve, 3 epochs below healthy"
+PATIENT = f", {SETTINGS['patience']} epochs"
+DEEP_DIAGNOSIS = f"Dead units check, 70% (DeepDiagnosis Dead Node){PATIENT}"
+WANDB = f"Dead units check, 80% (wandb-callbacks default){PATIENT}"
+ANY_DEAD = f"Any dead unit (wandb-callbacks verbose){PATIENT}"
 TRADEOFF_LABELS = {
     "LHD": "LHD",
-    ACC3: "Accuracy curve",
-    "Accuracy curve, 1 epoch below healthy": "Accuracy curve, 1 epoch",
-    "Loss curve, 3 epochs above healthy": "Loss curve",
-    "Dead units check, 25%": "25% dead rule",
-    "Dead units check, 50% (SageMaker DeadRelu default)": "SageMaker (50%)",
-    "Dead units check, 70% (DeepDiagnosis Dead Node)": "DeepDiagnosis (70%)",
-    "Dead units check, 80% (wandb-callbacks default)": "wandb-callbacks (80%)",
-    "Any dead unit (wandb-callbacks verbose)": "Any dead unit",
+    f"Dead units check, 25%{PATIENT}": "25% dead rule",
+    f"Dead units check, 50% (SageMaker DeadRelu default){PATIENT}": "SageMaker (50%)",
+    DEEP_DIAGNOSIS: "DeepDiagnosis (70%)",
+    WANDB: "wandb-callbacks (80%)",
+    ANY_DEAD: "Any dead unit",
 }
 FAULT_COLUMNS = (("frozen", "Frozen"), ("dead10", "Dead\n10%"), ("dead25", "Dead\n25%"), ("dead50", "Dead\n50%"))
 CELL_RAMP = LinearSegmentedColormap.from_list("cells", RAMP(np.linspace(0.12, 1, 256)))
@@ -367,13 +367,15 @@ def detection_over_time(rows: list[dict]) -> dict:
 
 
 def detectors_tradeoff() -> dict:
-    """Every detector as one point: healthy runs flagged against dead unit faults caught."""
+    """LHD and the fixed dead unit rules, each held to LHD's patience, as one
+    point each: healthy runs flagged against dead unit faults caught at the
+    planted layer."""
     table = [r for r in read_csv("detectors.csv") if r["arch"] == "pooled"]
     points = {}
     for detector, short in TRADEOFF_LABELS.items():
         healthy = next(r for r in table if r["detector"] == detector and r["family"] == "proposal")
         dead = [r for r in table if r["detector"] == detector and r["family"] in DEAD]
-        caught, broken = sum(r["caught"] for r in dead), sum(r["broken_runs"] for r in dead)
+        caught, broken = sum(r["caught_right_layer"] for r in dead), sum(r["broken_runs"] for r in dead)
         points[detector] = (100 * healthy["false_alarm_rate"], 100 * caught / broken, short)
     fig, (ax,) = _figure(3.8, 1, left=0.5, right=0.15, bottom=0.42, top=0.12)
     ax.set_xlim(-3, 82)
@@ -382,11 +384,9 @@ def detectors_tradeoff() -> dict:
     _percent_axis(ax)
     offsets = {
         "LHD": (8, 0, "left"),
-        ACC3: (6, 2, "left"),
-        "Loss curve, 3 epochs above healthy": (6, 0, "left"),
-        "Dead units check, 70% (DeepDiagnosis Dead Node)": (6, -1, "left"),
-        "Dead units check, 80% (wandb-callbacks default)": (6, -5, "left"),
-        "Any dead unit (wandb-callbacks verbose)": (-7, 0, "right"),
+        DEEP_DIAGNOSIS: (6, 1, "left"),
+        WANDB: (6, -4, "left"),
+        ANY_DEAD: (-7, 0, "right"),
     }
     for detector, (x, y, short) in points.items():
         lhd = detector == "LHD"
@@ -396,7 +396,7 @@ def detectors_tradeoff() -> dict:
         ax.annotate(short, (x, y), xytext=(dx, dy), textcoords="offset points", ha=ha, va="center",
                     fontsize=SIZE, color=TEXT)
     ax.set_xlabel("New healthy runs flagged (%)")
-    ax.set_ylabel("Dead unit faults caught (%)")
+    ax.set_ylabel("Dead unit faults caught at the planted layer (%)")
     _save(fig, "detectors_tradeoff")
     return points
 
