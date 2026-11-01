@@ -172,3 +172,103 @@ def test_score_arch_scores_simple_checks():
     assert fault["zero_update_epoch"] == 1 and fault["simple_detected"]
     assert fault["simple_gap"] == 1 - 3
     assert fault["harm"] == "under 0.5 pts"
+    assert fault["zero_update_layer"] == "fc1"
+    assert (fault["zero_update_p3_epoch"], fault["zero_update_p3_layer"]) == (3, "fc1")
+    assert fault["dead50_check_p3_epoch"] is None and fault["dead50_check_p3_layer"] is None
+
+
+def two_layer_history(fc1, fc2, signal):
+    return [{"epoch": i + 1, "layers": {
+        "fc1": {"weight_change": 0.1, "dead_unit_fraction": 0.0, signal: a},
+        "fc2": {"weight_change": 0.1, "dead_unit_fraction": 0.0, signal: b}}}
+        for i, (a, b) in enumerate(zip(fc1, fc2))]
+
+
+def test_fixed_checks_need_patience_in_a_row():
+    from experiments.evaluate import dead_check, zero_update_check
+
+    two = layer_history([0.1, 0.0, 0.0, 0.1, 0.1], "weight_change")
+    assert zero_update_check(two, 1) == (2, "fc1")
+    assert zero_update_check(two, 3) == (None, None)
+    three = layer_history([0.1, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0], "weight_change")
+    assert zero_update_check(three, 3) == (7, "fc1")
+    dead = layer_history([0.6, 0.6, 0.2, 0.6, 0.6, 0.6], "dead_unit_fraction")
+    assert dead_check(dead, 0.5, patience=1) == (1, "fc1")
+    assert dead_check(dead, 0.5, patience=3) == (6, "fc1")
+
+
+def test_fixed_checks_name_the_layer():
+    from experiments.evaluate import dead_check, fixed_checks, zero_update_check
+
+    later = two_layer_history([0.1, 0.1, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.1, 0.1], "weight_change")
+    assert zero_update_check(later, 1) == (1, "fc2")
+    assert zero_update_check(later, 3) == (3, "fc2")
+    tie = two_layer_history([0.1, 0.0, 0.0, 0.0], [0.1, 0.0, 0.0, 0.0], "weight_change")
+    assert zero_update_check(tie, 3) == (4, "fc1")
+    dead = two_layer_history([0.9, 0.9, 0.9], [0.6, 0.6, 0.6], "dead_unit_fraction")
+    assert dead_check(dead, 0.5, patience=3) == (3, "fc1")
+    assert dead_check(dead, 0.5, layers={"fc2"}, patience=3) == (3, "fc2")
+    fields = fixed_checks(dead, {"fc2"})
+    assert (fields["dead50_check_epoch"], fields["dead50_check_layer"]) == (1, "fc2")
+    assert (fields["dead50_check_p3_epoch"], fields["dead50_check_p3_layer"]) == (3, "fc2")
+    assert fields["dead70_check_p3_epoch"] is None and fields["zero_update_p3_epoch"] is None
+    assert {"deadany_check_layer", "deadany_check_p3_layer", "dead80_check_p3_epoch"} <= set(fields)
+
+
+def detector_row(role, family, kind, layer, onset=1, **fields):
+    from experiments.evaluate import DEAD_CHECKS, FIXED_PATIENCES
+
+    row = {"arch": "mlp", "role": role, "family": family, "fault_type": kind, "fault_layer": layer,
+           "onset": onset, "epochs": 10, "lhd_epoch": None, "lhd_layer": None, "detected": False,
+           "layer_ok": None, "acc_epoch": None, "acc1_epoch": None, "loss_epoch": None}
+    names = ["zero_update", "deadany_check"] + [f"dead{int(t * 100)}_check" for t in DEAD_CHECKS]
+    for name in names:
+        for suffix in FIXED_PATIENCES:
+            row[f"{name}{suffix}_epoch"] = row[f"{name}{suffix}_layer"] = None
+    row.update(fields)
+    return row
+
+
+def test_detector_table_counts_right_layer():
+    from experiments.analyze import detector_table
+    from experiments.evaluate import wilson
+
+    rows = [
+        detector_row("fault", "frozen", "frozen", "fc2", lhd_epoch=3, detected=True, layer_ok=True,
+                     acc_epoch=6, zero_update_epoch=2, zero_update_layer="fc2",
+                     zero_update_p3_epoch=4, zero_update_p3_layer="fc2",
+                     dead50_check_epoch=1, dead50_check_layer="fc1"),
+        detector_row("fault", "dead25", "dead", "fc1", lhd_epoch=4, detected=True, layer_ok=False,
+                     dead25_check_epoch=1, dead25_check_layer="fc3",
+                     dead25_check_p3_epoch=3, dead25_check_p3_layer="fc1",
+                     dead50_check_epoch=5, dead50_check_layer="fc1"),
+        detector_row("fault", "lr10", "lr", None, onset=6, lhd_epoch=7, detected=True,
+                     zero_update_epoch=8, zero_update_layer="fc1"),
+        detector_row("fresh", "none", "none", None, dead25_check_epoch=2, dead25_check_layer="fc3"),
+    ]
+    table = {(r["family"], r["detector"]): r for r in detector_table(rows) if r["arch"] == "mlp"}
+
+    def counts(family, detector):
+        r = table[(family, detector)]
+        return r["caught"], r["caught_right_layer"]
+
+    assert counts("proposal", "LHD") == (2, 1)
+    assert counts("proposal", "Zero update check") == (1, 1)
+    assert counts("proposal", "Zero update check, 3 epochs") == (1, 1)
+    assert counts("proposal", "Dead units check, 25%") == (1, 0)
+    assert counts("proposal", "Dead units check, 25%, 3 epochs") == (1, 1)
+    assert counts("proposal", "Zero update or dead units 50%") == (2, 1)
+    assert counts("proposal", "Zero update or dead units 50%, 3 epochs") == (1, 1)
+    assert counts("frozen", "Zero update or dead units 50%") == (1, 0)
+    lhd = table[("proposal", "LHD")]
+    assert lhd["caught_right_layer_rate"] == 0.5
+    assert (lhd["caught_right_layer_low"], lhd["caught_right_layer_high"]) == pytest.approx(wilson(1, 2))
+    curve = table[("proposal", "Accuracy curve, 3 epochs below healthy")]
+    assert curve["caught"] == 1
+    assert all(curve[k] is None for k in ("caught_right_layer", "caught_right_layer_rate",
+                                          "caught_right_layer_low", "caught_right_layer_high"))
+    assert table[("lr10", "LHD")]["caught_right_layer"] is None
+    assert table[("lr10", "Zero update check")]["caught"] == 1
+    assert table[("lr10", "Zero update check")]["caught_right_layer"] is None
+    assert table[("proposal", "Dead units check, 25%")]["false_alarms"] == 1
+    assert table[("proposal", "Dead units check, 25%, 3 epochs")]["false_alarms"] == 0

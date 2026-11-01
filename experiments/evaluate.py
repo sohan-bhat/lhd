@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import math
 from collections import defaultdict
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -98,22 +99,48 @@ def curve_alarm(history: list[dict], band: dict, key: str, direction: str,
 DEAD_CHECKS = (0.25, 0.5, 0.7, 0.8)
 ANY_DEAD = 1e-9
 HARM_BINS = ((None, 0.005, "under 0.5 pts"), (0.005, 0.02, "0.5 to 2 pts"), (0.02, None, "2 pts or more"))
+FIXED_PATIENCES = {"": 1, "_p3": 3}
 
 
-def zero_update_epoch(history: list[dict]) -> int | None:
-    """First epoch in which some watched layer's weights did not move at all.
+def first_streak(history: list[dict], hit, patience: int = 1, layers=None) -> tuple[int | None, str | None]:
+    """First epoch and layer at which some layer has met `hit` for
+    `patience` epochs in a row, or (None, None).
+
+    `hit` takes one layer's values for one epoch. Layers are tried in
+    the order of entry["layers"], which is data-flow order, so the
+    earliest layer wins when several qualify in the same epoch. A
+    layer missing from an epoch starts its count again.
+    """
+    streaks: dict[str, int] = {}
+    for entry in history:
+        streaks = {name: streaks.get(name, 0) + 1 if hit(values) else 0
+                   for name, values in entry["layers"].items()
+                   if layers is None or name in layers}
+        for name, streak in streaks.items():
+            if streak >= patience:
+                return entry["epoch"], name
+    return None, None
+
+
+def zero_update_check(history: list[dict], patience: int = 1) -> tuple[int | None, str | None]:
+    """First epoch and layer at which some watched layer's weights did not
+    move at all, `patience` epochs in a row.
 
     A check that needs no healthy runs, the kind of assert an engineer
     might add by hand. It is a baseline for LHD, not part of it.
     """
-    for entry in history:
-        if any(values["weight_change"] == 0.0 for values in entry["layers"].values()):
-            return entry["epoch"]
-    return None
+    return first_streak(history, lambda values: values["weight_change"] == 0.0, patience)
 
 
-def dead_check_epoch(history: list[dict], threshold: float, layers=None) -> int | None:
-    """First epoch in which some layer has at least `threshold` of its units dead.
+def zero_update_epoch(history: list[dict], patience: int = 1) -> int | None:
+    """Epoch of `zero_update_check`, or None."""
+    return zero_update_check(history, patience)[0]
+
+
+def dead_check(history: list[dict], threshold: float, layers=None,
+               patience: int = 1) -> tuple[int | None, str | None]:
+    """First epoch and layer at which some layer has had at least
+    `threshold` of its units dead, `patience` epochs in a row.
 
     A fixed rule that needs no healthy runs, used as a baseline. On ReLU
     layers, threshold 0.5 matches the default of SageMaker Debugger's
@@ -121,10 +148,47 @@ def dead_check_epoch(history: list[dict], threshold: float, layers=None) -> int 
     default of the wandb-callbacks DeadReluCallback. ANY_DEAD matches
     that callback's verbose mode, which warns on a single dead unit.
     """
-    for entry in history:
-        if any(values["dead_unit_fraction"] >= threshold for name, values in entry["layers"].items()
-               if layers is None or name in layers):
-            return entry["epoch"]
+    return first_streak(history, lambda values: values["dead_unit_fraction"] >= threshold,
+                        patience, layers)
+
+
+def dead_check_epoch(history: list[dict], threshold: float, layers=None, patience: int = 1) -> int | None:
+    """Epoch of `dead_check`, or None."""
+    return dead_check(history, threshold, layers, patience)[0]
+
+
+def fixed_checks(history: list[dict], relu: set[str]) -> dict:
+    """Epoch and layer of every fixed check, at patience 1 and 3.
+
+    Names are `<check>_epoch` and `<check>_layer` at patience 1 and
+    `<check>_p3_epoch` and `<check>_p3_layer` at patience 3. Dead
+    unit checks look only at ReLU layers.
+    """
+    fields = {}
+    for suffix, patience in FIXED_PATIENCES.items():
+        found = {"zero_update": zero_update_check(history, patience)}
+        for t in DEAD_CHECKS:
+            found[f"dead{int(t * 100)}_check"] = dead_check(history, t, relu, patience)
+        found["deadany_check"] = dead_check(history, ANY_DEAD, relu, patience)
+        for name, (epoch, layer) in found.items():
+            fields[f"{name}{suffix}_epoch"] = epoch
+            fields[f"{name}{suffix}_layer"] = layer
+    return fields
+
+
+@lru_cache(maxsize=None)
+def right_layers(arch: str, kind: str, layer: str | None) -> tuple[str, ...] | None:
+    """Layers a detector should name for a planted fault, or None when
+    the fault has no layer.
+
+    The planted layer for frozen layers and dead units, and the layers
+    upstream of the cut for a cut gradient, which are the ones that
+    stop learning.
+    """
+    if kind in ("frozen", "dead"):
+        return (layer,)
+    if kind == "detach":
+        return tuple(cut_affects(arch, layer))
     return None
 
 
@@ -194,9 +258,7 @@ def score_run(run: dict, ref: dict, settings: dict, twins: dict[int, float]) -> 
         "acc_epoch": curve_alarm(history, ref["accuracy"], "val_accuracy", "below", patience),
         "acc1_epoch": curve_alarm(history, ref["accuracy"], "val_accuracy", "below", 1),
         "loss_epoch": curve_alarm(history, ref["loss"], "val_loss", "above", patience),
-        "zero_update_epoch": zero_update_epoch(history),
-        **{f"dead{int(t * 100)}_check_epoch": dead_check_epoch(history, t, relu) for t in DEAD_CHECKS},
-        "deadany_check_epoch": dead_check_epoch(history, ANY_DEAD, relu),
+        **fixed_checks(history, relu),
         "final_acc": final,
         "best_acc": max(e["val_accuracy"] for e in history),
         "healthy_final_mean": ref["final_mean"],
@@ -216,13 +278,8 @@ def _judge(row: dict, fault: dict, arch: str) -> None:
     row["fired"] = lhd is not None
     row["fired_before_onset"] = lhd is not None and kind != "none" and lhd < onset
     row["detected"] = lhd is not None and lhd >= onset and kind != "none"
-    if kind in ("frozen", "dead"):
-        right_layers = [fault["layer"]]
-    elif kind == "detach":
-        right_layers = cut_affects(arch, fault["layer"])
-    else:
-        right_layers = None
-    row["layer_ok"] = (row["lhd_layer"] in right_layers) if (row["detected"] and right_layers) else None
+    right = right_layers(arch, kind, fault.get("layer"))
+    row["layer_ok"] = (row["lhd_layer"] in right) if (row["detected"] and right) else None
     expected = EXPECTED_CAUSE.get(kind)
     row["cause_ok"] = (row["lhd_cause"] == expected) if (row["detected"] and expected) else None
     if kind == "none":
