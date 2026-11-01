@@ -65,14 +65,14 @@ def _spec(arch: str, role: str, seed: int, fault: dict, tag: str, phase: str) ->
 
 
 def build_grid(phase: str, archs=ARCH_ORDER) -> list[dict]:
-    """All run specs for a phase, calibration runs first."""
+    """All run specs for a phase, one architecture at a time,
+    calibration runs first within each."""
     specs = []
     healthy = {"type": "none"}
-    if phase == "core":
-        for arch in archs:
+    for arch in archs:
+        if phase == "core":
             for seed in CALIBRATION_SEEDS:
                 specs.append(_spec(arch, "calibration", seed, healthy, "none", phase))
-    for arch in archs:
         for seed in FRESH_SEEDS[phase]:
             specs.append(_spec(arch, "fresh", seed, healthy, "none", phase))
         for seed in FAULT_SEEDS[phase]:

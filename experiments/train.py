@@ -22,10 +22,11 @@ from halt.recorder import Recorder
 from halt.torch_adapter import TorchAdapter
 
 ARCHS = {
-    "cnn": {"dataset": "gtsrb", "epochs": 20, "batch_size": 128, "lr": 1e-3},
+    "cnn": {"dataset": "gtsrb", "epochs": 15, "batch_size": 128, "lr": 1e-3,
+            "val_size": 4000},
     "mlp": {"dataset": "fashion", "epochs": 20, "batch_size": 128, "lr": 1e-3},
-    "transformer": {"dataset": "shakespeare", "epochs": 20, "batch_size": 32,
-                    "lr": 1e-3, "context": 64, "steps": 150},
+    "transformer": {"dataset": "shakespeare", "epochs": 15, "batch_size": 32,
+                    "lr": 1e-3, "context": 64, "steps": 100},
 }
 
 DEAD_BIAS = -1.0
@@ -38,7 +39,8 @@ def get_task(arch: str):
     if arch not in _TASKS:
         cfg = ARCHS[arch]
         _TASKS[arch] = load_task(cfg["dataset"], cfg["batch_size"],
-                                 cfg.get("context", 64), cfg.get("steps", 150))
+                                 cfg.get("context", 64), cfg.get("steps", 150),
+                                 cfg.get("val_size"))
     return _TASKS[arch]
 
 

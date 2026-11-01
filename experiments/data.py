@@ -207,12 +207,27 @@ def _normalize(train: torch.Tensor, val: torch.Tensor, dims: tuple):
     return (train - mean) / std, (val - mean) / std
 
 
-def load_task(dataset: str, batch_size: int, context: int = 64, steps: int = 150):
-    """Build the task for a dataset name: gtsrb, fashion, or shakespeare."""
+def _subset(x: torch.Tensor, y: torch.Tensor, size: int):
+    """The same random examples every time, chosen once with seed 2."""
+    generator = torch.Generator().manual_seed(2)
+    idx = torch.randperm(len(x), generator=generator)[:size]
+    return x[idx], y[idx]
+
+
+def load_task(dataset: str, batch_size: int, context: int = 64, steps: int = 150,
+              val_size: int | None = None):
+    """Build the task for a dataset name: gtsrb, fashion, or shakespeare.
+
+    val_size, if given, scores image tasks on a fixed random subset
+    of the validation set to save time.
+    """
     if dataset == "gtsrb":
         raw = _cached("gtsrb32", _build_gtsrb)
         train_x, val_x = _normalize(raw["train_x"], raw["test_x"], (0, 2, 3))
-        return ImageTask(train_x, raw["train_y"], val_x, raw["test_y"], 43, batch_size)
+        val_y = raw["test_y"]
+        if val_size is not None:
+            val_x, val_y = _subset(val_x, val_y, val_size)
+        return ImageTask(train_x, raw["train_y"], val_x, val_y, 43, batch_size)
     if dataset == "fashion":
         raw = _cached("fashion", _build_fashion)
         train_x, val_x = _normalize(raw["train_x"].flatten(1), raw["test_x"].flatten(1), (0, 1))

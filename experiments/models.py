@@ -13,22 +13,23 @@ from torch import nn
 class CNN(nn.Module):
     """Small convolutional network for 32x32 color images.
 
-    Layout: conv1, conv2, conv3 (each 3x3, ReLU, 2x2 max pool),
-    then fc1 (ReLU) and fc2 (class scores).
+    Layout: conv1, conv2, conv3 (8, 16, and 32 filters, each 3x3,
+    ReLU, 2x2 max pool), then fc1 (64 units, ReLU) and fc2 (class
+    scores). Kept small so hundreds of runs fit on one laptop CPU.
     """
 
     def __init__(self, classes: int):
         super().__init__()
-        self.conv1 = nn.Conv2d(3, 16, 3, padding=1)
+        self.conv1 = nn.Conv2d(3, 8, 3, padding=1)
         self.act1 = nn.ReLU()
-        self.conv2 = nn.Conv2d(16, 32, 3, padding=1)
+        self.conv2 = nn.Conv2d(8, 16, 3, padding=1)
         self.act2 = nn.ReLU()
-        self.conv3 = nn.Conv2d(32, 64, 3, padding=1)
+        self.conv3 = nn.Conv2d(16, 32, 3, padding=1)
         self.act3 = nn.ReLU()
         self.pool = nn.MaxPool2d(2)
-        self.fc1 = nn.Linear(64 * 4 * 4, 128)
+        self.fc1 = nn.Linear(32 * 4 * 4, 64)
         self.act4 = nn.ReLU()
-        self.fc2 = nn.Linear(128, classes)
+        self.fc2 = nn.Linear(64, classes)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.pool(self.act1(self.conv1(x)))
