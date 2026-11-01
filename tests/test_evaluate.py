@@ -114,3 +114,17 @@ def test_score_arch_end_to_end():
     assert fault["gap"] == 7 - 3
     assert fault["compute_saved"] == pytest.approx(0.5)
     assert set(SIGNALS) <= set(runs[0]["history"][0]["layers"]["fc1"])
+
+
+def test_clustered_tests_average_within_groups():
+    from experiments.evaluate import clustered_tests
+
+    rows = [{"role": "fault", "arch": "mlp", "seed": s, "family": "frozen", "fault_layer": layer,
+             "gap": g} for s, layer, g in ((1, "fc1", 4), (1, "fc2", 6), (2, "fc1", 2), (2, "fc2", -2))]
+    result = clustered_tests(rows, draws=200)
+    seed = result["by_seed"]
+    assert (seed["groups"], seed["halt_earlier"], seed["acc_earlier"], seed["ties"]) == (2, 1, 0, 1)
+    assert result["by_condition"]["groups"] == 2
+    assert result["by_condition"]["halt_earlier"] == 2
+    low, high = result["mean_gap_ci"]
+    assert low <= 2.5 <= high

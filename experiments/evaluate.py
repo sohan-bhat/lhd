@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import math
+from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -276,4 +277,47 @@ def paired_tests(rows: list[dict]) -> dict:
         result["wilcoxon_p"] = float(wilcoxon(nonzero, alternative="greater").pvalue)
         result["sign_p"] = float(binomtest(int((nonzero > 0).sum()), len(nonzero), 0.5,
                                            alternative="greater").pvalue)
+    return result
+
+
+def clustered_tests(rows: list[dict], draws: int = 10000, seed: int = 0) -> dict:
+    """Paired tests that respect how broken runs are grouped.
+
+    Runs that share a seed share starting weights and data order, and
+    runs that share a fault condition (fault and layer) share the same
+    break, so single runs are not independent. Gaps are averaged
+    within each group before the one-sided Wilcoxon and sign tests,
+    and the 95% interval for the mean gap comes from a bootstrap that
+    resamples whole seeds within each architecture.
+    """
+    from scipy.stats import binomtest, wilcoxon
+
+    faults = [r for r in rows if r["role"] == "fault"]
+    by_seed, by_condition = defaultdict(list), defaultdict(list)
+    for r in faults:
+        by_seed[(r["arch"], r["seed"])].append(r["gap"])
+        by_condition[(r["arch"], r["family"], r["fault_layer"])].append(r["gap"])
+    result = {}
+    for name, groups in (("by_seed", by_seed), ("by_condition", by_condition)):
+        means = np.array([np.mean(v) for v in groups.values()], dtype=float)
+        entry = {"groups": int(len(means)), "halt_earlier": int((means > 0).sum()),
+                 "acc_earlier": int((means < 0).sum()), "ties": int((means == 0).sum())}
+        nonzero = means[means != 0]
+        if len(nonzero):
+            entry["wilcoxon_p"] = float(wilcoxon(nonzero, alternative="greater").pvalue)
+            entry["sign_p"] = float(binomtest(int((nonzero > 0).sum()), len(nonzero), 0.5,
+                                              alternative="greater").pvalue)
+        result[name] = entry
+    rng = np.random.default_rng(seed)
+    per_arch = defaultdict(list)
+    for (arch, _), gaps in by_seed.items():
+        per_arch[arch].append(np.array(gaps, dtype=float))
+    if per_arch:
+        means = []
+        for _ in range(draws):
+            picked = []
+            for groups in per_arch.values():
+                picked.extend(groups[i] for i in rng.integers(0, len(groups), len(groups)))
+            means.append(np.concatenate(picked).mean())
+        result["mean_gap_ci"] = [float(np.percentile(means, 2.5)), float(np.percentile(means, 97.5))]
     return result

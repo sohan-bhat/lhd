@@ -17,6 +17,7 @@ from collections import Counter, defaultdict
 from experiments.evaluate import (
     RESULTS,
     SETTINGS,
+    clustered_tests,
     load_runs,
     paired_tests,
     rate,
@@ -112,6 +113,7 @@ def summarize_arch(rows: list[dict]) -> dict:
         "healthy": summarize_healthy(rows),
         "proposal": summarize_faults(proposal),
         "proposal_tests": paired_tests(proposal),
+        "proposal_clustered": clustered_tests(proposal),
         "families": {f: summarize_faults([r for r in faults if r["family"] == f]) for f in families},
         "family_tests": {f: paired_tests([r for r in faults if r["family"] == f]) for f in families},
         "confusion": confusion(faults),
@@ -147,7 +149,9 @@ def main(argv=None) -> None:
         "healthy": summarize_healthy(all_rows),
         "proposal": summarize_faults(proposal),
         "proposal_tests": paired_tests(proposal),
+        "proposal_clustered": clustered_tests(proposal),
         "all_faults": summarize_faults([r for r in all_rows if r["role"] == "fault"]),
+        "all_faults_clustered": clustered_tests([r for r in all_rows if r["role"] == "fault"]),
         "acc_never_on_detected": rate(
             [{**r, "x": not r["acc_detected"]} for r in proposal if r["detected"]], "x"),
     }
