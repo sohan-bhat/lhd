@@ -82,8 +82,27 @@ def headline_table(summary: dict) -> list[str]:
     row("HALT false alarms", lambda s: short(s["healthy"]["halt_false_alarm"]))
     row("Accuracy curve false alarms", lambda s: short(s["healthy"]["acc_false_alarm"]))
     row("HALT time overhead", lambda s: pct(s["healthy"]["overhead"], 1))
-    row("Wilcoxon p (HALT earlier)", lambda s: pvalue(s["proposal_tests"].get("wilcoxon_p")))
+    row("Fault conditions where HALT was earlier on average",
+        lambda s: _groups(s.get("proposal_clustered", {}).get("by_condition")))
+    row("Seeds where HALT was earlier on average",
+        lambda s: _groups(s.get("proposal_clustered", {}).get("by_seed")))
+    row("Mean epochs earlier, 95% seed bootstrap",
+        lambda s: _gap(s["proposal"].get("mean_gap"), s.get("proposal_clustered", {}).get("mean_gap_ci")))
     return lines
+
+
+def _groups(entry: dict | None) -> str:
+    """Groups where HALT was earlier, with the one-sided Wilcoxon p on group means."""
+    if not entry:
+        return "n/a"
+    return (f"{entry['halt_earlier']} of {entry['groups']} "
+            f"(p {pvalue(entry.get('wilcoxon_p'))})")
+
+
+def _gap(mean, ci) -> str:
+    if mean is None or not ci:
+        return "n/a"
+    return f"{mean:.1f} ({ci[0]:.1f} to {ci[1]:.1f})"
 
 
 def _arch_of(summary: dict, section: dict) -> str:
@@ -174,6 +193,7 @@ def main() -> None:
     settings = summary["settings"]
     pooled = summary["pooled"]
     tests = pooled["proposal_tests"]
+    clustered = pooled.get("proposal_clustered", {})
     total_runs = sum(sum(s["runs"].values()) for s in summary["archs"].values())
     figures = sorted(p.name for p in (RESULTS / "figures").glob("*.png"))
     out = [
@@ -197,9 +217,16 @@ def main() -> None:
         f"- Mean compute saved per broken run: {pct(pooled['proposal'].get('mean_compute_saved'), 1)}",
         f"- HALT false alarms on fresh healthy runs: {pct(pooled['healthy']['halt_false_alarm'], 1)}",
         f"- Accuracy curve false alarms on the same runs: {pct(pooled['healthy']['acc_false_alarm'], 1)}",
-        f"- Paired test that HALT is earlier: HALT earlier on {tests.get('halt_earlier')}, accuracy "
-        f"earlier on {tests.get('acc_earlier')}, ties {tests.get('ties')}. Wilcoxon signed rank "
-        f"p {pvalue(tests.get('wilcoxon_p'))}, sign test p {pvalue(tests.get('sign_p'))}.",
+        f"- Mean epochs HALT was earlier than the accuracy curve, with \"never\" counted as one "
+        f"epoch past the end: {num(pooled['proposal'].get('mean_gap'))}, 95% interval "
+        f"{_gap(pooled['proposal'].get('mean_gap'), clustered.get('mean_gap_ci')).split(' ', 1)[-1]} "
+        f"from a bootstrap that resamples whole seeds.",
+        f"- Fault conditions (fault and layer) where HALT was earlier on average: "
+        f"{_groups(clustered.get('by_condition'))}, one-sided Wilcoxon on condition means.",
+        f"- Seeds where HALT was earlier on average: {_groups(clustered.get('by_seed'))}.",
+        f"- Run by run, for reference only since runs that share a seed are not independent: "
+        f"HALT earlier on {tests.get('halt_earlier')}, accuracy earlier on {tests.get('acc_earlier')}, "
+        f"ties {tests.get('ties')}.",
         "",
         "## By architecture",
         "",
