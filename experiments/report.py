@@ -310,6 +310,56 @@ def _transformer_accuracy() -> str:
     return f"{100 * sum(values) / len(values):.0f}%" if values else "n/a"
 
 
+CAPTIONS = (
+    ("healthy_band_{arch}", "How the healthy range is built for one layer of the {name}. Gray lines are "
+     "the 20 calibration runs that set the range. Blue lines are fresh healthy runs that never touched it. "
+     "The shaded band is the range after widening by the margin and floor."),
+    ("accuracy_curves", "Validation accuracy over training. The shaded band is the range of the 20 "
+     "calibration runs and the dark line is the mean of the fresh healthy runs. Colored lines are the mean "
+     "of broken runs for each planted fault."),
+    ("anatomy_{arch}_frozen", "One broken {name} run with a frozen layer. Each panel is one signal of the "
+     "planted layer against its healthy range, and the last panel is validation accuracy. The vertical rule "
+     "marks HALT's alarm."),
+    ("anatomy_{arch}_dead25", "One broken {name} run with 25% of one layer's units killed, drawn the same way."),
+    ("cumulative_detection", "Share of the proposal's broken runs flagged by each epoch, for HALT, the "
+     "accuracy curve, the loss curve, and the simple fixed checks."),
+    ("detector_comparison", "Every detector on the same runs, pooled over the three networks. Whiskers are "
+     "95% Wilson intervals."),
+    ("dose_response", "Share of dead unit faults caught as the killed fraction grows, for HALT and for the "
+     "accuracy curve, by network. Whiskers are 95% Wilson intervals."),
+    ("harm", "Share of broken runs caught, split by how much final accuracy the fault cost against the "
+     "run's healthy twin. Whiskers are 95% Wilson intervals."),
+    ("false_alarms", "Share of fresh healthy runs each detector flagged, with 95% Wilson intervals."),
+    ("diagnosis_matrix", "Planted fault against the cause HALT named, pooled over the three networks."),
+    ("per_layer", "Share of broken runs where HALT named both the planted layer and the right cause, by "
+     "fault and layer."),
+    ("ablation", "HALT with each signal removed, or with one signal alone, on the same runs."),
+    ("tradeoff", "Broken runs caught and healthy runs flagged as the margin changes, at floor 0.05. Solid "
+     "lines use patience 3 and dashed lines patience 1. The rule marks the margin fixed before testing."),
+    ("sensitivity", "Broken runs caught and healthy runs flagged for every margin and patience, at floor 0.05."),
+    ("calibration_size", "False alarms and broken runs caught when the healthy range is built from fewer "
+     "calibration runs, 20 random draws per size."),
+    ("silent_damage", "Accuracy each fault cost against when each detector noticed it."),
+)
+
+
+def figure_list() -> list[str]:
+    """Every figure that exists, numbered in reading order, with its caption."""
+    folder = RESULTS / "figures"
+    lines, number = [], 0
+    for pattern, caption in CAPTIONS:
+        archs = [a for a in ARCH_ORDER] if "{arch}" in pattern else [None]
+        for arch in archs:
+            name = pattern.format(arch=arch) if arch else pattern
+            if not (folder / f"{name}.png").exists():
+                continue
+            number += 1
+            text = caption.format(name=ARCH_NAMES[arch]) if arch else caption
+            lines += [f"**Figure {number}.** {text} File `figures/{name}.png`, vector copy "
+                      f"`figures/pdf/{name}.pdf`.", "", f"![Figure {number}](figures/{name}.png)", ""]
+    return lines
+
+
 def misses() -> list[str]:
     lines = []
     wrong = read("wrong_layers.csv")
@@ -355,7 +405,6 @@ def main() -> None:
     tests = pooled["proposal_tests"]
     clustered = pooled.get("proposal_clustered", {})
     total_runs = sum(sum(s["runs"].values()) for s in summary["archs"].values())
-    figures = sorted(p.name for p in (RESULTS / "figures").glob("*.png"))
     out = [
         "# HALT results",
         "",
@@ -432,7 +481,7 @@ def main() -> None:
         "",
         "## Figures",
         "",
-        *[f"![{name}](figures/{name})" for name in figures],
+        *figure_list(),
         "",
     ]
     (RESULTS / "REPORT.md").write_text("\n".join(out))
