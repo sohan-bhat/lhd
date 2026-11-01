@@ -124,7 +124,8 @@ def main(argv=None) -> None:
     parser.add_argument("--quick", action="store_true")
     args = parser.parse_args(argv)
 
-    archs = [a for a in ARCH_ORDER if (RESULTS / "runs" / a).exists()]
+    archs = [a for a in ARCH_ORDER if (RESULTS / "runs" / a).exists()
+             or (RESULTS / "runs" / f"{a}.jsonl.gz").exists()]
     all_rows, summary = [], {"settings": SETTINGS, "archs": {}}
     sweeps, calibration, ablation = [], [], []
     for arch in archs:

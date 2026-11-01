@@ -29,9 +29,18 @@ EXPECTED_CAUSE = {
 
 
 def load_runs(arch: str) -> list[dict]:
-    """Every saved run for an architecture, sorted by run id."""
+    """Every saved run for an architecture, sorted by run id.
+
+    Reads the per-run files when they exist, and the compressed
+    bundle in git otherwise.
+    """
+    paths = sorted((RESULTS / "runs" / arch).glob("*.json"))
+    if not paths and (RESULTS / "runs" / f"{arch}.jsonl.gz").exists():
+        from experiments.bundle import read_bundle
+
+        return sorted(read_bundle(arch), key=lambda run: run["metadata"]["run_id"])
     runs = []
-    for path in sorted((RESULTS / "runs" / arch).glob("*.json")):
+    for path in paths:
         with open(path) as f:
             runs.append(json.load(f))
     return runs
