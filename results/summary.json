@@ -8,7 +8,7 @@
     "mlp": {
       "runs": {
         "calibration": 20,
-        "fault": 130,
+        "fault": 185,
         "fresh": 50
       },
       "healthy": {
@@ -441,6 +441,94 @@
           },
           "mean_acc_drop_vs_twin": 0.001953333333333344
         },
+        "detach": {
+          "runs": 10,
+          "detected": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "fired_before_onset": {
+            "k": 0,
+            "n": 10,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.2775401687666166
+          },
+          "layer_ok": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "cause_ok": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "acc_detected": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "lhd_first": {
+            "k": 0,
+            "n": 10,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.2775401687666166
+          },
+          "lhd_median_epoch": 3.0,
+          "acc_median_epoch": 3.0,
+          "lhd_median_delay": 3.0,
+          "acc_median_delay": 3.0,
+          "mean_gap": 0.0,
+          "mean_compute_saved": 0.85,
+          "silent_share": {
+            "k": 0,
+            "n": 10,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.2775401687666166
+          },
+          "zero_update_detected": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "simple_detected": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "simple_median_epoch": 1.0,
+          "lhd_before_simple": {
+            "k": 0,
+            "n": 10,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.2775401687666166
+          },
+          "simple_before_lhd": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "mean_acc_drop_vs_twin": 0.13308
+        },
         "frozen": {
           "runs": 40,
           "detected": {
@@ -528,6 +616,358 @@
             "high": 1.0
           },
           "mean_acc_drop_vs_twin": 0.00841
+        },
+        "latedead50": {
+          "runs": 15,
+          "detected": {
+            "k": 15,
+            "n": 15,
+            "rate": 1.0,
+            "low": 0.7961107336956521,
+            "high": 1.0
+          },
+          "fired_before_onset": {
+            "k": 0,
+            "n": 15,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.20388926630434784
+          },
+          "layer_ok": {
+            "k": 15,
+            "n": 15,
+            "rate": 1.0,
+            "low": 0.7961107336956521,
+            "high": 1.0
+          },
+          "cause_ok": {
+            "k": 15,
+            "n": 15,
+            "rate": 1.0,
+            "low": 0.7961107336956521,
+            "high": 1.0
+          },
+          "acc_detected": {
+            "k": 3,
+            "n": 15,
+            "rate": 0.2,
+            "low": 0.07047420643610414,
+            "high": 0.4518593533465045
+          },
+          "lhd_first": {
+            "k": 15,
+            "n": 15,
+            "rate": 1.0,
+            "low": 0.7961107336956521,
+            "high": 1.0
+          },
+          "lhd_median_epoch": 8.0,
+          "acc_median_epoch": 18.0,
+          "lhd_median_delay": 3.0,
+          "acc_median_delay": 13.0,
+          "mean_gap": 12.4,
+          "mean_compute_saved": 0.5999999999999999,
+          "silent_share": {
+            "k": 12,
+            "n": 15,
+            "rate": 0.8,
+            "low": 0.5481406466534955,
+            "high": 0.9295257935638959
+          },
+          "zero_update_detected": {
+            "k": 0,
+            "n": 15,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.20388926630434784
+          },
+          "simple_detected": {
+            "k": 15,
+            "n": 15,
+            "rate": 1.0,
+            "low": 0.7961107336956521,
+            "high": 1.0
+          },
+          "simple_median_epoch": 6.0,
+          "lhd_before_simple": {
+            "k": 0,
+            "n": 15,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.20388926630434784
+          },
+          "simple_before_lhd": {
+            "k": 15,
+            "n": 15,
+            "rate": 1.0,
+            "low": 0.7961107336956521,
+            "high": 1.0
+          },
+          "mean_acc_drop_vs_twin": 0.0011199999999999802
+        },
+        "latefrozen": {
+          "runs": 20,
+          "detected": {
+            "k": 20,
+            "n": 20,
+            "rate": 1.0,
+            "low": 0.8388698745050667,
+            "high": 1.0
+          },
+          "fired_before_onset": {
+            "k": 0,
+            "n": 20,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.16113012549493322
+          },
+          "layer_ok": {
+            "k": 20,
+            "n": 20,
+            "rate": 1.0,
+            "low": 0.8388698745050667,
+            "high": 1.0
+          },
+          "cause_ok": {
+            "k": 20,
+            "n": 20,
+            "rate": 1.0,
+            "low": 0.8388698745050667,
+            "high": 1.0
+          },
+          "acc_detected": {
+            "k": 5,
+            "n": 20,
+            "rate": 0.25,
+            "low": 0.11186005278940309,
+            "high": 0.4687050099580636
+          },
+          "lhd_first": {
+            "k": 20,
+            "n": 20,
+            "rate": 1.0,
+            "low": 0.8388698745050667,
+            "high": 1.0
+          },
+          "lhd_median_epoch": 8.0,
+          "acc_median_epoch": 17.0,
+          "lhd_median_delay": 3.0,
+          "acc_median_delay": 12.0,
+          "mean_gap": 11.95,
+          "mean_compute_saved": 0.5999999999999999,
+          "silent_share": {
+            "k": 15,
+            "n": 20,
+            "rate": 0.75,
+            "low": 0.5312949900419365,
+            "high": 0.888139947210597
+          },
+          "zero_update_detected": {
+            "k": 20,
+            "n": 20,
+            "rate": 1.0,
+            "low": 0.8388698745050667,
+            "high": 1.0
+          },
+          "simple_detected": {
+            "k": 20,
+            "n": 20,
+            "rate": 1.0,
+            "low": 0.8388698745050667,
+            "high": 1.0
+          },
+          "simple_median_epoch": 6.0,
+          "lhd_before_simple": {
+            "k": 0,
+            "n": 20,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.16113012549493322
+          },
+          "simple_before_lhd": {
+            "k": 20,
+            "n": 20,
+            "rate": 1.0,
+            "low": 0.8388698745050667,
+            "high": 1.0
+          },
+          "mean_acc_drop_vs_twin": 0.0015749999999999874
+        },
+        "lr10": {
+          "runs": 5,
+          "detected": {
+            "k": 5,
+            "n": 5,
+            "rate": 1.0,
+            "low": 0.5655085052479191,
+            "high": 1.0
+          },
+          "fired_before_onset": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "layer_ok": {
+            "k": 0,
+            "n": 0,
+            "rate": NaN,
+            "low": NaN,
+            "high": NaN
+          },
+          "cause_ok": {
+            "k": 0,
+            "n": 0,
+            "rate": NaN,
+            "low": NaN,
+            "high": NaN
+          },
+          "acc_detected": {
+            "k": 5,
+            "n": 5,
+            "rate": 1.0,
+            "low": 0.5655085052479191,
+            "high": 1.0
+          },
+          "lhd_first": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "lhd_median_epoch": 8.0,
+          "acc_median_epoch": 8.0,
+          "lhd_median_delay": 3.0,
+          "acc_median_delay": 3.0,
+          "mean_gap": -0.2,
+          "mean_compute_saved": 0.6,
+          "silent_share": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "zero_update_detected": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "simple_detected": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "simple_median_epoch": null,
+          "lhd_before_simple": {
+            "k": 5,
+            "n": 5,
+            "rate": 1.0,
+            "low": 0.5655085052479191,
+            "high": 1.0
+          },
+          "simple_before_lhd": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "mean_acc_drop_vs_twin": 0.0064999999999999945
+        },
+        "lr100": {
+          "runs": 5,
+          "detected": {
+            "k": 5,
+            "n": 5,
+            "rate": 1.0,
+            "low": 0.5655085052479191,
+            "high": 1.0
+          },
+          "fired_before_onset": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "layer_ok": {
+            "k": 0,
+            "n": 0,
+            "rate": NaN,
+            "low": NaN,
+            "high": NaN
+          },
+          "cause_ok": {
+            "k": 0,
+            "n": 0,
+            "rate": NaN,
+            "low": NaN,
+            "high": NaN
+          },
+          "acc_detected": {
+            "k": 5,
+            "n": 5,
+            "rate": 1.0,
+            "low": 0.5655085052479191,
+            "high": 1.0
+          },
+          "lhd_first": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "lhd_median_epoch": 8.0,
+          "acc_median_epoch": 8.0,
+          "lhd_median_delay": 3.0,
+          "acc_median_delay": 3.0,
+          "mean_gap": -0.2,
+          "mean_compute_saved": 0.6,
+          "silent_share": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "zero_update_detected": {
+            "k": 5,
+            "n": 5,
+            "rate": 1.0,
+            "low": 0.5655085052479191,
+            "high": 1.0
+          },
+          "simple_detected": {
+            "k": 5,
+            "n": 5,
+            "rate": 1.0,
+            "low": 0.5655085052479191,
+            "high": 1.0
+          },
+          "simple_median_epoch": 6.0,
+          "lhd_before_simple": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "simple_before_lhd": {
+            "k": 5,
+            "n": 5,
+            "rate": 1.0,
+            "low": 0.5655085052479191,
+            "high": 1.0
+          },
+          "mean_acc_drop_vs_twin": 0.7982400000000001
         }
       },
       "family_tests": {
@@ -558,6 +998,13 @@
           "wilcoxon_p": 9.313225746154785e-10,
           "sign_p": 9.313225746154785e-10
         },
+        "detach": {
+          "n": 10,
+          "mean_gap": 0.0,
+          "lhd_earlier": 0,
+          "acc_earlier": 0,
+          "ties": 10
+        },
         "frozen": {
           "n": 40,
           "mean_gap": 12.85,
@@ -566,6 +1013,42 @@
           "ties": 10,
           "wilcoxon_p": 9.313225746154785e-10,
           "sign_p": 9.313225746154785e-10
+        },
+        "latedead50": {
+          "n": 15,
+          "mean_gap": 12.4,
+          "lhd_earlier": 15,
+          "acc_earlier": 0,
+          "ties": 0,
+          "wilcoxon_p": 3.0517578125e-05,
+          "sign_p": 3.0517578125e-05
+        },
+        "latefrozen": {
+          "n": 20,
+          "mean_gap": 11.95,
+          "lhd_earlier": 20,
+          "acc_earlier": 0,
+          "ties": 0,
+          "wilcoxon_p": 9.5367431640625e-07,
+          "sign_p": 9.5367431640625e-07
+        },
+        "lr10": {
+          "n": 5,
+          "mean_gap": -0.2,
+          "lhd_earlier": 0,
+          "acc_earlier": 1,
+          "ties": 4,
+          "wilcoxon_p": 1.0,
+          "sign_p": 1.0
+        },
+        "lr100": {
+          "n": 5,
+          "mean_gap": -0.2,
+          "lhd_earlier": 0,
+          "acc_earlier": 1,
+          "ties": 4,
+          "wilcoxon_p": 1.0,
+          "sign_p": 1.0
         }
       },
       "confusion": {
@@ -580,68 +1063,85 @@
         "dead50": {
           "dead_units": 30
         },
+        "detach": {
+          "vanishing_gradient": 10
+        },
         "frozen": {
           "frozen_layer": 40
+        },
+        "latedead50": {
+          "dead_units": 15
+        },
+        "latefrozen": {
+          "frozen_layer": 20
+        },
+        "lr10": {
+          "dead_units": 5
+        },
+        "lr100": {
+          "dead_units": 5
         }
       },
       "first_signal": {
-        "dead_unit_fraction": 69,
-        "weight_change+grad_norm+dead_unit_fraction": 12,
-        "weight_change+grad_norm": 17,
-        "weight_change": 11
+        "dead_unit_fraction": 84,
+        "weight_change+grad_norm+dead_unit_fraction": 20,
+        "weight_change+grad_norm": 19,
+        "weight_change": 31,
+        "weight_change+weight_norm+dead_unit_fraction": 5,
+        "weight_change+weight_norm+grad_norm+dead_unit_fraction": 5
       }
     },
     "transformer": {
       "runs": {
         "calibration": 20,
-        "fault": 170,
-        "fresh": 30
+        "fault": 255,
+        "fresh": 50
       },
       "healthy": {
-        "runs": 30,
+        "runs": 50,
         "lhd_false_alarm": {
           "k": 0,
-          "n": 30,
+          "n": 50,
           "rate": 0.0,
           "low": 0.0,
-          "high": 0.113517091390478
+          "high": 0.07135003417431873
         },
         "acc_false_alarm": {
-          "k": 5,
-          "n": 30,
-          "rate": 0.16666666666666666,
-          "low": 0.07336434240351683,
-          "high": 0.33564705185680177
+          "k": 6,
+          "n": 50,
+          "rate": 0.12,
+          "low": 0.05617523710624646,
+          "high": 0.23805078886623582
         },
         "acc1_false_alarm": {
-          "k": 8,
-          "n": 30,
-          "rate": 0.26666666666666666,
-          "low": 0.14182495553910618,
-          "high": 0.4444830204431169
+          "k": 13,
+          "n": 50,
+          "rate": 0.26,
+          "low": 0.15871379651367384,
+          "high": 0.3955342198899992
         },
         "loss_false_alarm": {
-          "k": 4,
-          "n": 30,
-          "rate": 0.13333333333333333,
-          "low": 0.05309569424218104,
-          "high": 0.2968168394441695
+          "k": 5,
+          "n": 50,
+          "rate": 0.1,
+          "low": 0.04347512399157111,
+          "high": 0.2136049033478839
         },
         "zero_update_false_alarm": {
           "k": 0,
-          "n": 30,
+          "n": 50,
           "rate": 0.0,
           "low": 0.0,
-          "high": 0.113517091390478
+          "high": 0.07135003417431873
         },
         "simple_false_alarm": {
           "k": 0,
-          "n": 30,
+          "n": 50,
           "rate": 0.0,
           "low": 0.0,
-          "high": 0.113517091390478
+          "high": 0.07135003417431873
         },
-        "overhead": 0.05827779405176983
+        "overhead": 0.05943694679363537
       },
       "proposal": {
         "runs": 170,
@@ -1027,6 +1527,94 @@
           },
           "mean_acc_drop_vs_twin": 0.00697479248046875
         },
+        "detach": {
+          "runs": 10,
+          "detected": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "fired_before_onset": {
+            "k": 0,
+            "n": 10,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.2775401687666166
+          },
+          "layer_ok": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "cause_ok": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "acc_detected": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "lhd_first": {
+            "k": 0,
+            "n": 10,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.2775401687666166
+          },
+          "lhd_median_epoch": 3.0,
+          "acc_median_epoch": 3.0,
+          "lhd_median_delay": 3.0,
+          "acc_median_delay": 3.0,
+          "mean_gap": 0.0,
+          "mean_compute_saved": 0.8,
+          "silent_share": {
+            "k": 0,
+            "n": 10,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.2775401687666166
+          },
+          "zero_update_detected": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "simple_detected": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "simple_median_epoch": 1.0,
+          "lhd_before_simple": {
+            "k": 0,
+            "n": 10,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.2775401687666166
+          },
+          "simple_before_lhd": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "mean_acc_drop_vs_twin": 0.080413818359375
+        },
         "frozen": {
           "runs": 110,
           "detected": {
@@ -1114,6 +1702,358 @@
             "high": 1.0
           },
           "mean_acc_drop_vs_twin": 0.006902243874289773
+        },
+        "latedead50": {
+          "runs": 10,
+          "detected": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "fired_before_onset": {
+            "k": 0,
+            "n": 10,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.2775401687666166
+          },
+          "layer_ok": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "cause_ok": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "acc_detected": {
+            "k": 2,
+            "n": 10,
+            "rate": 0.2,
+            "low": 0.056680947980693314,
+            "high": 0.5098431532792765
+          },
+          "lhd_first": {
+            "k": 8,
+            "n": 10,
+            "rate": 0.8,
+            "low": 0.49015684672072335,
+            "high": 0.9433190520193067
+          },
+          "lhd_median_epoch": 8.0,
+          "acc_median_epoch": 8.0,
+          "lhd_median_delay": 3.0,
+          "acc_median_delay": 3.0,
+          "mean_gap": 6.4,
+          "mean_compute_saved": 0.4666666666666667,
+          "silent_share": {
+            "k": 8,
+            "n": 10,
+            "rate": 0.8,
+            "low": 0.49015684672072335,
+            "high": 0.9433190520193067
+          },
+          "zero_update_detected": {
+            "k": 0,
+            "n": 10,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.2775401687666166
+          },
+          "simple_detected": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "simple_median_epoch": 6.0,
+          "lhd_before_simple": {
+            "k": 0,
+            "n": 10,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.2775401687666166
+          },
+          "simple_before_lhd": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "mean_acc_drop_vs_twin": 0.002838134765625
+        },
+        "latefrozen": {
+          "runs": 55,
+          "detected": {
+            "k": 55,
+            "n": 55,
+            "rate": 1.0,
+            "low": 0.9347128562105721,
+            "high": 0.9999999999999999
+          },
+          "fired_before_onset": {
+            "k": 0,
+            "n": 55,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.06528714378942788
+          },
+          "layer_ok": {
+            "k": 55,
+            "n": 55,
+            "rate": 1.0,
+            "low": 0.9347128562105721,
+            "high": 0.9999999999999999
+          },
+          "cause_ok": {
+            "k": 55,
+            "n": 55,
+            "rate": 1.0,
+            "low": 0.9347128562105721,
+            "high": 0.9999999999999999
+          },
+          "acc_detected": {
+            "k": 15,
+            "n": 55,
+            "rate": 0.2727272727272727,
+            "low": 0.17280602508013648,
+            "high": 0.40232449482414895
+          },
+          "lhd_first": {
+            "k": 44,
+            "n": 55,
+            "rate": 0.8,
+            "low": 0.6763486849309407,
+            "high": 0.8844790287954026
+          },
+          "lhd_median_epoch": 8.0,
+          "acc_median_epoch": 8.0,
+          "lhd_median_delay": 3.0,
+          "acc_median_delay": 3.0,
+          "mean_gap": 6.072727272727272,
+          "mean_compute_saved": 0.4666666666666665,
+          "silent_share": {
+            "k": 39,
+            "n": 55,
+            "rate": 0.7090909090909091,
+            "low": 0.5785902917965606,
+            "high": 0.8122896298914968
+          },
+          "zero_update_detected": {
+            "k": 55,
+            "n": 55,
+            "rate": 1.0,
+            "low": 0.9347128562105721,
+            "high": 0.9999999999999999
+          },
+          "simple_detected": {
+            "k": 55,
+            "n": 55,
+            "rate": 1.0,
+            "low": 0.9347128562105721,
+            "high": 0.9999999999999999
+          },
+          "simple_median_epoch": 6.0,
+          "lhd_before_simple": {
+            "k": 0,
+            "n": 55,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.06528714378942788
+          },
+          "simple_before_lhd": {
+            "k": 55,
+            "n": 55,
+            "rate": 1.0,
+            "low": 0.9347128562105721,
+            "high": 0.9999999999999999
+          },
+          "mean_acc_drop_vs_twin": 0.004209761186079545
+        },
+        "lr10": {
+          "runs": 5,
+          "detected": {
+            "k": 5,
+            "n": 5,
+            "rate": 1.0,
+            "low": 0.5655085052479191,
+            "high": 1.0
+          },
+          "fired_before_onset": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "layer_ok": {
+            "k": 0,
+            "n": 0,
+            "rate": NaN,
+            "low": NaN,
+            "high": NaN
+          },
+          "cause_ok": {
+            "k": 0,
+            "n": 0,
+            "rate": NaN,
+            "low": NaN,
+            "high": NaN
+          },
+          "acc_detected": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "lhd_first": {
+            "k": 5,
+            "n": 5,
+            "rate": 1.0,
+            "low": 0.5655085052479191,
+            "high": 1.0
+          },
+          "lhd_median_epoch": 8.0,
+          "acc_median_epoch": null,
+          "lhd_median_delay": 3.0,
+          "acc_median_delay": null,
+          "mean_gap": 8.0,
+          "mean_compute_saved": 0.4666666666666667,
+          "silent_share": {
+            "k": 5,
+            "n": 5,
+            "rate": 1.0,
+            "low": 0.5655085052479191,
+            "high": 1.0
+          },
+          "zero_update_detected": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "simple_detected": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "simple_median_epoch": null,
+          "lhd_before_simple": {
+            "k": 5,
+            "n": 5,
+            "rate": 1.0,
+            "low": 0.5655085052479191,
+            "high": 1.0
+          },
+          "simple_before_lhd": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "mean_acc_drop_vs_twin": -0.08468017578125
+        },
+        "lr100": {
+          "runs": 5,
+          "detected": {
+            "k": 5,
+            "n": 5,
+            "rate": 1.0,
+            "low": 0.5655085052479191,
+            "high": 1.0
+          },
+          "fired_before_onset": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "layer_ok": {
+            "k": 0,
+            "n": 0,
+            "rate": NaN,
+            "low": NaN,
+            "high": NaN
+          },
+          "cause_ok": {
+            "k": 0,
+            "n": 0,
+            "rate": NaN,
+            "low": NaN,
+            "high": NaN
+          },
+          "acc_detected": {
+            "k": 5,
+            "n": 5,
+            "rate": 1.0,
+            "low": 0.5655085052479191,
+            "high": 1.0
+          },
+          "lhd_first": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "lhd_median_epoch": 8.0,
+          "acc_median_epoch": 8.0,
+          "lhd_median_delay": 3.0,
+          "acc_median_delay": 3.0,
+          "mean_gap": 0.0,
+          "mean_compute_saved": 0.4666666666666667,
+          "silent_share": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "zero_update_detected": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "simple_detected": {
+            "k": 1,
+            "n": 5,
+            "rate": 0.2,
+            "low": 0.03622316096978745,
+            "high": 0.6244717358814613
+          },
+          "simple_median_epoch": 6.0,
+          "lhd_before_simple": {
+            "k": 4,
+            "n": 5,
+            "rate": 0.8,
+            "low": 0.3755282641185388,
+            "high": 0.9637768390302125
+          },
+          "simple_before_lhd": {
+            "k": 1,
+            "n": 5,
+            "rate": 0.2,
+            "low": 0.03622316096978745,
+            "high": 0.6244717358814613
+          },
+          "mean_acc_drop_vs_twin": 0.173712158203125
         }
       },
       "family_tests": {
@@ -1144,6 +2084,13 @@
           "wilcoxon_p": 9.5367431640625e-07,
           "sign_p": 9.5367431640625e-07
         },
+        "detach": {
+          "n": 10,
+          "mean_gap": 0.0,
+          "lhd_earlier": 0,
+          "acc_earlier": 0,
+          "ties": 10
+        },
         "frozen": {
           "n": 110,
           "mean_gap": 7.127272727272727,
@@ -1152,6 +2099,40 @@
           "ties": 4,
           "wilcoxon_p": 7.020924386152948e-20,
           "sign_p": 1.232595164407831e-32
+        },
+        "latedead50": {
+          "n": 10,
+          "mean_gap": 6.4,
+          "lhd_earlier": 8,
+          "acc_earlier": 0,
+          "ties": 2,
+          "wilcoxon_p": 0.00390625,
+          "sign_p": 0.00390625
+        },
+        "latefrozen": {
+          "n": 55,
+          "mean_gap": 6.072727272727272,
+          "lhd_earlier": 44,
+          "acc_earlier": 0,
+          "ties": 11,
+          "wilcoxon_p": 5.684341886080802e-14,
+          "sign_p": 5.684341886080802e-14
+        },
+        "lr10": {
+          "n": 5,
+          "mean_gap": 8.0,
+          "lhd_earlier": 5,
+          "acc_earlier": 0,
+          "ties": 0,
+          "wilcoxon_p": 0.03125,
+          "sign_p": 0.03125
+        },
+        "lr100": {
+          "n": 5,
+          "mean_gap": 0.0,
+          "lhd_earlier": 0,
+          "acc_earlier": 0,
+          "ties": 5
         }
       },
       "confusion": {
@@ -1164,68 +2145,84 @@
         "dead50": {
           "dead_units": 20
         },
+        "detach": {
+          "vanishing_gradient": 10
+        },
         "frozen": {
           "frozen_layer": 105,
           "vanishing_gradient": 5
+        },
+        "latedead50": {
+          "dead_units": 10
+        },
+        "latefrozen": {
+          "frozen_layer": 55
+        },
+        "lr10": {
+          "unrecognized": 5
+        },
+        "lr100": {
+          "runaway_weights": 5
         }
       },
       "first_signal": {
-        "dead_unit_fraction": 60,
-        "weight_change": 100,
-        "weight_change+grad_norm": 10
+        "dead_unit_fraction": 70,
+        "weight_change+grad_norm": 20,
+        "weight_change": 164,
+        "weight_change+weight_norm": 1
       }
     },
     "cnn": {
       "runs": {
         "calibration": 20,
-        "fault": 170,
-        "fresh": 30
+        "fault": 235,
+        "fresh": 50
       },
       "healthy": {
-        "runs": 30,
+        "runs": 50,
         "lhd_false_alarm": {
           "k": 2,
-          "n": 30,
-          "rate": 0.06666666666666667,
-          "low": 0.01847663532769335,
-          "high": 0.21323817721072091
+          "n": 50,
+          "rate": 0.04,
+          "low": 0.011038652660826577,
+          "high": 0.13460337877954667
         },
         "acc_false_alarm": {
           "k": 0,
-          "n": 30,
+          "n": 50,
           "rate": 0.0,
           "low": 0.0,
-          "high": 0.113517091390478
+          "high": 0.07135003417431873
         },
         "acc1_false_alarm": {
-          "k": 0,
-          "n": 30,
-          "rate": 0.0,
-          "low": 0.0,
-          "high": 0.113517091390478
+          "k": 1,
+          "n": 50,
+          "rate": 0.02,
+          "low": 0.0035391680889764604,
+          "high": 0.10495686471836953
         },
         "loss_false_alarm": {
-          "k": 0,
-          "n": 30,
-          "rate": 0.0,
-          "low": 0.0,
-          "high": 0.113517091390478
+          "k": 1,
+          "n": 50,
+          "rate": 0.02,
+          "low": 0.0035391680889764604,
+          "high": 0.10495686471836953
         },
         "zero_update_false_alarm": {
           "k": 0,
-          "n": 30,
+          "n": 50,
           "rate": 0.0,
           "low": 0.0,
-          "high": 0.113517091390478
+          "high": 0.07135003417431873
         },
         "simple_false_alarm": {
-          "k": 12,
-          "n": 30,
-          "rate": 0.4,
-          "low": 0.24590394326083403,
-          "high": 0.5767994750172616
+          "k": 22,
+          "n": 50,
+          "rate": 0.44,
+          "low": 0.3116198721023534,
+          "high": 0.5769421319985648
         },
-        "overhead": 0.02225814427408048
+        "overhead": 0.02177868053447607
       },
       "proposal": {
         "runs": 170,
@@ -1611,6 +2608,94 @@
           },
           "mean_acc_drop_vs_twin": 0.031474999999999996
         },
+        "detach": {
+          "runs": 10,
+          "detected": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "fired_before_onset": {
+            "k": 0,
+            "n": 10,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.2775401687666166
+          },
+          "layer_ok": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "cause_ok": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "acc_detected": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "lhd_first": {
+            "k": 0,
+            "n": 10,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.2775401687666166
+          },
+          "lhd_median_epoch": 3.0,
+          "acc_median_epoch": 3.0,
+          "lhd_median_delay": 3.0,
+          "acc_median_delay": 3.0,
+          "mean_gap": 0.0,
+          "mean_compute_saved": 0.8,
+          "silent_share": {
+            "k": 0,
+            "n": 10,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.2775401687666166
+          },
+          "zero_update_detected": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "simple_detected": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "simple_median_epoch": 1.0,
+          "lhd_before_simple": {
+            "k": 0,
+            "n": 10,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.2775401687666166
+          },
+          "simple_before_lhd": {
+            "k": 10,
+            "n": 10,
+            "rate": 1.0,
+            "low": 0.7224598312333834,
+            "high": 1.0
+          },
+          "mean_acc_drop_vs_twin": 0.31770000000000004
+        },
         "frozen": {
           "runs": 50,
           "detected": {
@@ -1698,6 +2783,358 @@
             "high": 1.0
           },
           "mean_acc_drop_vs_twin": 0.11053
+        },
+        "latedead50": {
+          "runs": 20,
+          "detected": {
+            "k": 15,
+            "n": 20,
+            "rate": 0.75,
+            "low": 0.5312949900419365,
+            "high": 0.888139947210597
+          },
+          "fired_before_onset": {
+            "k": 0,
+            "n": 20,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.16113012549493322
+          },
+          "layer_ok": {
+            "k": 15,
+            "n": 15,
+            "rate": 1.0,
+            "low": 0.7961107336956521,
+            "high": 1.0
+          },
+          "cause_ok": {
+            "k": 15,
+            "n": 15,
+            "rate": 1.0,
+            "low": 0.7961107336956521,
+            "high": 1.0
+          },
+          "acc_detected": {
+            "k": 2,
+            "n": 20,
+            "rate": 0.1,
+            "low": 0.027865893984153206,
+            "high": 0.30103820641179335
+          },
+          "lhd_first": {
+            "k": 14,
+            "n": 20,
+            "rate": 0.7,
+            "low": 0.4810232237710206,
+            "high": 0.854524726031006
+          },
+          "lhd_median_epoch": 8.0,
+          "acc_median_epoch": 11.0,
+          "lhd_median_delay": 3.0,
+          "acc_median_delay": 6.0,
+          "mean_gap": 5.5,
+          "mean_compute_saved": 0.35,
+          "silent_share": {
+            "k": 19,
+            "n": 20,
+            "rate": 0.95,
+            "low": 0.7638641064874331,
+            "high": 0.9911187805671268
+          },
+          "zero_update_detected": {
+            "k": 0,
+            "n": 20,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.16113012549493322
+          },
+          "simple_detected": {
+            "k": 12,
+            "n": 20,
+            "rate": 0.6,
+            "low": 0.3865779423152061,
+            "high": 0.7811960325858074
+          },
+          "simple_median_epoch": 6.0,
+          "lhd_before_simple": {
+            "k": 6,
+            "n": 20,
+            "rate": 0.3,
+            "low": 0.14547527396899385,
+            "high": 0.5189767762289793
+          },
+          "simple_before_lhd": {
+            "k": 12,
+            "n": 20,
+            "rate": 0.6,
+            "low": 0.3865779423152061,
+            "high": 0.7811960325858074
+          },
+          "mean_acc_drop_vs_twin": 0.015900000000000025
+        },
+        "latefrozen": {
+          "runs": 25,
+          "detected": {
+            "k": 25,
+            "n": 25,
+            "rate": 1.0,
+            "low": 0.8668035060468213,
+            "high": 1.0
+          },
+          "fired_before_onset": {
+            "k": 0,
+            "n": 25,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.13319649395317873
+          },
+          "layer_ok": {
+            "k": 25,
+            "n": 25,
+            "rate": 1.0,
+            "low": 0.8668035060468213,
+            "high": 1.0
+          },
+          "cause_ok": {
+            "k": 25,
+            "n": 25,
+            "rate": 1.0,
+            "low": 0.8668035060468213,
+            "high": 1.0
+          },
+          "acc_detected": {
+            "k": 0,
+            "n": 25,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.13319649395317873
+          },
+          "lhd_first": {
+            "k": 25,
+            "n": 25,
+            "rate": 1.0,
+            "low": 0.8668035060468213,
+            "high": 1.0
+          },
+          "lhd_median_epoch": 8.0,
+          "acc_median_epoch": null,
+          "lhd_median_delay": 3.0,
+          "acc_median_delay": null,
+          "mean_gap": 8.0,
+          "mean_compute_saved": 0.4666666666666666,
+          "silent_share": {
+            "k": 25,
+            "n": 25,
+            "rate": 1.0,
+            "low": 0.8668035060468213,
+            "high": 1.0
+          },
+          "zero_update_detected": {
+            "k": 25,
+            "n": 25,
+            "rate": 1.0,
+            "low": 0.8668035060468213,
+            "high": 1.0
+          },
+          "simple_detected": {
+            "k": 15,
+            "n": 25,
+            "rate": 0.6,
+            "low": 0.40739127785127344,
+            "high": 0.7659694233580909
+          },
+          "simple_median_epoch": 6.0,
+          "lhd_before_simple": {
+            "k": 10,
+            "n": 25,
+            "rate": 0.4,
+            "low": 0.23403057664190918,
+            "high": 0.5926087221487266
+          },
+          "simple_before_lhd": {
+            "k": 15,
+            "n": 25,
+            "rate": 0.6,
+            "low": 0.40739127785127344,
+            "high": 0.7659694233580909
+          },
+          "mean_acc_drop_vs_twin": 0.010300000000000016
+        },
+        "lr10": {
+          "runs": 5,
+          "detected": {
+            "k": 5,
+            "n": 5,
+            "rate": 1.0,
+            "low": 0.5655085052479191,
+            "high": 1.0
+          },
+          "fired_before_onset": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "layer_ok": {
+            "k": 0,
+            "n": 0,
+            "rate": NaN,
+            "low": NaN,
+            "high": NaN
+          },
+          "cause_ok": {
+            "k": 0,
+            "n": 0,
+            "rate": NaN,
+            "low": NaN,
+            "high": NaN
+          },
+          "acc_detected": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "lhd_first": {
+            "k": 5,
+            "n": 5,
+            "rate": 1.0,
+            "low": 0.5655085052479191,
+            "high": 1.0
+          },
+          "lhd_median_epoch": 8.0,
+          "acc_median_epoch": null,
+          "lhd_median_delay": 3.0,
+          "acc_median_delay": null,
+          "mean_gap": 8.0,
+          "mean_compute_saved": 0.4666666666666667,
+          "silent_share": {
+            "k": 5,
+            "n": 5,
+            "rate": 1.0,
+            "low": 0.5655085052479191,
+            "high": 1.0
+          },
+          "zero_update_detected": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "simple_detected": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "simple_median_epoch": null,
+          "lhd_before_simple": {
+            "k": 5,
+            "n": 5,
+            "rate": 1.0,
+            "low": 0.5655085052479191,
+            "high": 1.0
+          },
+          "simple_before_lhd": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "mean_acc_drop_vs_twin": -0.09409999999999999
+        },
+        "lr100": {
+          "runs": 5,
+          "detected": {
+            "k": 5,
+            "n": 5,
+            "rate": 1.0,
+            "low": 0.5655085052479191,
+            "high": 1.0
+          },
+          "fired_before_onset": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "layer_ok": {
+            "k": 0,
+            "n": 0,
+            "rate": NaN,
+            "low": NaN,
+            "high": NaN
+          },
+          "cause_ok": {
+            "k": 0,
+            "n": 0,
+            "rate": NaN,
+            "low": NaN,
+            "high": NaN
+          },
+          "acc_detected": {
+            "k": 5,
+            "n": 5,
+            "rate": 1.0,
+            "low": 0.5655085052479191,
+            "high": 1.0
+          },
+          "lhd_first": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "lhd_median_epoch": 8.0,
+          "acc_median_epoch": 8.0,
+          "lhd_median_delay": 3.0,
+          "acc_median_delay": 3.0,
+          "mean_gap": 0.0,
+          "mean_compute_saved": 0.4666666666666667,
+          "silent_share": {
+            "k": 0,
+            "n": 5,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.43449149475208104
+          },
+          "zero_update_detected": {
+            "k": 5,
+            "n": 5,
+            "rate": 1.0,
+            "low": 0.5655085052479191,
+            "high": 1.0
+          },
+          "simple_detected": {
+            "k": 3,
+            "n": 5,
+            "rate": 0.6,
+            "low": 0.23071993220883708,
+            "high": 0.8823817688407467
+          },
+          "simple_median_epoch": 6.0,
+          "lhd_before_simple": {
+            "k": 2,
+            "n": 5,
+            "rate": 0.4,
+            "low": 0.1176182311592533,
+            "high": 0.769280067791163
+          },
+          "simple_before_lhd": {
+            "k": 3,
+            "n": 5,
+            "rate": 0.6,
+            "low": 0.23071993220883708,
+            "high": 0.8823817688407467
+          },
+          "mean_acc_drop_vs_twin": 0.71235
         }
       },
       "family_tests": {
@@ -1728,6 +3165,13 @@
           "wilcoxon_p": 7.683411240577698e-09,
           "sign_p": 1.2316741049289703e-07
         },
+        "detach": {
+          "n": 10,
+          "mean_gap": 0.0,
+          "lhd_earlier": 0,
+          "acc_earlier": 0,
+          "ties": 10
+        },
         "frozen": {
           "n": 50,
           "mean_gap": 5.26,
@@ -1736,6 +3180,40 @@
           "ties": 12,
           "wilcoxon_p": 3.637978807091713e-12,
           "sign_p": 3.637978807091713e-12
+        },
+        "latedead50": {
+          "n": 20,
+          "mean_gap": 5.5,
+          "lhd_earlier": 14,
+          "acc_earlier": 0,
+          "ties": 6,
+          "wilcoxon_p": 6.103515625e-05,
+          "sign_p": 6.103515625e-05
+        },
+        "latefrozen": {
+          "n": 25,
+          "mean_gap": 8.0,
+          "lhd_earlier": 25,
+          "acc_earlier": 0,
+          "ties": 0,
+          "wilcoxon_p": 2.9802322387695312e-08,
+          "sign_p": 2.9802322387695312e-08
+        },
+        "lr10": {
+          "n": 5,
+          "mean_gap": 8.0,
+          "lhd_earlier": 5,
+          "acc_earlier": 0,
+          "ties": 0,
+          "wilcoxon_p": 0.03125,
+          "sign_p": 0.03125
+        },
+        "lr100": {
+          "n": 5,
+          "mean_gap": 0.0,
+          "lhd_earlier": 0,
+          "acc_earlier": 0,
+          "ties": 5
         }
       },
       "confusion": {
@@ -1752,67 +3230,86 @@
           "not detected": 9,
           "unrecognized": 1
         },
+        "detach": {
+          "vanishing_gradient": 10
+        },
         "frozen": {
           "frozen_layer": 43,
           "unrecognized": 2,
           "dead_units": 5
+        },
+        "latedead50": {
+          "dead_units": 15,
+          "not detected": 5
+        },
+        "latefrozen": {
+          "frozen_layer": 25
+        },
+        "lr10": {
+          "unrecognized": 4,
+          "dead_units": 1
+        },
+        "lr100": {
+          "vanishing_gradient": 5
         }
       },
       "first_signal": {
-        "dead_unit_fraction": 86,
+        "dead_unit_fraction": 102,
         "grad_norm": 3,
-        "weight_change": 26,
-        "weight_change+grad_norm": 12,
-        "weight_change+grad_norm+dead_unit_fraction": 5
+        "weight_change+grad_norm": 22,
+        "weight_change": 55,
+        "weight_change+grad_norm+dead_unit_fraction": 5,
+        "weight_change+weight_norm": 4,
+        "weight_change+weight_norm+grad_norm": 1
       }
     }
   },
   "pooled": {
     "healthy": {
-      "runs": 110,
+      "runs": 150,
       "lhd_false_alarm": {
         "k": 3,
-        "n": 110,
-        "rate": 0.02727272727272727,
-        "low": 0.009317801045153465,
-        "high": 0.07713214343911239
+        "n": 150,
+        "rate": 0.02,
+        "low": 0.006824627715648315,
+        "high": 0.05714766586424165
       },
       "acc_false_alarm": {
-        "k": 6,
-        "n": 110,
-        "rate": 0.05454545454545454,
-        "low": 0.025235483062071407,
-        "high": 0.11391927231733298
+        "k": 7,
+        "n": 150,
+        "rate": 0.04666666666666667,
+        "low": 0.02278625890187786,
+        "high": 0.09318757392357377
       },
       "acc1_false_alarm": {
-        "k": 38,
-        "n": 110,
-        "rate": 0.34545454545454546,
-        "low": 0.26316254590275023,
-        "high": 0.4381768590247983
+        "k": 44,
+        "n": 150,
+        "rate": 0.29333333333333333,
+        "low": 0.22636309522530063,
+        "high": 0.37062497562159646
       },
       "loss_false_alarm": {
-        "k": 7,
-        "n": 110,
-        "rate": 0.06363636363636363,
-        "low": 0.03116412133993078,
-        "high": 0.12555890433785305
+        "k": 9,
+        "n": 150,
+        "rate": 0.06,
+        "low": 0.031883682005327776,
+        "high": 0.11009092044290468
       },
       "zero_update_false_alarm": {
         "k": 0,
-        "n": 110,
+        "n": 150,
         "rate": 0.0,
         "low": 0.0,
-        "high": 0.03374513358912735
+        "high": 0.02497113914571871
       },
       "simple_false_alarm": {
-        "k": 12,
-        "n": 110,
-        "rate": 0.10909090909090909,
-        "low": 0.06351398138853154,
-        "high": 0.18105039578114984
+        "k": 22,
+        "n": 150,
+        "rate": 0.14666666666666667,
+        "low": 0.09889364963827856,
+        "high": 0.21208595535802932
       },
-      "overhead": 0.07478634613650426
+      "overhead": 0.0658080086109702
     },
     "proposal": {
       "runs": 470,
@@ -1934,92 +3431,92 @@
       ]
     },
     "all_faults": {
-      "runs": 470,
+      "runs": 675,
       "detected": {
-        "k": 411,
-        "n": 470,
-        "rate": 0.874468085106383,
-        "low": 0.8414456364974678,
-        "high": 0.9014186455748534
+        "k": 611,
+        "n": 675,
+        "rate": 0.9051851851851852,
+        "low": 0.8807349279685559,
+        "high": 0.9250495142341613
       },
       "fired_before_onset": {
         "k": 0,
-        "n": 470,
+        "n": 675,
         "rate": 0.0,
         "low": 0.0,
-        "high": 0.008107350642071106
+        "high": 0.005659052126445992
       },
       "layer_ok": {
-        "k": 403,
-        "n": 411,
-        "rate": 0.9805352798053528,
-        "low": 0.9620658916010467,
-        "high": 0.9901047682363469
+        "k": 573,
+        "n": 581,
+        "rate": 0.9862306368330465,
+        "low": 0.9730667673890332,
+        "high": 0.9930067814146086
       },
       "cause_ok": {
-        "k": 398,
-        "n": 411,
-        "rate": 0.9683698296836983,
-        "low": 0.9466412897954402,
-        "high": 0.9814237837169562
+        "k": 568,
+        "n": 581,
+        "rate": 0.9776247848537005,
+        "low": 0.9620967897610311,
+        "high": 0.9868781121611303
       },
       "acc_detected": {
-        "k": 166,
-        "n": 470,
-        "rate": 0.35319148936170214,
-        "low": 0.311329206559377,
-        "high": 0.3974342283099972
+        "k": 243,
+        "n": 675,
+        "rate": 0.36,
+        "low": 0.3246747743420145,
+        "high": 0.3969097602533903
       },
       "lhd_first": {
-        "k": 384,
-        "n": 470,
-        "rate": 0.8170212765957446,
-        "low": 0.7795421255674242,
-        "high": 0.8493600223233477
+        "k": 520,
+        "n": 675,
+        "rate": 0.7703703703703704,
+        "low": 0.7371634212948233,
+        "high": 0.8005172394071727
       },
       "lhd_median_epoch": 3.0,
-      "acc_median_epoch": 6.0,
+      "acc_median_epoch": 7.0,
       "lhd_median_delay": 3.0,
-      "acc_median_delay": 6.0,
-      "mean_gap": 9.1,
-      "mean_compute_saved": 0.6995744680851064,
+      "acc_median_delay": 5.0,
+      "mean_gap": 8.13037037037037,
+      "mean_compute_saved": 0.6498271604938272,
       "silent_share": {
-        "k": 308,
-        "n": 470,
-        "rate": 0.6553191489361702,
-        "low": 0.6112482265655265,
-        "high": 0.6968716177031068
+        "k": 436,
+        "n": 675,
+        "rate": 0.6459259259259259,
+        "low": 0.6091148626568544,
+        "high": 0.6810853843521679
       },
       "zero_update_detected": {
-        "k": 200,
-        "n": 470,
-        "rate": 0.425531914893617,
-        "low": 0.38161326745791635,
-        "high": 0.47065804008451984
+        "k": 340,
+        "n": 675,
+        "rate": 0.5037037037037037,
+        "low": 0.46607043452027347,
+        "high": 0.5412950539824936
       },
       "simple_detected": {
-        "k": 343,
-        "n": 470,
-        "rate": 0.7297872340425532,
-        "low": 0.6878964958664617,
-        "high": 0.7679520408597353
+        "k": 509,
+        "n": 675,
+        "rate": 0.7540740740740741,
+        "low": 0.7202091378671871,
+        "high": 0.7850633734226338
       },
       "simple_median_epoch": 1.0,
       "lhd_before_simple": {
-        "k": 100,
-        "n": 470,
-        "rate": 0.2127659574468085,
-        "low": 0.1781707348634308,
-        "high": 0.2520185942288229
+        "k": 137,
+        "n": 675,
+        "rate": 0.20296296296296296,
+        "low": 0.17434069698318921,
+        "high": 0.23494712509489202
       },
       "simple_before_lhd": {
-        "k": 343,
-        "n": 470,
-        "rate": 0.7297872340425532,
-        "low": 0.6878964958664617,
-        "high": 0.7679520408597353
+        "k": 509,
+        "n": 675,
+        "rate": 0.7540740740740741,
+        "low": 0.7202091378671871,
+        "high": 0.7850633734226338
       },
-      "mean_acc_drop_vs_twin": 0.01897411392536569
+      "mean_acc_drop_vs_twin": 0.033590518301504634
     },
     "all_faults_clustered": {
       "by_seed": {
@@ -2031,16 +3528,16 @@
         "sign_p": 9.313225746154785e-10
       },
       "by_condition": {
-        "groups": 47,
-        "lhd_earlier": 41,
-        "acc_earlier": 3,
-        "ties": 3,
-        "wilcoxon_p": 1.4210854715202004e-12,
-        "sign_p": 8.091660674836021e-10
+        "groups": 88,
+        "lhd_earlier": 71,
+        "acc_earlier": 5,
+        "ties": 12,
+        "wilcoxon_p": 3.33449573145638e-14,
+        "sign_p": 2.624616555059971e-16
       },
       "mean_gap_ci": [
-        8.397872340425533,
-        9.712765957446809
+        7.376451873385013,
+        8.724523476670354
       ]
     },
     "acc_never_on_detected": {
