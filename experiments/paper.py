@@ -3,12 +3,13 @@
 Usage:
     python -m experiments.paper
 
-Run after experiments.report. Writes paper/lhd.tex, copies the figures
-it uses into paper/figures, and compiles paper/lhd.pdf with tectonic.
-Every number comes from results/summary.json and results/tables, so
-the paper can be rebuilt whenever more runs finish. The related work
-and references are fixed text in paper/related_work.tex and
-paper/references.tex.
+Run after experiments.report. Draws the paper's figures with
+experiments.paper_figures, writes paper/lhd.tex, and compiles
+paper/lhd.pdf with tectonic. Every number comes from
+results/summary.json and results/tables, so the paper can be rebuilt
+whenever more runs finish. The related work and references are fixed
+text in paper/related_work.tex and paper/references.tex, copied into
+lhd.tex so the .tex compiles on its own next to the figures folder.
 """
 
 from __future__ import annotations
@@ -16,7 +17,6 @@ from __future__ import annotations
 import csv
 import gzip
 import json
-import shutil
 import subprocess
 from collections import defaultdict
 from pathlib import Path
@@ -28,20 +28,21 @@ PAPER = RESULTS.parent / "paper"
 TABLES = RESULTS / "tables"
 TECTONIC = Path.home() / ".local" / "bin" / "tectonic"
 NAMES = {"mlp": "Fully connected", "transformer": "Transformer", "cnn": "CNN"}
-DATASETS = {"mlp": "Fashion-MNIST", "transformer": "Tiny Shakespeare", "cnn": "GTSRB"}
 PROSE = {"mlp": "fully connected network", "transformer": "transformer", "cnn": "CNN"}
+DATASETS = {"mlp": "Fashion-MNIST", "transformer": "Tiny Shakespeare", "cnn": "GTSRB"}
 DEAD = ("dead10", "dead25", "dead50")
-FIGURES = ("healthy_band_cnn", "anatomy_cnn_frozen", "cumulative_detection", "detector_comparison",
-           "dose_response", "accuracy_curves", "harm", "per_layer", "tradeoff", "calibration_size")
+FIGURES = ("how_lhd_works", "detection_over_time", "detectors_tradeoff", "dose_response",
+           "accuracy_curves", "harm", "margin", "calibration_size")
+SAGEMAKER = "Dead units check, 50% (SageMaker DeadRelu default)"
+DEEPDIAGNOSIS = "Dead units check, 70% (DeepDiagnosis Dead Node)"
+WANDB = "Dead units check, 80% (wandb-callbacks default)"
+ANY_DEAD = "Any dead unit (wandb-callbacks verbose)"
+WORDS = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine"}
 
 
 def read(name: str) -> list[dict]:
     with open(TABLES / name) as f:
         return list(csv.DictReader(f))
-
-
-def tex(text: str) -> str:
-    return text.replace("%", r"\%").replace("&", r"\&").replace("_", r"\_")
 
 
 def pct(k: float, n: float, digits: int = 0) -> str:
@@ -54,6 +55,11 @@ def rate(stat: dict, digits: int = 0) -> str:
 
 def kofn(stat: dict) -> str:
     return f"{stat['k']} of {stat['n']}"
+
+
+def count(n: int, noun: str) -> str:
+    word = WORDS.get(n, str(n))
+    return f"{word} {noun}" if n == 1 else f"{word} {noun}s"
 
 
 def pval(p) -> str:
@@ -88,16 +94,16 @@ class Data:
         self._signals = None
 
     def signals(self) -> list[dict]:
-        """Every calibration and fresh run's dead unit fraction, per epoch and layer."""
+        """Every calibration and fresh run's signals, per epoch and layer."""
         if self._signals is None:
             with gzip.open(TABLES / "signals.csv.gz", "rt") as f:
                 self._signals = [r for r in csv.DictReader(f) if r["role"] in ("calibration", "fresh")]
         return self._signals
 
-    def dead_range(self, arch: str, layer: str, role: str = "calibration") -> tuple[float, float]:
-        """Lowest and highest dead unit fraction of a layer over healthy runs and epochs."""
+    def dead_range(self, arch: str, layer: str) -> tuple[float, float]:
+        """Lowest and highest dead unit fraction of a layer over calibration runs and epochs."""
         values = [float(r["dead_unit_fraction"]) for r in self.signals()
-                  if r["arch"] == arch and r["layer"] == layer and r["role"] == role]
+                  if r["arch"] == arch and r["layer"] == layer and r["role"] == "calibration"]
         return min(values), max(values)
 
     def alarm_value(self, run_id: str, layer: str, epoch: str) -> float:
@@ -112,14 +118,11 @@ class Data:
 
     def detector(self, name: str, families) -> dict:
         rows = [r for r in self.detectors if r["detector"] == name and r["family"] in families]
-        k = sum(int(r["caught"]) for r in rows)
-        n = sum(int(r["broken_runs"]) for r in rows)
-        return {"k": k, "n": n}
+        return {"k": sum(int(r["caught"]) for r in rows), "n": sum(int(r["broken_runs"]) for r in rows)}
 
     def detector_alarms(self, name: str) -> dict:
         row = next(r for r in self.detectors if r["detector"] == name and r["family"] == "proposal")
-        return {"k": int(row["false_alarms"]), "n": int(row["healthy_runs"]),
-                "median": row["median_epoch"]}
+        return {"k": int(row["false_alarms"]), "n": int(row["healthy_runs"])}
 
     def more_complete(self) -> bool:
         planned = defaultdict(int)
@@ -144,6 +147,7 @@ def preamble() -> str:
 \urlstyle{same}
 \usepackage{graphicx}
 \usepackage{booktabs}
+\usepackage{array}
 \usepackage{amsmath}
 \usepackage[font=small,labelfont=bf]{caption}
 \usepackage[hidelinks]{hyperref}
@@ -158,47 +162,57 @@ def preamble() -> str:
 """
 
 
-def figure(name: str, caption: str, width: str = r"\linewidth") -> str:
-    return (f"\\begin{{figure}}[t]\n\\centering\n\\includegraphics[width={width}]{{figures/{name}.pdf}}\n"
+def figure(name: str, caption: str) -> str:
+    return (f"\\begin{{figure}}[t]\n\\centering\n\\includegraphics[width=\\linewidth]{{figures/{name}.pdf}}\n"
             f"\\caption{{{caption}}}\n\\label{{fig:{name}}}\n\\end{{figure}}\n")
 
 
+FIG = {
+    "how_lhd_works": figure("how_lhd_works", "One CNN run with a frozen layer. (a) The frozen layer's weight change "
+                            "against the range of the 20 calibration runs. It stays at 0, outside the range, and LHD "
+                            "stops the run after three epochs. (b) Validation accuracy of the same run, which is still "
+                            "inside the healthy range when LHD stops it."),
+    "detection_over_time": figure("detection_over_time", "Share of broken runs flagged by each epoch, for LHD and the "
+                                  "accuracy curve, in each network."),
+    "detectors_tradeoff": figure("detectors_tradeoff", "Dead unit faults caught against healthy runs flagged, for "
+                                 "every detector on the same runs, pooled over the three networks. A good detector "
+                                 "sits in the upper left."),
+    "dose_response": figure("dose_response", "Share of dead unit faults caught as more of a layer's units are "
+                            "killed, for (a) LHD and (b) the accuracy curve."),
+    "accuracy_curves": figure("accuracy_curves", "Validation accuracy over training. The shaded band is the range of "
+                              "the calibration runs, the dark line is the mean of fresh healthy runs, and the colored "
+                              "lines are the means of broken runs with a frozen layer or 50\\% dead units."),
+    "harm": figure("harm", "Broken runs caught by LHD and by the accuracy curve, split by how much final accuracy "
+                   "each fault cost against its healthy twin."),
+    "margin": figure("margin", "Broken runs caught and healthy runs flagged as the margin around the healthy range "
+                     "grows, pooled over the three networks, with a floor of 0.05 and a patience of 3 epochs."),
+    "calibration_size": figure("calibration_size", "Healthy runs flagged when the healthy range is built from fewer "
+                               "calibration runs, averaged over 20 random draws for each size."),
+}
+
+
 def abstract(d: Data) -> str:
-    p = d.pooled["proposal"]
-    h = d.pooled["healthy"]
-    c = d.pooled["proposal_clustered"]
+    p, h, c = d.pooled["proposal"], d.pooled["healthy"], d.pooled["proposal_clustered"]
     lo, hi = c["mean_gap_ci"]
     dead = d.detector("LHD", DEAD)
-    zero = d.detector("Zero update check", ("frozen",))
     return f"""\\begin{{abstract}}
-Neural networks can break during training without raising an error. The run completes and returns a degraded model, and the drop is easy to mistake for a hard problem. This work presents LHD (Layer Health Diagnostics), a monitor that logs four signals for every layer at the end of each epoch (weight change, gradient norm, weight norm, and the fraction of dead units), compares each one with the range it stays within during healthy runs of the same network, flags a layer after three epochs in a row outside that range, names a likely cause, and stops the run. LHD was tested on {d.total_runs()} training runs of a fully connected network on Fashion-MNIST, a CNN on GTSRB, and a small transformer on Tiny Shakespeare, with frozen layers and dead units planted in known layers. LHD caught {kofn(p['detected'])} broken runs ({rate(p['detected'])}), named the planted layer in {rate(p['layer_ok'])} of the runs it caught, and flagged {kofn(h['lhd_false_alarm'])} fresh healthy runs it had never seen. Averaged within each seed, it was earlier than the accuracy curve for {c['by_seed']['lhd_earlier']} of {c['by_seed']['groups']} seed groups, by {p['mean_gap']:.1f} epochs (95\\% interval {lo:.1f} to {hi:.1f}). A one line check for weights that never change caught all {zero['n']} frozen layers two epochs sooner, so LHD's advantage lies in dead units. There, the fixed thresholds used by existing tools either missed most faults or flagged many healthy runs, while LHD caught {pct(dead['k'], dead['n'])} of them.
+During training, neural networks can develop defects that raise no error, so the run completes and returns a degraded model that is easy to mistake for a hard problem. This work presents LHD (Layer Health Diagnostics), a monitor that logs four signals for every layer at the end of each epoch (weight change, gradient norm, weight norm, and the fraction of dead units) and compares each one with the range it stays within during healthy runs of the same network. When a signal stays outside that range for three epochs in a row, LHD names the layer and a likely cause and stops the run. Across {d.total_runs()} training runs of a fully connected network, a CNN, and a small transformer, with frozen layers and dead units planted in known layers, LHD caught {kofn(p['detected'])} broken runs, named the planted layer in {rate(p['layer_ok'])} of them, and flagged {kofn(h['lhd_false_alarm'])} fresh healthy runs. Averaged within each seed, it fired {p['mean_gap']:.1f} epochs before the accuracy curve (95\\% interval {lo:.1f} to {hi:.1f}). A check for weights that never change caught every frozen layer two epochs sooner, so the benefit of LHD lies in dead units, where it caught {pct(dead['k'], dead['n'])} of faults while the fixed thresholds of existing tools either missed most of them or flagged many healthy runs.
 \\end{{abstract}}
 """
 
 
 def introduction(d: Data) -> str:
-    p = d.pooled["proposal"]
-    h = d.pooled["healthy"]
-    c = d.pooled["proposal_clustered"]
-    lo, hi = c["mean_gap_ci"]
+    p, h, c = d.pooled["proposal"], d.pooled["healthy"], d.pooled["proposal_clustered"]
     dead = d.detector("LHD", DEAD)
-    zero = d.detector("Zero update check", ("frozen",))
-    sage = d.detector("Dead units check, 50% (SageMaker DeadRelu default)", DEAD)
-    sage_fa = d.detector_alarms("Dead units check, 50% (SageMaker DeadRelu default)")
+    sage = d.detector(SAGEMAKER, DEAD)
+    sage_fa = d.detector_alarms(SAGEMAKER)
     return f"""\\section{{Introduction}}
 
 During training, neural networks can develop defects, yet nothing fails visibly since the run completes normally and simply produces a degraded result; thus, these are called ``silent failures.'' Because of this, identifying whether the degraded result was caused by a difficult problem or a silent failure becomes difficult; therefore, it is common to misread a failure as normal. I initially encountered this as I was training my small-scale GTSRB (German Traffic Sign Recognition Benchmark) model \\citep{{stallkamp2012}} from scratch, where my model plateaued at 76\\%, wasting weeks tuning it, until I found one convolutional layer had been accidentally excluded from the optimizer and was never properly trained. Fixing this minute detail raised the accuracy to 87\\%. This is not an isolated case: errors in deep learning implementations rarely cause an exception and instead reveal themselves only through degraded predictive performance \\citep{{chwilczynski2024}}.
 
 Since training runs consume significant compute, every silent failure that goes undetected wastes it. The evidence existed in the form of raw numbers in the weights and biases, but perceiving that is challenging since nothing in standard practice surfaces them. To address this, this work presents LHD (Layer Health Diagnostics), a monitor that reads these numbers, catches the failure within a few epochs, identifies the broken layer and its likely cause, and halts the run before compute is wasted.
 
-LHD was tested on {d.total_runs()} training runs across three networks, with every rule and setting fixed before any broken run was trained. The main findings are the following.
-
-\\begin{{itemize}}
-\\item LHD caught {kofn(p['detected'])} runs with a planted frozen layer or dead units ({rate(p['detected'])}), usually at epoch {p['lhd_median_epoch']:.0f}, while the accuracy curve caught {kofn(p['acc_detected'])} ({rate(p['acc_detected'])}). LHD was earlier on average for {c['by_seed']['lhd_earlier']} of {c['by_seed']['groups']} seed groups and {c['by_condition']['lhd_earlier']} of {c['by_condition']['groups']} fault conditions, by {p['mean_gap']:.1f} epochs (95\\% interval {lo:.1f} to {hi:.1f}).
-\\item LHD flagged {kofn(h['lhd_false_alarm'])} fresh healthy runs ({rate(h['lhd_false_alarm'], 1)}), against {kofn(h['acc_false_alarm'])} for the accuracy curve.
-\\item For frozen layers, a check for weights that do not change at all caught {kofn(zero)} at epoch 1, two epochs before LHD. For dead units, LHD caught {pct(dead['k'], dead['n'])} with {h['lhd_false_alarm']['k']} false alarms, while SageMaker Debugger's default rule caught {pct(sage['k'], sage['n'])} and flagged {sage_fa['k']} of {sage_fa['n']} healthy runs, and stricter defaults from other tools caught almost none.
-\\item LHD missed small dead unit faults in layers where healthy runs already lose many units, and the planted faults were designed to show up in the signals LHD measures, so these results describe planted faults rather than bugs found in the wild.
-\\end{{itemize}}
+To test LHD, {d.total_runs()} networks were trained, and every rule and setting was fixed before the first broken run. LHD caught {kofn(p['detected'])} broken runs, usually at epoch {p['lhd_median_epoch']:.0f}, while the accuracy curve caught {kofn(p['acc_detected'])}, and it was earlier on average for {c['by_seed']['lhd_earlier']} of {c['by_seed']['groups']} seed groups. It also flagged {kofn(h['lhd_false_alarm'])} fresh healthy runs, against {kofn(h['acc_false_alarm'])} for the accuracy curve. However, a simple check for weights that do not change caught every frozen layer at epoch 1, two epochs before LHD, so the advantage of LHD comes from dead units. For those, it caught {pct(dead['k'], dead['n'])} with {h['lhd_false_alarm']['k']} false alarms, while the default rule of SageMaker Debugger caught {pct(sage['k'], sage['n'])} and flagged {sage_fa['k']} of {sage_fa['n']} healthy runs. Because the faults were planted to show up in the signals LHD measures, these results describe planted faults rather than bugs found in real projects.
 
 """
 
@@ -209,50 +223,40 @@ def method() -> str:
 
 \\subsection{{Signals}}
 
-At the end of every epoch, LHD records four signals for each watched layer. Let $W_e$ be the layer's weights and bias at the end of epoch $e$, flattened into one vector, and $\\lVert \\cdot \\rVert$ the square root of the sum of squared entries.
-
-\\begin{{itemize}}
-\\item \\textbf{{Weight change}} is $\\lVert W_e - W_{{e-1}} \\rVert / \\lVert W_{{e-1}} \\rVert$, how far the weights moved during the epoch relative to their size. A frozen layer reads exactly 0.
-\\item \\textbf{{Weight norm}} is $\\lVert W_e \\rVert$, which grows past normal before a run diverges.
-\\item \\textbf{{Gradient norm}} is the mean of $\\lVert \\partial L / \\partial W \\rVert$ over the epoch's batches, measured after each backward pass and before the optimizer step. A vanishing gradient reads near 0.
-\\item \\textbf{{Dead unit fraction}} is the share of the layer's units whose output after the ReLU is exactly 0 for every input in a fixed probe batch of 256 validation examples. A unit is one neuron of a dense layer or one filter of a convolution, and a filter counts as dead only when it outputs 0 at every position.
-\\end{{itemize}}
-
-The probe batch is the same in every run and is passed through the network in evaluation mode without gradients.
+At the end of every epoch, LHD records four signals for each layer it watches. Let $W_e$ be the layer's weights and bias at the end of epoch $e$, flattened into one vector, and let $\\lVert \\cdot \\rVert$ be the square root of the sum of squared entries. The weight change, $\\lVert W_e - W_{{e-1}} \\rVert / \\lVert W_{{e-1}} \\rVert$, measures how far the weights moved during the epoch relative to their size, so a frozen layer reads exactly 0. The weight norm, $\\lVert W_e \\rVert$, grows past normal before a run diverges. The gradient norm is the mean of $\\lVert \\partial L / \\partial W \\rVert$ over the epoch's batches, taken after each backward pass and before the optimizer step, and a vanishing gradient reads near 0. Finally, the dead unit fraction is the share of the layer's units whose output after the ReLU is exactly 0 for every input in a fixed probe batch of 256 validation examples. A unit is one neuron of a dense layer or one filter of a convolution, and a filter counts as dead only when it outputs 0 at every position. The probe batch is the same in every run and passes through the network in evaluation mode without gradients.
 
 \\subsection{{Healthy range}}
 
-The healthy range is measured only on calibration runs, trained with no defects from different random starting points. For layer $\\ell$, signal $s$, and epoch $e$, let $a_{{\\ell s e}}$ and $b_{{\\ell s e}}$ be the lowest and highest values across the calibration runs. A value $x$ is out of range when
+The healthy range comes only from calibration runs, which are trained with no defects from different random starting points. For layer $\\ell$, signal $s$, and epoch $e$, let $a_{{\\ell s e}}$ and $b_{{\\ell s e}}$ be the lowest and highest values across the calibration runs. A value $x$ is out of range when
 \\begin{{equation}}
 x < a_{{\\ell s e}}(1 - m) \\quad \\text{{or}} \\quad x > b_{{\\ell s e}}(1 + m) + f,
 \\end{{equation}}
-with margin $m = {m}$ and floor $f = {f}$, and a value that is not a finite number is always out of range. The floor keeps a signal that is 0 in every healthy run, such as the dead unit fraction of most layers, from flagging a single unusual unit. Broken runs are never used to set the range, because a detector tuned on a known fault only catches that fault. Figure~\\ref{{fig:healthy_band_cnn}} shows the range for one CNN layer.
-
-{FIG_HEALTHY_BAND_CNN}
+with margin $m = {m}$ and floor $f = {f}$, and a value that is not a finite number is always out of range. The floor keeps a signal that is 0 in every healthy run, such as the dead unit fraction of most layers, from flagging a single unusual unit. Broken runs are never used to set the range, since a detector tuned on a known fault only catches that fault.
 
 \\subsection{{Alarm and diagnosis}}
 
-LHD raises an alarm when one signal of one layer stays out of range for $p = {pat}$ epochs in a row. If several layers reach that point in the same epoch, LHD reports the first one in the order data flows through the network. The settings $m$, $f$, and $p$ were taken from the LHD library's own tests and fixed before any broken run was trained. LHD then names a likely cause from the pattern across the alarmed layer's four signals (Table~\\ref{{tab:rules}}), stops training, and reports the layer, the signals out of range, the cause, and a suggested check. For a frozen layer, for example, the suggested check is that the layer's parameters are passed to the optimizer.
+LHD raises an alarm once one signal of one layer stays out of range for $p = {pat}$ epochs in a row. If several layers reach that point in the same epoch, it reports the first one in the order data flows through the network. The settings $m$, $f$, and $p$ came from the LHD library's own tests and were fixed before any broken run was trained. LHD then names a likely cause from the pattern across the alarmed layer's four signals (Table~\\ref{{tab:rules}}), stops training, and reports the layer, the signals out of range, the cause, and a suggested check. For a frozen layer, for example, it suggests checking that the layer's parameters are passed to the optimizer. Figure~\\ref{{fig:how_lhd_works}} shows this on one CNN run with a frozen layer.
 
 \\begin{{table}}[t]
 \\centering
 \\small
-\\caption{{Rules LHD uses to name a cause, checked in order on the alarmed layer.}}
+\\caption{{How LHD names a cause. The rules are checked from top to bottom on the layer that raised the alarm.}}
 \\label{{tab:rules}}
-\\begin{{tabular}}{{@{{}}rll@{{}}}}
+\\begin{{tabular}}{{@{{}}p{{3.9in}}l@{{}}}}
 \\toprule
-Order & Pattern & Cause named \\\\
+When the alarmed layer shows & LHD names \\\\
 \\midrule
-1 & any signal not a finite number & diverged \\\\
-2 & dead unit fraction above range & dead units \\\\
-3 & weight change below range, gradient norm inside or above & frozen layer \\\\
-4 & weight change below range, gradient norm below & vanishing gradient \\\\
-5 & weight norm above range & runaway weights \\\\
-6 & anything else & unrecognized \\\\
+a signal that is not a finite number & diverged \\\\
+more dead units than its range allows & dead units \\\\
+weight change below its range while the gradient is inside or above & frozen layer \\\\
+weight change and gradient both below their ranges & vanishing gradient \\\\
+weight norm above its range & runaway weights \\\\
+any other pattern & unrecognized \\\\
 \\bottomrule
 \\end{{tabular}}
 \\end{{table}}
 
+{FIG['how_lhd_works']}
 """
 
 
@@ -260,154 +264,51 @@ def setup(d: Data) -> str:
     rows = []
     for a in d.archs:
         n = d.networks[a]
-        rows.append(f"{NAMES[a]} & {DATASETS[a]} & {int(n['parameters']):,} & {n['watched_layers']} & "
-                    f"{n['relu_layers']} & {n['epochs']} & {n['batch_size']} & {int(n['train_examples']):,} \\\\")
-    count_rows = []
-    for a in d.archs:
-        count_rows.append(f"{NAMES[a]} & {d.role_count(a, 'calibration')} & {d.role_count(a, 'fresh')} & "
-                          f"{d.role_count(a, 'fault')} & {d.role_count(a, 'calibration') + d.role_count(a, 'fresh') + d.role_count(a, 'fault')} \\\\")
-    extra = (" A third phase added faults beyond the frozen layer and dead units, reported in Section~\\ref{sec:extra}."
+        rows.append(f"{NAMES[a]} & {DATASETS[a]} & {int(n['parameters']):,} & {n['epochs']} & "
+                    f"{d.role_count(a, 'calibration')} & {d.role_count(a, 'fresh')} & {d.role_count(a, 'fault')} \\\\")
+    extra = (" A third set of runs added faults beyond these two, reported in Section~\\ref{sec:extra}."
              if d.more_complete() else "")
     return f"""\\section{{Experimental Setup}}
 
 \\subsection{{Networks and data}}
 
-LHD was tested on three networks with different structures (Table~\\ref{{tab:networks}}). The fully connected network has hidden layers of 256, 128, and 64 units. The CNN has three convolutions with 8, 16, and 32 filters, each followed by a ReLU and max pooling, then a dense layer of 64 units and the output layer. The transformer predicts the next character with a width of 64, 4 attention heads, 2 blocks, and a ReLU feed-forward layer of 256 units, so dead units can be counted the same way in every network. Validation accuracy is measured on each dataset's test split after every epoch. The CNN is scored on a fixed random subset of 4,000 test images, and the transformer on 512 fixed windows of 64 characters from the last 10\\% of the text.
+LHD was tested on three networks with different structures (Table~\\ref{{tab:networks}}). The fully connected network has hidden layers of 256, 128, and 64 units. The CNN has three convolutions with 8, 16, and 32 filters, each followed by a ReLU and max pooling, then a dense layer of 64 units and the output layer. The transformer predicts the next character with a width of 64, 4 attention heads, 2 blocks, and a feed-forward layer of 256 units that uses a ReLU, so dead units can be counted the same way in all three. After every epoch, validation accuracy is measured on the dataset's test split. The CNN is scored on a fixed random subset of 4,000 test images and the transformer on 512 fixed windows of 64 characters from the last 10\\% of the text.
 
 \\begin{{table}}[t]
 \\centering
 \\small
-\\caption{{Networks, datasets, and training settings. Training examples for the transformer count characters.}}
+\\caption{{The three networks and the runs trained for each. Calibration runs set the healthy range, and fresh healthy runs measure false alarms.}}
 \\label{{tab:networks}}
-\\begin{{tabular}}{{@{{}}llrrrrrr@{{}}}}
+\\begin{{tabular}}{{@{{}}llrrrrr@{{}}}}
 \\toprule
-Network & Dataset & Parameters & Watched layers & ReLU layers & Epochs & Batch & Training examples \\\\
+ & & & & \\multicolumn{{3}}{{c}}{{Runs}} \\\\
+\\cmidrule(l){{5-7}}
+Network & Dataset & Parameters & Epochs & Calibration & Fresh healthy & Broken \\\\
 \\midrule
 {chr(10).join(rows)}
 \\bottomrule
 \\end{{tabular}}
 \\end{{table}}
 
-Every run used Adam with a learning rate of 0.001 and a cosine schedule, on one CPU thread. The seed fixes both the starting weights and the order of training batches, so a broken run and the healthy run with the same seed differ only by the fault. That healthy run is the broken run's twin, and the twin's final accuracy shows what the fault cost.
+Every run used Adam with a learning rate of 0.001 and a cosine schedule on one CPU thread. The seed fixes both the starting weights and the order of training batches, so a broken run and the healthy run with the same seed differ only by the fault. That healthy run is the broken run's twin, and the twin's final accuracy shows how much the fault cost.
 
 \\subsection{{Planted faults}}
 
-Each broken run has one fault planted in one layer at the start of training. A frozen layer has its weights and bias restored after every optimizer step, so gradients are computed but never applied, the same failure as a layer left out of the optimizer. Dead units are made by setting the incoming weights of 10\\%, 25\\%, or 50\\% of a layer's units to 0 and their bias to $-1$, so their ReLU output is 0 for every input, and the optimizer's running averages for those units are cleared. Frozen layers were planted in every watched layer and dead units in every layer followed by a ReLU.{extra}
+Each broken run has one fault planted in one layer at the start of training. A frozen layer has its weights and bias put back after every optimizer step, so gradients are computed but never applied, which is the same failure as a layer left out of the optimizer. Dead units are made by setting the incoming weights of 10\\%, 25\\%, or 50\\% of a layer's units to 0 and their bias to $-1$, so their ReLU output is 0 for every input, and the optimizer's running averages for those units are cleared. Frozen layers were planted in every watched layer and dead units in every layer followed by a ReLU.{extra}
 
 \\subsection{{Runs}}
 
-Calibration runs used seeds 0 to 19 and only set the healthy range. Fresh healthy runs and broken runs used seeds from 1000 up, so no evaluation run touched the range (Table~\\ref{{tab:runs}}). Every run trained for all its epochs, and LHD's alarm was found by replaying the saved signals, which gives the same answer as running LHD live. This let every detector be scored on the same complete runs.
-
-\\begin{{table}}[t]
-\\centering
-\\small
-\\caption{{Training runs by role.}}
-\\label{{tab:runs}}
-\\begin{{tabular}}{{@{{}}lrrrr@{{}}}}
-\\toprule
-Network & Calibration & Fresh healthy & Broken & Total \\\\
-\\midrule
-{chr(10).join(count_rows)}
-\\bottomrule
-\\end{{tabular}}
-\\end{{table}}
+Calibration runs used seeds 0 to 19 and were used only to set the healthy range. Fresh healthy runs and broken runs used seeds from 1000 up, so no scored run ever touched the range. Every run trained for all of its epochs, and LHD's alarm was found by replaying the saved signals. Replaying gives the same answer as running LHD live and lets every detector be scored on the same complete runs.
 
 \\subsection{{Detectors compared}}
 
-The accuracy curve raises suspicion when validation accuracy falls below the lowest calibration value for that epoch {SETTINGS['patience']} epochs in a row, the same patience LHD uses and with no margin, which makes it more sensitive than LHD's rule. A version that needs only one epoch and a loss curve version were also scored. Two kinds of fixed rule that need no healthy runs were added to test whether LHD does better than checks anyone could write by hand. The zero update check fires when some layer's weights do not move at all in an epoch, like SageMaker Debugger's UnchangedTensor rule. The dead unit checks fire when some ReLU layer has at least a fixed share of dead units, at 50\\% (the default of SageMaker Debugger's DeadRelu rule), 70\\% (DeepDiagnosis), 80\\% (the default of wandb-callbacks), or any dead unit at all (its verbose mode). SageMaker counts a ReLU as inactive when it is active less than 1\\% of the time, which is close to but not the same as LHD's definition.
+The accuracy curve raises suspicion when validation accuracy falls below the lowest calibration value for that epoch {SETTINGS['patience']} epochs in a row. It uses the same patience as LHD and no margin, which makes it more sensitive than LHD's own rule. A version that needs only one epoch and a version based on the loss curve were also scored. Two kinds of fixed rule that need no healthy runs test whether LHD does better than checks anyone could write by hand. The zero update check fires when some layer's weights do not move at all in an epoch, like the UnchangedTensor rule of SageMaker Debugger. The dead unit checks fire when some ReLU layer has at least a fixed share of dead units, at 50\\% (the default of SageMaker Debugger's DeadRelu rule), 70\\% (DeepDiagnosis), 80\\% (the default of wandb-callbacks), or a single dead unit (its verbose mode). SageMaker counts a ReLU as inactive when it fires less than 1\\% of the time, which is close to LHD's definition but not the same.
 
 \\subsection{{Measures and statistics}}
 
-A broken run is caught when a detector fires at or after the fault's onset, and a false alarm is any alarm on a fresh healthy run. The gap is the accuracy curve's epoch minus LHD's epoch, with ``never'' counted as one epoch past the end of the run. Runs that share a seed share starting weights and batch order, and runs that share a fault and layer share the same break, so single runs are not independent. The main tests therefore average the gap within each seed and within each fault condition, then apply a one sided Wilcoxon signed rank test to those averages, and the 95\\% interval for the mean gap comes from a bootstrap with 10,000 draws that resamples whole seeds. Rates are given with 95\\% Wilson intervals in the data tables.
+A broken run is caught when a detector fires at or after the fault's onset, and a false alarm is any alarm on a fresh healthy run. The gap is the accuracy curve's epoch minus LHD's epoch, with ``never'' counted as one epoch past the end of the run. Runs that share a seed share their starting weights and batch order, and runs that share a fault and layer share the same break, so single runs are not independent. The main tests therefore average the gap within each seed and within each fault condition and apply a one sided Wilcoxon signed rank test to those averages. The 95\\% interval for the mean gap comes from a bootstrap with 10,000 draws that resamples whole seeds.
 
 """
-
-
-def results(d: Data) -> str:
-    out = ["\\section{Results}\n"]
-    out.append(detection_section(d))
-    out.append(detector_section(d))
-    out.append(dose_section(d))
-    out.append(harm_section(d))
-    out.append(diagnosis_section(d))
-    out.append(ablation_section(d))
-    out.append(settings_section(d))
-    out.append(cost_section(d))
-    if d.more_complete():
-        out.append(extra_section(d))
-    return "\n".join(out)
-
-
-def detection_section(d: Data) -> str:
-    rows = []
-
-    def row(label, fn):
-        rows.append(f"{label} & " + " & ".join(fn(a) for a in d.archs) + " \\\\")
-
-    s = d.summary["archs"]
-    row("Broken runs", lambda a: str(s[a]["proposal"]["runs"]))
-    row("Caught by LHD", lambda a: rate(s[a]["proposal"]["detected"]))
-    row("Right layer, when caught", lambda a: rate(s[a]["proposal"]["layer_ok"]))
-    row("Right cause, when caught", lambda a: rate(s[a]["proposal"]["cause_ok"]))
-    row("Median epoch LHD fired", lambda a: f"{s[a]['proposal']['lhd_median_epoch']:.0f}")
-    row("Caught by the accuracy curve", lambda a: rate(s[a]["proposal"]["acc_detected"]))
-    row("Median epoch accuracy curve fired",
-        lambda a: "n/a" if s[a]["proposal"]["acc_median_epoch"] is None else f"{s[a]['proposal']['acc_median_epoch']:.0f}")
-    row("Final accuracy inside healthy range", lambda a: rate(s[a]["proposal"]["silent_share"]))
-    row("Fresh healthy runs", lambda a: str(s[a]["healthy"]["runs"]))
-    row("Flagged by LHD", lambda a: kofn(s[a]["healthy"]["lhd_false_alarm"]))
-    row("Flagged by the accuracy curve", lambda a: kofn(s[a]["healthy"]["acc_false_alarm"]))
-    row("Mean epochs LHD was earlier",
-        lambda a: f"{s[a]['proposal']['mean_gap']:.1f} ({s[a]['proposal_clustered']['mean_gap_ci'][0]:.1f} to "
-                  f"{s[a]['proposal_clustered']['mean_gap_ci'][1]:.1f})")
-    c = d.pooled["proposal_clustered"]
-    p = d.pooled["proposal"]
-    alarm_text = false_alarm_text(d)
-    return f"""\\subsection{{Detection and timing}}
-
-Table~\\ref{{tab:headline}} gives the main results for each network. Across all three, LHD caught {kofn(p['detected'])} broken runs and the accuracy curve caught {kofn(p['acc_detected'])}. Of the runs LHD caught, the accuracy curve never noticed {rate(d.pooled['acc_never_on_detected'])}, and {rate(p['silent_share'])} of all broken runs finished with a final accuracy inside the healthy range. LHD's median alarm came at epoch {p['lhd_median_epoch']:.0f}, which is the earliest possible alarm for a fault planted at epoch 1 under a patience of 3 epochs. Figure~\\ref{{fig:cumulative_detection}} shows the share of broken runs flagged by each epoch.
-
-Averaged within each seed, LHD was earlier than the accuracy curve for {c['by_seed']['lhd_earlier']} of {c['by_seed']['groups']} seed groups ({pval(c['by_seed'].get('wilcoxon_p'))}). Averaged within each fault condition, it was earlier for {c['by_condition']['lhd_earlier']} of {c['by_condition']['groups']} ({pval(c['by_condition'].get('wilcoxon_p'))}). The mean gap was {p['mean_gap']:.1f} epochs, with a 95\\% interval of {c['mean_gap_ci'][0]:.1f} to {c['mean_gap_ci'][1]:.1f} from the seed bootstrap.
-
-{alarm_text}
-
-{FIG_ANATOMY_CNN_FROZEN}
-
-\\begin{{table}}[t]
-\\centering
-\\small
-\\caption{{Results on the planted frozen layers and dead units, by network. The gap interval comes from a bootstrap over seeds.}}
-\\label{{tab:headline}}
-\\begin{{tabular}}{{@{{}}l{'r' * len(d.archs)}@{{}}}}
-\\toprule
- & {' & '.join(NAMES[a] for a in d.archs)} \\\\
-\\midrule
-{chr(10).join(rows)}
-\\bottomrule
-\\end{{tabular}}
-\\end{{table}}
-
-{FIG_CUMULATIVE_DETECTION}
-"""
-
-
-FIG_HEALTHY_BAND_CNN = figure('healthy_band_cnn', 'The healthy range for the CNN layer conv2. Gray lines are the 20 calibration runs that set the range, blue lines are fresh healthy runs that never touched it, and the shaded band is the range after the margin and floor.')
-
-FIG_ANATOMY_CNN_FROZEN = figure('anatomy_cnn_frozen', "One CNN run with a frozen layer. Each panel is one signal of the planted layer against its healthy range, and the last panel is validation accuracy. The vertical rule marks the epoch of LHD's alarm.")
-
-FIG_CUMULATIVE_DETECTION = figure('cumulative_detection', 'Share of broken runs flagged by each epoch, for LHD, the accuracy curve, the loss curve, and the zero update or 50\\% dead unit check.')
-
-FIG_DETECTOR_COMPARISON = figure('detector_comparison', 'Every detector on the same runs, pooled over the three networks, with 95\\% Wilson intervals.')
-
-FIG_DOSE_RESPONSE = figure('dose_response', 'Share of dead unit faults caught as the killed share grows, for LHD and the accuracy curve, by network, with 95\\% Wilson intervals.')
-
-FIG_ACCURACY_CURVES = figure('accuracy_curves', 'Validation accuracy over training. The shaded band is the range of the calibration runs and the dark line the mean of fresh healthy runs. Colored lines are the mean of broken runs for each fault.')
-
-FIG_PER_LAYER = figure('per_layer', 'Share of caught runs where LHD named both the planted layer and the right cause, by fault and layer.')
-
-FIG_TRADEOFF = figure('tradeoff', 'Broken runs caught and healthy runs flagged as the margin changes, at floor 0.05. Solid lines use patience 3 and dashed lines patience 1.')
-
-FIG_CALIBRATION_SIZE = figure('calibration_size', 'False alarms and broken runs caught when the healthy range is built from fewer calibration runs.')
 
 
 def false_alarm_text(d: Data) -> str:
@@ -426,10 +327,8 @@ def false_alarm_text(d: Data) -> str:
         groups[(r["arch"], r["lhd_layer"], kind)].append(r["lhd_epoch"])
     parts = []
     for (arch, layer, (kind, value, edge)), epochs in groups.items():
-        words = {1: "one run", 2: "two runs", 3: "three runs", 4: "four runs", 5: "five runs"}
-        runs = words.get(len(epochs), f"{len(epochs)} runs")
         when = f"epoch {epochs[0]}" if len(epochs) == 1 else "epochs " + " and ".join(sorted(epochs))
-        where = f"{runs} in the {PROSE[arch]}'s {layer} at {when}"
+        where = f"{count(len(epochs), 'run')} in the {PROSE[arch]}'s {layer} at {when}"
         if kind == "above":
             limit = ("no calibration run had a single dead unit there" if edge == 0
                      else f"no calibration run had more than {100 * edge:.1f}\\%")
@@ -439,46 +338,30 @@ def false_alarm_text(d: Data) -> str:
                          f"run (lowest {100 * edge:.1f}\\%)")
         else:
             parts.append(f"{where} on the {kind.replace('_', ' ')}")
-    below = any("fewer than" in x for x in parts)
-    tail = (" An alarm for too few dead units does not point to a fault, so checking the dead unit fraction against "
-            "only the upper end of its range would remove that kind of false alarm.") if below else ""
-    return (f"On fresh healthy runs, LHD raised {h['k']} false alarms in {h['n']} runs: " + "; ".join(parts) + "."
-            + " When no calibration run had a dead unit in a layer, the top of that layer's range is the 0.05 floor, "
-            "so one dead filter out of 16 is enough to cross it." + tail)
+    text = f"On fresh healthy runs, LHD raised {h['k']} false alarms in {h['n']} runs: " + "; ".join(parts) + "."
+    if any(kind == "above" and edge == 0 for (_, _, (kind, _, edge)) in groups):
+        text += (" When no calibration run has a dead unit in a layer, the top of its range is the floor of 0.05, so "
+                 "one dead filter out of 16 is enough to cross it.")
+    if any(kind == "below" for (_, _, (kind, _, _)) in groups):
+        text += (" An alarm for too few dead units does not point to any fault, and checking the dead unit fraction "
+                 "against only the top of its range would remove it.")
+    return text
 
 
-DETECTORS = (
-    ("LHD", "LHD"),
-    ("Accuracy curve, 3 epochs below healthy", "Accuracy curve, 3 epochs"),
-    ("Accuracy curve, 1 epoch below healthy", "Accuracy curve, 1 epoch"),
-    ("Loss curve, 3 epochs above healthy", "Loss curve, 3 epochs"),
-    ("Zero update check", "Zero update check"),
-    ("Dead units check, 25%", "Dead units, 25\\%"),
-    ("Dead units check, 50% (SageMaker DeadRelu default)", "Dead units, 50\\% (SageMaker)"),
-    ("Dead units check, 70% (DeepDiagnosis Dead Node)", "Dead units, 70\\% (DeepDiagnosis)"),
-    ("Dead units check, 80% (wandb-callbacks default)", "Dead units, 80\\% (wandb-callbacks)"),
-    ("Any dead unit (wandb-callbacks verbose)", "Any dead unit (wandb-callbacks)"),
-)
+def results(d: Data) -> str:
+    sections = [detection_section(d), detector_section(d), dose_section(d), harm_section(d),
+                diagnosis_section(d), ablation_section(d), settings_section(d), cost_section(d)]
+    if d.more_complete():
+        sections.append(extra_section(d))
+    return "\\section{Results}\n\n" + "\n".join(sections)
 
 
-def detector_section(d: Data) -> str:
-    rows = []
-    for name, label in DETECTORS:
-        frozen = d.detector(name, ("frozen",))
-        dead = d.detector(name, DEAD)
-        fa = d.detector_alarms(name)
-        median = "--" if not fa["median"] else f"{float(fa['median']):.0f}"
-        rows.append(f"{label} & {pct(frozen['k'], frozen['n'])} & {pct(dead['k'], dead['n'])} & "
-                    f"{fa['k']} of {fa['n']} & {median} \\\\")
-    zero = d.detector("Zero update check", ("frozen",))
-    lhd_dead = d.detector("LHD", DEAD)
-    any_dead = d.detector("Any dead unit (wandb-callbacks verbose)", DEAD)
-    any_fa = d.detector_alarms("Any dead unit (wandb-callbacks verbose)")
-    q25 = d.detector("Dead units check, 25%", DEAD)
-    q25_fa = d.detector_alarms("Dead units check, 25%")
-    cnn_lo, cnn_hi = d.dead_range("cnn", "fc1")
-    tr_hi = max(d.dead_range("transformer", layer)[1] for layer in ("b0.ff1", "b1.ff1"))
-    return f"""\\subsection{{Comparison with other detectors}}
+def detection_section(d: Data) -> str:
+    s = d.summary["archs"]
+    p, c = d.pooled["proposal"], d.pooled["proposal_clustered"]
+    header = " & ".join(f"\\multicolumn{{2}}{{c}}{{{NAMES[a]}}}" for a in d.archs)
+    rules = " ".join(f"\\cmidrule(lr){{{2 + 2 * i}-{3 + 2 * i}}}" for i in range(len(d.archs)))
+    sub = " & ".join("LHD & Accuracy" for _ in d.archs)
 
 Table~\\ref{{tab:detectors}} and Figure~\\ref{{fig:detector_comparison}} compare LHD with every other detector on the same runs. For frozen layers, LHD adds nothing over the zero update check, which caught {kofn(zero)} at epoch 1 with no false alarms, two epochs before LHD. A frozen layer's weight change is exactly 0, so a check for an exact 0 needs no healthy range and no patience.
 
