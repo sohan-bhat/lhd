@@ -1,1 +1,3 @@
-
+arch,run_id,halt_epoch,halt_layer,halt_cause,halt_signals
+cnn,cnn-fresh-none-s1015,4,conv2,dead_units,dead_unit_fraction
+cnn,cnn-fresh-none-s1028,3,conv2,dead_units,dead_unit_fraction
