@@ -170,6 +170,146 @@ def calibration_table() -> list[str]:
     return lines
 
 
+DEAD_FAMILIES = ("dead10", "dead25", "dead50")
+
+
+def _sum_rows(rows: list[dict], families) -> dict:
+    """Caught counts summed over several fault families of one detector."""
+    group = [r for r in rows if r["family"] in families]
+    if not group:
+        return {}
+    caught = sum(int(r["caught"]) for r in group)
+    n = sum(int(r["broken_runs"]) for r in group)
+    return {"k": caught, "n": n, "rate": caught / n}
+
+
+def _kn(stat: dict) -> str:
+    return f"{100 * stat['rate']:.0f}% ({stat['k']}/{stat['n']})" if stat and stat["n"] else "n/a"
+
+
+def detector_section() -> list[str]:
+    """HALT against the accuracy and loss curves and against simple fixed checks, pooled."""
+    rows = [r for r in read("detectors.csv") if r["arch"] == "pooled"]
+    if not rows:
+        return []
+    names = list(dict.fromkeys(r["detector"] for r in rows))
+    lines = ["| Detector | Frozen layers caught | Dead units caught | Median alarm epoch | "
+             "Earlier than HALT / later / tie | Healthy runs flagged |",
+             "|---|---|---|---|---|---|"]
+    for name in names:
+        mine = [r for r in rows if r["detector"] == name]
+        proposal = next((r for r in mine if r["family"] == "proposal"), None)
+        frozen = _sum_rows(mine, ("frozen",))
+        dead = _sum_rows(mine, DEAD_FAMILIES)
+        if proposal is None:
+            continue
+        timing = ("n/a" if name == "HALT" else
+                  f"{proposal['this_earlier']} / {proposal['halt_earlier']} / {proposal['ties']}")
+        alarms = {"k": int(proposal["false_alarms"]), "n": int(proposal["healthy_runs"]),
+                  "rate": float(proposal["false_alarm_rate"])}
+        lines.append(f"| {name} | {_kn(frozen)} | {_kn(dead)} | {num(_float(proposal['median_epoch']), 1)} | "
+                     f"{timing} | {_kn(alarms)} |")
+    return lines
+
+
+def _float(value):
+    return None if value in ("", None) else float(value)
+
+
+def harm_section() -> list[str]:
+    """Detection split by how much final accuracy the fault cost."""
+    rows = [r for r in read("harm.csv") if r["scope"] == "proposal"]
+    if not rows:
+        return []
+    lines = ["| Network | Accuracy cost against twin | Broken runs | Mean cost | HALT | Accuracy curve | "
+             "Loss curve | Simple fixed checks |", "|---|---|---|---|---|---|---|---|"]
+    order = [a for a in ARCH_ORDER] + ["pooled"]
+    for arch in order:
+        for r in [r for r in rows if r["arch"] == arch]:
+            cells = []
+            for name in ("halt", "accuracy", "loss", "simple"):
+                cells.append(_kn({"k": int(r[f"{name}_caught"]), "n": int(r["broken_runs"]),
+                                  "rate": float(r[f"{name}_rate"])}))
+            label = "All three" if arch == "pooled" else ARCH_NAMES[arch]
+            lines.append(f"| {label} | {r['harm']} | {r['broken_runs']} | "
+                         f"{float(r['mean_drop_pts']):.2f} pts | " + " | ".join(cells) + " |")
+    return lines
+
+
+def honest_section(summary: dict) -> list[str]:
+    """What the results support and what they do not, with the numbers behind each point."""
+    pooled = summary["pooled"]
+    prop = pooled["proposal"]
+    healthy = pooled["healthy"]
+    rows = [r for r in read("detectors.csv") if r["arch"] == "pooled"]
+    by = defaultdict(list)
+    for r in rows:
+        by[r["detector"]].append(r)
+    if not rows or not prop:
+        return []
+    halt_frozen = _sum_rows(by["HALT"], ("frozen",))
+    zero_frozen = _sum_rows(by["Zero update check"], ("frozen",))
+    zero_prop = next(r for r in by["Zero update check"] if r["family"] == "proposal")
+    halt_dead = _sum_rows(by["HALT"], DEAD_FAMILIES)
+    dead_rules = []
+    for t in (25, 50, 75):
+        mine = by.get(f"Dead units check, {t}%", [])
+        if mine:
+            caught = _sum_rows(mine, DEAD_FAMILIES)
+            alarms = next(r for r in mine if r["family"] == "proposal")
+            dead_rules.append(f"at {t}% caught {_kn(caught)} and flagged {alarms['false_alarms']} of "
+                              f"{alarms['healthy_runs']} healthy runs")
+    harm = {r["harm"]: r for r in read("harm.csv") if r["scope"] == "proposal" and r["arch"] == "pooled"}
+    clustered = pooled.get("proposal_clustered", {})
+    lines = [
+        "These points are written to be read by a skeptic. Each one gives the numbers behind it.",
+        "",
+        f"- HALT caught {_kn(prop['detected'])} of the proposal's broken runs and flagged "
+        f"{_kn(healthy['halt_false_alarm'])} of fresh healthy runs, with the same rules on all three networks.",
+        f"- HALT was earlier than the accuracy curve on average for {clustered.get('by_seed', {}).get('halt_earlier')} "
+        f"of {clustered.get('by_seed', {}).get('groups')} seed groups (one per network and seed) and {clustered.get('by_condition', {}).get('halt_earlier')} "
+        f"of {clustered.get('by_condition', {}).get('groups')} fault conditions. Its alarm epoch is mostly 3 "
+        "because patience 3 makes epoch 3 the earliest possible alarm for a fault planted at epoch 1.",
+        f"- For frozen layers HALT adds nothing over a one line check. The zero update check caught "
+        f"{_kn(zero_frozen)} at epoch 1 with {zero_prop['false_alarms']} false alarms in "
+        f"{zero_prop['healthy_runs']} healthy runs, while HALT caught {_kn(halt_frozen)} at epoch 3.",
+        f"- For dead units HALT does better than the fixed thresholds tested. HALT caught {_kn(halt_dead)} "
+        f"with {healthy['halt_false_alarm']['k']} false alarms. A fixed dead unit rule "
+        + ", ".join(dead_rules) + ". Healthy networks differ in how many units die on their own, so one "
+        "threshold cannot fit all of them, and HALT's per layer healthy range can.",
+        "- HALT misses small dead unit faults in layers where healthy runs already lose many units, such as "
+        "10% in the fully connected network's middle layers and every fraction in the CNN's fc1.",
+        "- The planted faults were designed to show up in the signals HALT measures. A frozen layer has a "
+        "weight change of exactly 0 and a killed unit outputs exactly 0. HALT's high rate of naming the "
+        "right cause is largely built into that design, since its cause rules map those same patterns.",
+    ]
+    if harm:
+        low = harm.get("under 0.5 pts")
+        high = harm.get("2 pts or more")
+        total = sum(int(r["broken_runs"]) for r in harm.values())
+        if low:
+            lines.append(f"- Most planted faults did little harm. {low['broken_runs']} of {total} broken runs "
+                         "lost under half a point of final accuracy against their healthy twin. The accuracy "
+                         "curve missing those runs is partly the curve being right.")
+        if high:
+            lines.append(f"- On broken runs that lost 2 points or more, HALT caught {high['halt_caught']} of "
+                         f"{high['broken_runs']} and the accuracy curve caught {high['accuracy_caught']}.")
+    lines += [
+        "- Not tested here are real bugs found in the wild, large networks, long training runs, other "
+        "optimizers, and GPU training. The networks are small, and the transformer only reaches about "
+        f"{_transformer_accuracy()} next character accuracy.",
+        "- The accuracy cost uses one healthy twin per broken run, so it carries noise. Some broken runs "
+        "ended above their twin, which shows up as a negative mean cost.",
+    ]
+    return lines
+
+
+def _transformer_accuracy() -> str:
+    values = [float(r["final_acc"]) for r in read("runs.csv")
+              if r["arch"] == "transformer" and r["role"] == "fresh"]
+    return f"{100 * sum(values) / len(values):.0f}%" if values else "n/a"
+
+
 def misses() -> list[str]:
     lines = []
     wrong = read("wrong_layers.csv")
@@ -247,6 +387,24 @@ def main() -> None:
         f"- Run by run, for reference only since runs that share a seed are not independent: "
         f"HALT earlier on {tests.get('halt_earlier')}, accuracy earlier on {tests.get('acc_earlier')}, "
         f"ties {tests.get('ties')}.",
+        "",
+        "## What the results show and what they do not",
+        "",
+        *honest_section(summary),
+        "",
+        "## HALT against other detectors",
+        "",
+        "Pooled over all three networks, on the proposal's broken runs. The simple fixed checks need no "
+        "healthy runs and were added after the core results to test whether HALT beats rules anyone could "
+        "write by hand. Earlier, later, and tie compare each detector with HALT run by run.",
+        "",
+        *detector_section(),
+        "",
+        "## Does HALT catch faults that cost accuracy",
+        "",
+        "Broken runs split by how much final accuracy they lost against their healthy twin.",
+        "",
+        *harm_section(),
         "",
         "## By architecture",
         "",
