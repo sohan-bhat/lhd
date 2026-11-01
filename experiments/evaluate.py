@@ -1,4 +1,4 @@
-"""Scores HALT and the accuracy curve on every saved run.
+"""Scores LHD and the accuracy curve on every saved run.
 
 The healthy band comes from calibration runs only. Broken runs and
 fresh healthy runs are scored against it and never change it.
@@ -17,8 +17,8 @@ from pathlib import Path
 import numpy as np
 
 from experiments.grid import cut_affects, dead_layers
-from halt.baseline import healthy_band
-from halt.replay import replay
+from lhd.baseline import healthy_band
+from lhd.replay import replay
 
 RESULTS = Path(__file__).resolve().parent.parent / "results"
 SETTINGS = {"margin": 0.5, "floor": 0.05, "patience": 3}
@@ -104,7 +104,7 @@ def zero_update_epoch(history: list[dict]) -> int | None:
     """First epoch in which some watched layer's weights did not move at all.
 
     A check that needs no healthy runs, the kind of assert an engineer
-    might add by hand. It is a baseline for HALT, not part of it.
+    might add by hand. It is a baseline for LHD, not part of it.
     """
     for entry in history:
         if any(values["weight_change"] == 0.0 for values in entry["layers"].values()):
@@ -153,7 +153,7 @@ def _first(*epochs):
 
 
 def reference(groups: dict[str, list[dict]]) -> dict:
-    """Everything built from calibration runs: HALT's band and the curve bands."""
+    """Everything built from calibration runs: LHD's band and the curve bands."""
     histories = [run["history"] for run in groups["calibration"]]
     finals = [h[-1]["val_accuracy"] for h in histories]
     return {
@@ -174,7 +174,7 @@ def score_run(run: dict, ref: dict, settings: dict, twins: dict[int, float]) -> 
     report = replay(history, ref["band"], **settings)
     patience = settings["patience"]
     relu = _relu_layers(meta["arch"])
-    halt_epoch = report["epoch"] if report else None
+    lhd_epoch = report["epoch"] if report else None
     final = history[-1]["val_accuracy"]
     row = {
         "arch": meta["arch"],
@@ -187,10 +187,10 @@ def score_run(run: dict, ref: dict, settings: dict, twins: dict[int, float]) -> 
         "fault_layer": fault.get("layer"),
         "onset": onset,
         "epochs": epochs,
-        "halt_epoch": halt_epoch,
-        "halt_layer": report["layer"] if report else None,
-        "halt_cause": report["cause"] if report else None,
-        "halt_signals": "+".join(report["signals"]) if report else None,
+        "lhd_epoch": lhd_epoch,
+        "lhd_layer": report["layer"] if report else None,
+        "lhd_cause": report["cause"] if report else None,
+        "lhd_signals": "+".join(report["signals"]) if report else None,
         "acc_epoch": curve_alarm(history, ref["accuracy"], "val_accuracy", "below", patience),
         "acc1_epoch": curve_alarm(history, ref["accuracy"], "val_accuracy", "below", 1),
         "loss_epoch": curve_alarm(history, ref["loss"], "val_loss", "above", patience),
@@ -202,7 +202,7 @@ def score_run(run: dict, ref: dict, settings: dict, twins: dict[int, float]) -> 
         "healthy_final_mean": ref["final_mean"],
         "final_in_healthy_range": final >= ref["final_low"],
         "twin_final_acc": twins.get(meta["seed"]),
-        "halt_seconds": meta.get("halt_seconds"),
+        "lhd_seconds": meta.get("lhd_seconds"),
         "total_seconds": meta.get("total_seconds"),
     }
     _judge(row, fault, meta["arch"])
@@ -212,33 +212,33 @@ def score_run(run: dict, ref: dict, settings: dict, twins: dict[int, float]) -> 
 def _judge(row: dict, fault: dict, arch: str) -> None:
     """Add detection, layer, cause, gap, and compute-saved fields to a row."""
     kind, onset, epochs = fault["type"], row["onset"], row["epochs"]
-    halt = row["halt_epoch"]
-    row["fired"] = halt is not None
-    row["fired_before_onset"] = halt is not None and kind != "none" and halt < onset
-    row["detected"] = halt is not None and halt >= onset and kind != "none"
+    lhd = row["lhd_epoch"]
+    row["fired"] = lhd is not None
+    row["fired_before_onset"] = lhd is not None and kind != "none" and lhd < onset
+    row["detected"] = lhd is not None and lhd >= onset and kind != "none"
     if kind in ("frozen", "dead"):
         right_layers = [fault["layer"]]
     elif kind == "detach":
         right_layers = cut_affects(arch, fault["layer"])
     else:
         right_layers = None
-    row["layer_ok"] = (row["halt_layer"] in right_layers) if (row["detected"] and right_layers) else None
+    row["layer_ok"] = (row["lhd_layer"] in right_layers) if (row["detected"] and right_layers) else None
     expected = EXPECTED_CAUSE.get(kind)
-    row["cause_ok"] = (row["halt_cause"] == expected) if (row["detected"] and expected) else None
+    row["cause_ok"] = (row["lhd_cause"] == expected) if (row["detected"] and expected) else None
     if kind == "none":
         row["delay"] = row["acc_delay"] = row["gap"] = row["compute_saved"] = None
         return
     censor = epochs + 1
     acc = row["acc_epoch"] if row["acc_epoch"] is not None and row["acc_epoch"] >= onset else None
     row["acc_detected"] = acc is not None
-    row["delay"] = (halt - onset + 1) if row["detected"] else None
+    row["delay"] = (lhd - onset + 1) if row["detected"] else None
     row["acc_delay"] = (acc - onset + 1) if acc is not None else None
-    halt_c = halt if row["detected"] else censor
+    lhd_c = lhd if row["detected"] else censor
     acc_c = acc if acc is not None else censor
-    row["halt_censored"] = halt_c
+    row["lhd_censored"] = lhd_c
     row["acc_censored"] = acc_c
-    row["gap"] = acc_c - halt_c
-    row["compute_saved"] = (epochs - halt) / epochs if row["detected"] else 0.0
+    row["gap"] = acc_c - lhd_c
+    row["compute_saved"] = (epochs - lhd) / epochs if row["detected"] else 0.0
     twin = row["twin_final_acc"]
     row["acc_drop_vs_twin"] = (twin - row["final_acc"]) if twin is not None else None
     row["harm"] = harm_bin(row["acc_drop_vs_twin"])
@@ -248,7 +248,7 @@ def _judge(row: dict, fault: dict, arch: str) -> None:
     row["simple_epoch"] = simple
     row["simple_detected"] = simple is not None and simple >= onset
     simple_c = simple if row["simple_detected"] else censor
-    row["simple_gap"] = simple_c - halt_c
+    row["simple_gap"] = simple_c - lhd_c
 
 
 def score_arch(arch: str, settings: dict = SETTINGS, runs: list[dict] | None = None) -> list[dict]:
@@ -295,10 +295,10 @@ def summarize_faults(rows: list[dict]) -> dict:
         "layer_ok": rate(faults, "layer_ok"),
         "cause_ok": rate(faults, "cause_ok"),
         "acc_detected": rate(faults, "acc_detected"),
-        "halt_first": rate([{**r, "x": r["halt_censored"] < r["acc_censored"]} for r in faults], "x"),
-        "halt_median_epoch": _median([r["halt_epoch"] for r in faults if r["detected"]]),
+        "lhd_first": rate([{**r, "x": r["lhd_censored"] < r["acc_censored"]} for r in faults], "x"),
+        "lhd_median_epoch": _median([r["lhd_epoch"] for r in faults if r["detected"]]),
         "acc_median_epoch": _median([r["acc_epoch"] for r in faults if r["acc_detected"]]),
-        "halt_median_delay": _median([r["delay"] for r in faults]),
+        "lhd_median_delay": _median([r["delay"] for r in faults]),
         "acc_median_delay": _median([r["acc_delay"] for r in faults]),
         "mean_gap": float(np.mean([r["gap"] for r in faults])),
         "mean_compute_saved": float(np.mean([r["compute_saved"] for r in faults])),
@@ -306,8 +306,8 @@ def summarize_faults(rows: list[dict]) -> dict:
         "zero_update_detected": rate(faults, "zero_update_detected"),
         "simple_detected": rate(faults, "simple_detected"),
         "simple_median_epoch": _median([r["simple_epoch"] for r in faults if r["simple_detected"]]),
-        "halt_before_simple": rate([{**r, "x": r["simple_gap"] > 0} for r in faults], "x"),
-        "simple_before_halt": rate([{**r, "x": r["simple_gap"] < 0} for r in faults], "x"),
+        "lhd_before_simple": rate([{**r, "x": r["simple_gap"] > 0} for r in faults], "x"),
+        "simple_before_lhd": rate([{**r, "x": r["simple_gap"] < 0} for r in faults], "x"),
         "mean_acc_drop_vs_twin": _mean([r["acc_drop_vs_twin"] for r in faults]),
     }
 
@@ -322,23 +322,23 @@ def summarize_healthy(rows: list[dict]) -> dict:
     fresh = [r for r in rows if r["role"] == "fresh"]
     return {
         "runs": len(fresh),
-        "halt_false_alarm": rate(fresh, "fired"),
+        "lhd_false_alarm": rate(fresh, "fired"),
         "acc_false_alarm": rate([{**r, "x": r["acc_epoch"] is not None} for r in fresh], "x"),
         "acc1_false_alarm": rate([{**r, "x": r["acc1_epoch"] is not None} for r in fresh], "x"),
         "loss_false_alarm": rate([{**r, "x": r["loss_epoch"] is not None} for r in fresh], "x"),
         "zero_update_false_alarm": rate([{**r, "x": r["zero_update_epoch"] is not None} for r in fresh], "x"),
         "simple_false_alarm": rate([{**r, "x": _first(r["zero_update_epoch"], r["dead50_check_epoch"])
                                      is not None} for r in fresh], "x"),
-        "overhead": _mean([r["halt_seconds"] / r["total_seconds"] for r in fresh
-                           if r["halt_seconds"] is not None]),
+        "overhead": _mean([r["lhd_seconds"] / r["total_seconds"] for r in fresh
+                           if r["lhd_seconds"] is not None]),
     }
 
 
 def paired_tests(rows: list[dict]) -> dict:
-    """Is HALT earlier than the accuracy curve on the same broken runs?
+    """Is LHD earlier than the accuracy curve on the same broken runs?
 
     Uses the one-sided Wilcoxon signed-rank test and the sign test
-    on (accuracy epoch - HALT epoch), with "never" counted as one
+    on (accuracy epoch - LHD epoch), with "never" counted as one
     epoch past the end of the run.
     """
     from scipy.stats import binomtest, wilcoxon
@@ -347,7 +347,7 @@ def paired_tests(rows: list[dict]) -> dict:
     gaps = np.array([r["gap"] for r in faults], dtype=float)
     result = {"n": int(len(gaps)), "mean_gap": float(gaps.mean()) if len(gaps) else None}
     nonzero = gaps[gaps != 0]
-    result["halt_earlier"] = int((gaps > 0).sum())
+    result["lhd_earlier"] = int((gaps > 0).sum())
     result["acc_earlier"] = int((gaps < 0).sum())
     result["ties"] = int((gaps == 0).sum())
     if len(nonzero):
@@ -377,7 +377,7 @@ def clustered_tests(rows: list[dict], draws: int = 10000, seed: int = 0) -> dict
     result = {}
     for name, groups in (("by_seed", by_seed), ("by_condition", by_condition)):
         means = np.array([np.mean(v) for v in groups.values()], dtype=float)
-        entry = {"groups": int(len(means)), "halt_earlier": int((means > 0).sum()),
+        entry = {"groups": int(len(means)), "lhd_earlier": int((means > 0).sum()),
                  "acc_earlier": int((means < 0).sum()), "ties": int((means == 0).sum())}
         nonzero = means[means != 0]
         if len(nonzero):

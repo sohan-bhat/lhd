@@ -33,7 +33,7 @@ from experiments.sweep import calibration_sweep, settings_sweep, signal_ablation
 TABLES = RESULTS / "tables"
 PROPOSAL = ("frozen", "dead10", "dead25", "dead50")
 DETECTORS = (
-    ("HALT", "halt_epoch"),
+    ("LHD", "lhd_epoch"),
     ("Accuracy curve, 3 epochs below healthy", "acc_epoch"),
     ("Accuracy curve, 1 epoch below healthy", "acc1_epoch"),
     ("Loss curve, 3 epochs above healthy", "loss_epoch"),
@@ -79,7 +79,7 @@ def per_layer(rows: list[dict]) -> list[dict]:
             "layer_ok": sum(bool(r["layer_ok"]) for r in group),
             "cause_ok": sum(bool(r["cause_ok"]) for r in group),
             "acc_detected": sum(bool(r["acc_detected"]) for r in group),
-            "median_halt_epoch": _median_int([r["halt_epoch"] for r in group if r["detected"]]),
+            "median_lhd_epoch": _median_int([r["lhd_epoch"] for r in group if r["detected"]]),
             "median_acc_epoch": _median_int([r["acc_epoch"] for r in group if r["acc_detected"]]),
             "mean_acc_drop_vs_twin": _mean([r["acc_drop_vs_twin"] for r in group]),
             "silent": sum(bool(r["final_in_healthy_range"]) for r in group),
@@ -102,21 +102,21 @@ def confusion(rows: list[dict]) -> dict:
     counts = defaultdict(Counter)
     for r in rows:
         if r["role"] == "fault":
-            counts[r["family"]][r["halt_cause"] if r["detected"] else "not detected"] += 1
+            counts[r["family"]][r["lhd_cause"] if r["detected"] else "not detected"] += 1
     return {fam: dict(c) for fam, c in counts.items()}
 
 
 def wrong_layers(rows: list[dict]) -> list[dict]:
     """Detected runs that named the wrong layer, to read by hand."""
-    keep = ("arch", "run_id", "family", "fault_layer", "halt_layer", "halt_cause",
-            "halt_signals", "halt_epoch")
+    keep = ("arch", "run_id", "family", "fault_layer", "lhd_layer", "lhd_cause",
+            "lhd_signals", "lhd_epoch")
     return [{k: r[k] for k in keep} for r in rows
             if r["role"] == "fault" and r["detected"] and r["layer_ok"] is False]
 
 
 def false_alarms(rows: list[dict]) -> list[dict]:
-    """Fresh healthy runs where HALT fired, to read by hand."""
-    keep = ("arch", "run_id", "halt_epoch", "halt_layer", "halt_cause", "halt_signals")
+    """Fresh healthy runs where LHD fired, to read by hand."""
+    keep = ("arch", "run_id", "lhd_epoch", "lhd_layer", "lhd_cause", "lhd_signals")
     return [{k: r[k] for k in keep} for r in rows if r["role"] == "fresh" and r["fired"]]
 
 
@@ -151,7 +151,7 @@ def detector_table(rows: list[dict]) -> list[dict]:
             for name, key in DETECTORS:
                 caught = rate([{"x": _caught(r, key)} for r in group], "x")
                 epochs = [_detector_epoch(r, key) for r in group if _caught(r, key)]
-                halt_c = [r["halt_epoch"] if r["detected"] else r["epochs"] + 1 for r in group]
+                lhd_c = [r["lhd_epoch"] if r["detected"] else r["epochs"] + 1 for r in group]
                 other_c = [_detector_epoch(r, key) if _caught(r, key) else r["epochs"] + 1 for r in group]
                 alarms = rate([{"x": _detector_epoch(r, key) is not None} for r in fresh], "x")
                 table.append({
@@ -159,9 +159,9 @@ def detector_table(rows: list[dict]) -> list[dict]:
                     "caught": caught["k"], "caught_rate": caught["rate"],
                     "caught_low": caught["low"], "caught_high": caught["high"],
                     "median_epoch": _median_float(epochs),
-                    "halt_earlier": sum(h < o for h, o in zip(halt_c, other_c)),
-                    "this_earlier": sum(o < h for h, o in zip(halt_c, other_c)),
-                    "ties": sum(o == h for h, o in zip(halt_c, other_c)),
+                    "lhd_earlier": sum(h < o for h, o in zip(lhd_c, other_c)),
+                    "this_earlier": sum(o < h for h, o in zip(lhd_c, other_c)),
+                    "ties": sum(o == h for h, o in zip(lhd_c, other_c)),
                     "healthy_runs": len(fresh), "false_alarms": alarms["k"],
                     "false_alarm_rate": alarms["rate"],
                     "false_alarm_low": alarms["low"], "false_alarm_high": alarms["high"],
@@ -183,7 +183,7 @@ def harm_table(rows: list[dict]) -> list[dict]:
                     continue
                 entry = {"scope": scope, "arch": arch, "harm": label, "broken_runs": len(group),
                          "mean_drop_pts": 100 * _mean([r["acc_drop_vs_twin"] for r in group])}
-                for name, key in (("halt", "halt_epoch"), ("accuracy", "acc_epoch"),
+                for name, key in (("lhd", "lhd_epoch"), ("accuracy", "acc_epoch"),
                                   ("loss", "loss_epoch"), ("simple", "simple_epoch")):
                     caught = rate([{"x": _caught(r, key)} for r in group], "x")
                     entry[f"{name}_caught"] = caught["k"]
@@ -217,7 +217,7 @@ def summarize_arch(rows: list[dict]) -> dict:
         "families": {f: summarize_faults([r for r in faults if r["family"] == f]) for f in families},
         "family_tests": {f: paired_tests([r for r in faults if r["family"] == f]) for f in families},
         "confusion": confusion(faults),
-        "first_signal": dict(Counter(r["halt_signals"] for r in faults if r["detected"])),
+        "first_signal": dict(Counter(r["lhd_signals"] for r in faults if r["detected"])),
     }
 
 

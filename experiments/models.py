@@ -1,6 +1,6 @@
-"""The three networks HALT is tested on.
+"""The three networks LHD is tested on.
 
-Each model lists its watched layers with halt_layers(), in the order
+Each model lists its watched layers with lhd_layers(), in the order
 data flows through them, so TorchAdapter can wrap it directly.
 Every ReLU is its own module, so its output can be captured alone.
 """
@@ -38,7 +38,7 @@ class CNN(nn.Module):
         x = self.act4(self.fc1(x.flatten(1)))
         return self.fc2(x)
 
-    def halt_layers(self) -> dict:
+    def lhd_layers(self) -> dict:
         """Watched layers for TorchAdapter."""
         return {
             "conv1": (self.conv1, self.act1, 1),
@@ -68,7 +68,7 @@ class MLP(nn.Module):
         x = self.act3(self.fc3(x))
         return self.fc4(x)
 
-    def halt_layers(self) -> dict:
+    def lhd_layers(self) -> dict:
         """Watched layers for TorchAdapter."""
         return {
             "fc1": (self.fc1, self.act1, -1),
@@ -126,7 +126,7 @@ class TinyTransformer(nn.Module):
             x = block(x)
         return self.head(self.ln_f(x))
 
-    def halt_layers(self) -> dict:
+    def lhd_layers(self) -> dict:
         """Watched layers for TorchAdapter."""
         layers = {
             "tok": (self.tok, self.tok, -1),
@@ -143,5 +143,5 @@ class TinyTransformer(nn.Module):
 
 def relu_layers(model: nn.Module) -> list[str]:
     """Watched layers whose output passes through a ReLU, where units can die."""
-    return [name for name, (_, out, _) in model.halt_layers().items()
+    return [name for name, (_, out, _) in model.lhd_layers().items()
             if isinstance(out, nn.ReLU)]

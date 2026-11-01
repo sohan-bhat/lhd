@@ -1,6 +1,6 @@
 """Robustness checks that replay saved runs under other settings.
 
-None of these choose HALT's settings. The settings were fixed before
+None of these choose LHD's settings. The settings were fixed before
 any broken run was trained; these sweeps only show how much the
 results would move if they had been different.
 """
@@ -12,7 +12,7 @@ import copy
 import numpy as np
 
 from experiments.evaluate import SETTINGS, reference, score_run, split_runs
-from halt.baseline import SIGNALS
+from lhd.baseline import SIGNALS
 
 PROPOSAL_FAMILIES = ("frozen", "dead10", "dead25", "dead50")
 
@@ -39,7 +39,7 @@ def outcome(groups: dict, ref: dict, settings: dict, faults: list[dict] | None =
         "cause_ok": float(np.mean([r["cause_ok"] for r in detected])) if detected else float("nan"),
         "both_ok": (sum(bool(r["layer_ok"] and r["cause_ok"]) for r in fault_rows) / len(fault_rows)
                     if fault_rows else float("nan")),
-        "mean_epoch": float(np.mean([r["halt_epoch"] for r in detected])) if detected else float("nan"),
+        "mean_epoch": float(np.mean([r["lhd_epoch"] for r in detected])) if detected else float("nan"),
         "compute_saved": float(np.mean([r["compute_saved"] for r in fault_rows])) if fault_rows else float("nan"),
     }
 

@@ -28,8 +28,8 @@ from matplotlib.ticker import MaxNLocator  # noqa: E402
 
 from experiments.evaluate import RESULTS, SETTINGS, load_runs, reference, split_runs, wilson  # noqa: E402
 from experiments.grid import ARCH_ORDER  # noqa: E402
-from halt.baseline import SIGNALS  # noqa: E402
-from halt.replay import replay  # noqa: E402
+from lhd.baseline import SIGNALS  # noqa: E402
+from lhd.replay import replay  # noqa: E402
 
 FIGURES = RESULTS / "figures"
 FONT_DIR = RESULTS.parent / "data" / "fonts"
@@ -64,7 +64,7 @@ DEAD_PCT = {"dead10": 10, "dead25": 25, "dead50": 50}
 DEAD_STEPS = {"dead10": RAMP(0.42), "dead25": RAMP(0.68), "dead50": RAMP(0.93)}
 ACC3 = "Accuracy curve, 3 epochs below healthy"
 SIMPLE = "Zero update or dead units 50%"
-DETECTORS = ["HALT", ACC3, "Accuracy curve, 1 epoch below healthy", "Loss curve, 3 epochs above healthy",
+DETECTORS = ["LHD", ACC3, "Accuracy curve, 1 epoch below healthy", "Loss curve, 3 epochs above healthy",
              "Zero update check", "Dead units check, 25%", "Dead units check, 50% (SageMaker DeadRelu default)",
              "Dead units check, 70% (DeepDiagnosis Dead Node)", "Dead units check, 80% (wandb-callbacks default)",
              "Any dead unit (wandb-callbacks verbose)", SIMPLE]
@@ -175,7 +175,7 @@ def _scored(arch: str, rows: list[dict]) -> list[dict]:
 
 
 def _widened(band: dict) -> tuple[np.ndarray, np.ndarray]:
-    """The healthy range HALT checks against: calibration low and high,
+    """The healthy range LHD checks against: calibration low and high,
     widened by the margin, with the floor added on top."""
     low = band["low"] * (1 - SETTINGS["margin"])
     high = band["high"] * (1 + SETTINGS["margin"]) + SETTINGS["floor"]
@@ -278,18 +278,18 @@ def _family(fault: dict) -> str:
 
 
 def _mark_fire(ax, report) -> None:
-    """A thin vertical rule at the epoch HALT stops the run, with headroom
+    """A thin vertical rule at the epoch LHD stops the run, with headroom
     above the data for its label."""
     if report:
         low, high = ax.get_ylim()
         ax.set_ylim(low, high + 0.14 * (high - low))
         ax.axvline(report["epoch"], color=INK_2, linewidth=1)
-        ax.annotate("HALT stops", (report["epoch"], 1), xycoords=("data", "axes fraction"),
+        ax.annotate("LHD stops", (report["epoch"], 1), xycoords=("data", "axes fraction"),
                     xytext=(4, -12), textcoords="offset points", fontsize=8, color=INK_2)
 
 
 def cumulative_detection(rows: list[dict]) -> None:
-    """Share of broken runs flagged by each epoch: HALT, accuracy curve, loss curve."""
+    """Share of broken runs flagged by each epoch: LHD, accuracy curve, loss curve."""
     archs = [a for a in ARCH_ORDER if any(r["arch"] == a for r in rows)]
     fig, axes = plt.subplots(1, len(archs), figsize=(5.2 * len(archs), 3.6), squeeze=False)
     for ax, arch in zip(axes[0], archs):
@@ -298,7 +298,7 @@ def cumulative_detection(rows: list[dict]) -> None:
         if not faults:
             continue
         epochs = np.arange(0, faults[0]["epochs"] + 1)
-        series = [("HALT", "halt_epoch", BLUE, "-"), ("Accuracy curve", "acc_epoch", ORANGE, "-"),
+        series = [("LHD", "lhd_epoch", BLUE, "-"), ("Accuracy curve", "acc_epoch", ORANGE, "-"),
                   ("Loss curve", "loss_epoch", AQUA, "-"), (SIMPLE, "simple_epoch", MUTED, "--")]
         ends = []
         for label, key, color, line in series:
@@ -323,7 +323,7 @@ def cumulative_detection(rows: list[dict]) -> None:
 def false_alarms(summary: dict) -> None:
     """False alarm rate on fresh healthy runs, with 95% Wilson intervals."""
     archs = [a for a in ARCH_ORDER if a in summary["archs"]]
-    detectors = [("HALT", "halt_false_alarm", BLUE), ("Accuracy curve", "acc_false_alarm", ORANGE),
+    detectors = [("LHD", "lhd_false_alarm", BLUE), ("Accuracy curve", "acc_false_alarm", ORANGE),
                  ("Loss curve", "loss_false_alarm", AQUA)]
     fig, ax = plt.subplots(figsize=(7.5, 3.4))
     for i, arch in enumerate(archs):
@@ -347,7 +347,7 @@ def false_alarms(summary: dict) -> None:
 
 
 def diagnosis_matrix(summary: dict) -> None:
-    """Planted fault against the cause HALT named, pooled over architectures."""
+    """Planted fault against the cause LHD named, pooled over architectures."""
     pooled = defaultdict(lambda: defaultdict(int))
     for arch in summary["archs"].values():
         for fam, counts in arch["confusion"].items():
@@ -369,12 +369,12 @@ def diagnosis_matrix(summary: dict) -> None:
     ax.grid(False)
     for spine in ax.spines.values():
         spine.set_visible(False)
-    ax.set_title("Cause HALT named, by planted fault (run counts)")
+    ax.set_title("Cause LHD named, by planted fault (run counts)")
     save(fig, "diagnosis_matrix")
 
 
 def per_layer_grid() -> None:
-    """Share of broken runs where HALT named both the right layer and the right cause."""
+    """Share of broken runs where LHD named both the right layer and the right cause."""
     table = [r for r in read_csv("per_layer.csv") if r["family"] in ("frozen", "dead10", "dead25", "dead50")]
     archs = [a for a in ARCH_ORDER if any(r["arch"] == a for r in table)]
     families = ["frozen", "dead10", "dead25", "dead50"]
@@ -506,10 +506,10 @@ def silent_damage(rows: list[dict]) -> None:
     for ax, arch in zip(axes[0], archs):
         group = [r for r in faults if r["arch"] == arch]
         drop = np.array([100 * r["acc_drop_vs_twin"] for r in group])
-        halt = np.array([r["halt_censored"] for r in group])
+        lhd = np.array([r["lhd_censored"] for r in group])
         acc = np.array([r["acc_censored"] for r in group])
         ax.scatter(drop, acc, s=22, color=ORANGE, edgecolor=SURFACE, linewidth=1, label="Accuracy curve")
-        ax.scatter(drop, halt, s=22, color=BLUE, edgecolor=SURFACE, linewidth=1, label="HALT")
+        ax.scatter(drop, lhd, s=22, color=BLUE, edgecolor=SURFACE, linewidth=1, label="LHD")
         never = group[0]["epochs"] + 1
         ax.axhline(never, color=AXIS, linewidth=1)
         ax.annotate("never noticed", (ax.get_xlim()[0], never), xytext=(2, 4), textcoords="offset points",
@@ -602,7 +602,7 @@ def dose_response() -> None:
     table = [r for r in read_csv("detectors.csv") if r["family"] in DEAD and r["arch"] in ARCH_COLORS]
     archs = [a for a in ARCH_ORDER if any(r["arch"] == a for r in table)]
     fig, axes = plt.subplots(1, 2, figsize=(10.5, 3.9), sharey=True)
-    for ax, detector in zip(axes, ("HALT", ACC3)):
+    for ax, detector in zip(axes, ("LHD", ACC3)):
         ends = []
         for k, arch in enumerate(archs):
             points = {r["family"]: r for r in table if r["arch"] == arch and r["detector"] == detector}
@@ -641,7 +641,7 @@ def detector_comparison() -> None:
     panels = [("Frozen layers caught (%)", ("frozen",), "caught", "broken_runs", "broken runs"),
               ("Dead units caught (%)", DEAD, "caught", "broken_runs", "broken runs"),
               ("Healthy runs flagged (%)", ("proposal",), "false_alarms", "healthy_runs", "fresh healthy runs")]
-    colors = {"HALT": BLUE, ACC3: ORANGE}
+    colors = {"LHD": BLUE, ACC3: ORANGE}
     fig, axes = plt.subplots(1, 3, figsize=(14, 4.6), sharey=True)
     for ax, (title, families, k_key, n_key, unit) in zip(axes, panels):
         total = 0
@@ -664,7 +664,7 @@ def detector_comparison() -> None:
     axes[0].set_yticks(range(len(detectors)), detectors)
     axes[0].set_ylim(len(detectors) - 0.5, -0.5)
     for label in axes[0].get_yticklabels():
-        if label.get_text() == "HALT":
+        if label.get_text() == "LHD":
             label.set_color(INK)
             label.set_fontweight("demibold")
     fig.subplots_adjust(wspace=0.12)
@@ -678,9 +678,9 @@ def harm_chart() -> None:
     if not groups:
         print("skipped harm: no pooled proposal rows")
         return
-    series = [("HALT", "halt", BLUE, "-"), ("Accuracy curve, 3 epochs below healthy", "accuracy", ORANGE, "-"),
+    series = [("LHD", "lhd", BLUE, "-"), ("Accuracy curve, 3 epochs below healthy", "accuracy", ORANGE, "-"),
               (f"Simple fixed checks ({SIMPLE.lower()})", "simple", MUTED, "--")]
-    shorts = {"halt": "HALT", "accuracy": "Accuracy curve", "simple": "Simple fixed checks"}
+    shorts = {"lhd": "LHD", "accuracy": "Accuracy curve", "simple": "Simple fixed checks"}
     fig, ax = plt.subplots(figsize=(7.6, 4.2))
     xs = np.arange(len(groups))
     ends = []
@@ -754,7 +754,7 @@ def _attempt(name: str, draw, *args) -> None:
 
 
 def pick_example(rows: list[dict], arch: str, family_name: str) -> str | None:
-    """A broken run HALT caught correctly while the accuracy curve stayed quiet longest."""
+    """A broken run LHD caught correctly while the accuracy curve stayed quiet longest."""
     group = [r for r in rows if r["arch"] == arch and r["family"] == family_name
              and r["detected"] and r["layer_ok"] and r["cause_ok"]]
     group.sort(key=lambda r: (-r["gap"], r["run_id"]))

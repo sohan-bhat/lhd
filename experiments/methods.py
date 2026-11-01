@@ -110,9 +110,9 @@ def design_section() -> list[str]:
 
 def compute_section() -> list[str]:
     rows = read("compute.csv")
-    return table(["Network", "Runs", "Training hours", "Hours spent inside HALT", "Mean minutes per run"],
+    return table(["Network", "Runs", "Training hours", "Hours spent inside LHD", "Mean minutes per run"],
                  [[NAMES.get(r["arch"], "All networks"), r["runs"], f"{float(r['training_hours']):.1f}",
-                   f"{float(r['halt_hours']):.1f}",
+                   f"{float(r['lhd_hours']):.1f}",
                    "" if not r["mean_minutes_per_run"] else f"{float(r['mean_minutes_per_run']):.1f}"]
                   for r in rows])
 
@@ -124,7 +124,7 @@ def main() -> None:
     harm = ", ".join(label for _, _, label in HARM_BINS)
     dead_checks = ", ".join(f"{int(t * 100)}%" for t in DEAD_CHECKS)
     out = [
-        "# HALT study, methods record",
+        "# LHD study, methods record",
         "",
         "This file records how every number in the study was produced. It is written by "
         "`python -m experiments.methods` from the code and the saved runs, so it always matches the "
@@ -140,9 +140,9 @@ def main() -> None:
         "",
         "The study turns that into four measurable questions.",
         "",
-        "1. Does HALT flag broken runs, and does it flag them earlier than the accuracy curve?",
-        "2. When HALT flags a run, does it name the layer where the fault was planted and the right cause?",
-        "3. How often does HALT flag healthy runs it has never seen?",
+        "1. Does LHD flag broken runs, and does it flag them earlier than the accuracy curve?",
+        "2. When LHD flags a run, does it name the layer where the fault was planted and the right cause?",
+        "3. How often does LHD flag healthy runs it has never seen?",
         "4. Do the same rules work on three different networks when only the healthy baselines are rebuilt?",
         "",
         "Every broken run has a fault planted on purpose, so the true answer for each run is known.",
@@ -159,7 +159,7 @@ def main() -> None:
         "last 10% for validation, one token per character.",
         "",
         "The validation set is each dataset's official test split. Nothing is tuned on it. It only feeds "
-        "the accuracy and loss curves that HALT is compared against. The CNN is scored on a fixed random "
+        "the accuracy and loss curves that LHD is compared against. The CNN is scored on a fixed random "
         "4,000 image subset of the GTSRB test split, chosen once with seed 2, to save time.",
         "",
         "## 3. How one training run works",
@@ -168,18 +168,18 @@ def main() -> None:
         "2. Seed a separate generator with the same seed. It fixes the order of training batches.",
         "3. Train with Adam at learning rate 0.001 and a cosine schedule that falls toward 0 over the run.",
         "4. At the start of each epoch, switch on the planted fault if this is its onset epoch.",
-        "5. After every backward pass and before the optimizer step, HALT records each watched layer's "
+        "5. After every backward pass and before the optimizer step, LHD records each watched layer's "
         "gradient norm.",
         "6. After every optimizer step, a frozen layer gets its old weights put back.",
-        "7. At the end of each epoch, score the validation set, then HALT measures every watched layer.",
-        "8. Every run trains for all its epochs even when HALT would have stopped it, so each saved run "
+        "7. At the end of each epoch, score the validation set, then LHD measures every watched layer.",
+        "8. Every run trains for all its epochs even when LHD would have stopped it, so each saved run "
         "can be replayed through any detector afterward.",
         "9. Save the run as JSON with every epoch's signals, accuracy, loss, and timing.",
         "",
-        "Each run uses 1 CPU thread and 5 runs train at once. Replaying a saved run through HALT gives "
-        "the same result as running HALT live, which a test in `tests/test_replay.py` checks.",
+        "Each run uses 1 CPU thread and 5 runs train at once. Replaying a saved run through LHD gives "
+        "the same result as running LHD live, which a test in `tests/test_replay.py` checks.",
         "",
-        "## 4. What HALT measures",
+        "## 4. What LHD measures",
         "",
         "For each watched layer, each epoch. W is the layer's weights and bias flattened into one vector.",
         "",
@@ -205,15 +205,15 @@ def main() -> None:
         "A value counts as out of range when it is below low × (1 − m) or above high × (1 + m) + f, "
         f"with margin m = {m} and floor f = {f}. A value that is not a finite number is always out of range.",
         "",
-        f"HALT raises an alarm when one signal of one layer stays out of range for p = {p} epochs in a "
-        "row. If several layers reach that point in the same epoch, HALT reports the first one in the "
+        f"LHD raises an alarm when one signal of one layer stays out of range for p = {p} epochs in a "
+        "row. If several layers reach that point in the same epoch, LHD reports the first one in the "
         "order data flows through the network.",
         "",
-        f"The settings m = {m}, f = {f}, and p = {p} were taken from the HALT library's own tests and "
+        f"The settings m = {m}, f = {f}, and p = {p} were taken from the LHD library's own tests and "
         "fixed before any broken run was trained. They were never tuned on broken runs. Section 11 shows "
         "how results change across other settings.",
         "",
-        "## 6. How HALT names a cause",
+        "## 6. How LHD names a cause",
         "",
         "The rules run in this order on the alarmed layer's signals at the alarm epoch.",
         "",
@@ -268,7 +268,7 @@ def main() -> None:
         "Every detector sees the same saved runs and, where it needs one, the same calibration runs.",
         "",
         *table(["Detector", "Rule", "Needs healthy runs", "Defined"], [
-            ["HALT", f"section 5, patience {p}", "yes", "before testing"],
+            ["LHD", f"section 5, patience {p}", "yes", "before testing"],
             ["Accuracy curve, 3 epochs", f"validation accuracy below the lowest calibration value for that "
              f"epoch, {p} epochs in a row", "yes", "before testing"],
             ["Accuracy curve, 1 epoch", "the same with 1 epoch", "yes", "before testing"],
@@ -280,7 +280,7 @@ def main() -> None:
              "after the core results"],
             ["Zero update or dead units 50%", "either of the two checks above", "no", "after the core results"],
             ["SageMaker DeadRelu default", "the 50% dead units check above. SageMaker counts a ReLU as "
-             "inactive when it is active less than 1% of the time, close to HALT's never active", "no",
+             "inactive when it is active less than 1% of the time, close to LHD's never active", "no",
              "after the core results"],
             ["DeepDiagnosis Dead Node", "some ReLU layer has more than 70% inactive units, the check in "
              "Wardat et al. (2022)", "no", "after the core results"],
@@ -290,27 +290,27 @@ def main() -> None:
              "mode", "no", "after the core results"],
         ]),
         "",
-        "The accuracy curve rule uses no margin, which makes it more sensitive than HALT's rule. The "
-        "simple checks were added after the core results to test whether HALT does better than rules "
-        "anyone could write by hand. They can only make HALT look the same or worse. Every dead unit "
+        "The accuracy curve rule uses no margin, which makes it more sensitive than LHD's rule. The "
+        "simple checks were added after the core results to test whether LHD does better than rules "
+        "anyone could write by hand. They can only make LHD look the same or worse. Every dead unit "
         "check looks only at layers followed by a ReLU. The wandb-callbacks rules copy the dead ReLU "
         "warning of the package cited in the proposal, which counts a unit as dead when it never fires "
-        "on the inputs it is given, the same definition HALT uses.",
+        "on the inputs it is given, the same definition LHD uses.",
         "",
         "## 10. Outcome measures",
         "",
         *table(["Measure", "Definition"], [
             ["Caught", "the detector fired at or after the fault's onset epoch"],
             ["Alarm epoch", "the epoch the detector fired"],
-            ["Right layer", "HALT named the planted layer. For a cut gradient, any layer before the cut"],
+            ["Right layer", "LHD named the planted layer. For a cut gradient, any layer before the cut"],
             ["Right cause", "frozen layer for frozen, dead units for dead, vanishing gradient for a cut"],
             ["False alarm", "the detector fired at any epoch of a fresh healthy run"],
-            ["Gap", "accuracy curve epoch minus HALT epoch, with never counted as one epoch past the end"],
-            ["Compute saved", "share of the run's epochs left after HALT's alarm, 0 when not caught"],
+            ["Gap", "accuracy curve epoch minus LHD epoch, with never counted as one epoch past the end"],
+            ["Compute saved", "share of the run's epochs left after LHD's alarm, 0 when not caught"],
             ["Silent", "final validation accuracy at or above the lowest calibration final accuracy"],
             ["Accuracy cost", "the healthy twin's final accuracy minus the broken run's final accuracy"],
             ["Harm group", harm],
-            ["Overhead", "time spent inside HALT divided by the whole run's time, on fresh healthy runs"],
+            ["Overhead", "time spent inside LHD divided by the whole run's time, on fresh healthy runs"],
         ]),
         "",
         "## 11. Statistics",
@@ -336,15 +336,15 @@ def main() -> None:
         "",
         "## 13. Choices and changes made during the study",
         "",
-        *table(["What", "When", "Effect on HALT's results"], [
+        *table(["What", "When", "Effect on LHD's results"], [
             ["Datasets, networks, epochs, and batch sizes were chosen for this study", "before training",
              "none intended"],
             ["The accuracy curve's alarm was defined as below every healthy run for 3 epochs in a row",
              "before testing", "this is how the proposal's comparison was made measurable"],
             [f"Dead units get a bias of {DEAD_BIAS} instead of the library default of -10",
              "after a pilot run, before the study runs",
-             "-10 inflated the weight norm far past normal, which would have handed HALT an easy signal. "
-             "-1 makes dead units harder for HALT to catch"],
+             "-10 inflated the weight norm far past normal, which would have handed LHD an easy signal. "
+             "-1 makes dead units harder for LHD to catch"],
             ["The CNN was made smaller, the CNN and transformer were cut to 15 epochs, the transformer to "
              "100 steps per epoch, and the CNN scored on 4,000 test images",
              "before any CNN or transformer run", "none intended, done to fit the laptop's compute"],
@@ -354,7 +354,7 @@ def main() -> None:
             ["Seed and fault condition level statistics became the main tests",
              "after the fully connected core results", "more conservative than run by run tests"],
             ["Simple fixed checks and the harm split were added", "after the core results",
-             "can only make HALT look the same or worse"],
+             "can only make LHD look the same or worse"],
         ]),
         "",
         "## 14. Where the code differs from the proposal's wording",
@@ -363,17 +363,17 @@ def main() -> None:
             ["the zero activation fraction is how much of a layer's outputs are exactly zero",
              "the share of a layer's units that output exactly zero for every probe input, so a unit "
              "counts only when it is dead for all inputs",
-             "this is how the HALT library's signal was written. The proposal's sentence that dead units "
+             "this is how the LHD library's signal was written. The proposal's sentence that dead units "
              "read near one fits both versions. The paper should describe the one in the code"],
-            ["HALT stops the run once a fault is confirmed",
-             "every run trains to the end and HALT's alarm is found by replaying the saved run",
-             "so every detector can be scored on the same full runs. Replay matches live HALT, which "
+            ["LHD stops the run once a fault is confirmed",
+             "every run trains to the end and LHD's alarm is found by replaying the saved run",
+             "so every detector can be scored on the same full runs. Replay matches live LHD, which "
              "`tests/test_replay.py` checks, and `experiments/demo.py` shows a live run being stopped"],
             ["thresholds are set just outside the healthy range",
              f"the range is widened by a margin of {m} and a floor of {f} before a value counts as out",
              "thresholds right at the range's edge flag many healthy runs, which section 11's sweep shows"],
             ["a layer is flagged after numerous consecutive epochs", f"{p} consecutive epochs",
-             "taken from the HALT library's tests"],
+             "taken from the LHD library's tests"],
             ["the CNN is trained first, then the fully connected network and the transformer",
              "the fully connected network ran first, then the transformer, then the CNN",
              "to fit the laptop's schedule. The rules were fixed before any of them ran"],
@@ -392,7 +392,7 @@ def main() -> None:
             ["results/tables/epochs.csv", "accuracy and loss for every run and epoch"],
             ["results/tables/signals.csv.gz", "every signal for every run, epoch, and layer"],
             ["results/tables/detectors.csv", "every detector on the same runs"],
-            ["results/HALT_data.xlsx", "every table in one workbook"],
+            ["results/LHD_data.xlsx", "every table in one workbook"],
             ["results/REPORT.md", "the results with figures"],
         ]),
         "",

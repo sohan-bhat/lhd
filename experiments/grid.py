@@ -31,7 +31,7 @@ ARCH_ORDER = ("mlp", "transformer", "cnn")
 
 def watched_layers(arch: str) -> list[str]:
     """Watched layer names for an architecture, in data-flow order."""
-    return list(_shape_model(arch).halt_layers())
+    return list(_shape_model(arch).lhd_layers())
 
 
 def dead_layers(arch: str) -> list[str]:

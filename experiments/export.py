@@ -10,7 +10,7 @@ Run after experiments.analyze. Writes these files.
     results/tables/compute.csv      training time by network
     results/tables/epochs.csv       every run, every epoch, accuracy and loss
     results/tables/signals.csv.gz   every run, epoch, and layer, all signals
-    results/HALT_data.xlsx          all of the above plus the analysis tables
+    results/LHD_data.xlsx          all of the above plus the analysis tables
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from collections import Counter, defaultdict
 from experiments.evaluate import RESULTS, family, load_runs
 from experiments.grid import ARCH_ORDER, dead_layers
 from experiments.train import ARCHS, build_model, get_task
-from halt.baseline import SIGNALS
+from lhd.baseline import SIGNALS
 
 TABLES = RESULTS / "tables"
 SHEETS = (
@@ -32,14 +32,14 @@ SHEETS = (
     ("Run counts", "run_counts.csv", "Runs by network, phase, and role"),
     ("Compute", "compute.csv", "Training and monitoring time by network"),
     ("Headline", "headline.csv", "Main results per network and pooled, with 95% intervals"),
-    ("Detectors", "detectors.csv", "HALT against every other detector on the same runs"),
+    ("Detectors", "detectors.csv", "LHD against every other detector on the same runs"),
     ("Harm", "harm.csv", "Detection split by how much accuracy each fault cost"),
     ("Per layer", "per_layer.csv", "Detection and diagnosis for every fault and layer"),
-    ("Ablation", "ablation.csv", "HALT with signals removed or used alone"),
+    ("Ablation", "ablation.csv", "LHD with signals removed or used alone"),
     ("Settings sweep", "sweep_settings.csv", "Every margin, floor, and patience combination"),
     ("Calibration size", "sweep_calibration.csv", "Bands built from fewer calibration runs"),
-    ("Wrong layer", "wrong_layers.csv", "Caught runs where HALT named the wrong layer"),
-    ("False alarms", "false_alarms.csv", "Fresh healthy runs HALT flagged"),
+    ("Wrong layer", "wrong_layers.csv", "Caught runs where LHD named the wrong layer"),
+    ("False alarms", "false_alarms.csv", "Fresh healthy runs LHD flagged"),
     ("Runs", "runs.csv", "One row per scored run"),
     ("Epochs", "epochs.csv", "Accuracy and loss for every run and epoch"),
 )
@@ -75,7 +75,7 @@ def network_rows() -> tuple[list[dict], list[dict]]:
             "val_examples": len(task.val_x),
             "probe_examples": len(task.probe),
             "parameters": sum(p.numel() for p in model.parameters()),
-            "watched_layers": len(model.halt_layers()),
+            "watched_layers": len(model.lhd_layers()),
             "relu_layers": len(relu),
             "epochs": cfg["epochs"],
             "batch_size": cfg["batch_size"],
@@ -85,7 +85,7 @@ def network_rows() -> tuple[list[dict], list[dict]]:
             "learning_rate": cfg["lr"],
             "schedule": "cosine annealing to 0 over the run",
         })
-        for name, (module, _, _) in model.halt_layers().items():
+        for name, (module, _, _) in model.lhd_layers().items():
             weight = module.weight
             layers.append({
                 "arch": arch, "layer": name, "module": type(module).__name__,
@@ -104,9 +104,9 @@ def run_rows(runs_by_arch: dict) -> tuple[list[dict], list[dict], list[dict], li
         counts += [{"arch": arch, "phase": phase, "role": role, "runs": n}
                    for (phase, role), n in sorted(tally.items())]
         total = sum(r["metadata"]["total_seconds"] for r in runs)
-        halt = sum(r["metadata"]["halt_seconds"] for r in runs)
+        lhd = sum(r["metadata"]["lhd_seconds"] for r in runs)
         compute.append({"arch": arch, "runs": len(runs), "cpu_threads_per_run": 1,
-                        "training_hours": total / 3600, "halt_hours": halt / 3600,
+                        "training_hours": total / 3600, "lhd_hours": lhd / 3600,
                         "mean_minutes_per_run": total / 60 / len(runs)})
         for run in runs:
             meta = run["metadata"]
@@ -121,14 +121,14 @@ def run_rows(runs_by_arch: dict) -> tuple[list[dict], list[dict], list[dict], li
                                "val_accuracy": entry["val_accuracy"],
                                "train_loss": entry["train_loss"], "val_loss": entry["val_loss"],
                                "epoch_seconds": entry["seconds"],
-                               "halt_seconds": entry["halt_seconds"]})
+                               "lhd_seconds": entry["lhd_seconds"]})
                 for layer, values in entry["layers"].items():
                     signals.append({"run_id": meta["run_id"], "arch": arch, "role": meta["role"],
                                     "family": base["family"], "epoch": entry["epoch"], "layer": layer,
                                     **{s: values[s] for s in (*SIGNALS, "bias_change") if s in values}})
     compute.append({"arch": "all", "runs": sum(c["runs"] for c in compute), "cpu_threads_per_run": 1,
                     "training_hours": sum(c["training_hours"] for c in compute),
-                    "halt_hours": sum(c["halt_hours"] for c in compute),
+                    "lhd_hours": sum(c["lhd_hours"] for c in compute),
                     "mean_minutes_per_run": None})
     return counts, compute, epochs, signals
 
@@ -151,7 +151,7 @@ def headline_rows(summary: dict) -> list[dict]:
         for group in ("by_seed", "by_condition"):
             entry = clustered.get(group)
             if entry:
-                rows[f"clustered {group} halt earlier"][name] = f"{entry['halt_earlier']} of {entry['groups']}"
+                rows[f"clustered {group} lhd earlier"][name] = f"{entry['lhd_earlier']} of {entry['groups']}"
                 rows[f"clustered {group} wilcoxon p"][name] = entry.get("wilcoxon_p")
         if clustered.get("mean_gap_ci"):
             low, high = clustered["mean_gap_ci"]
@@ -165,7 +165,7 @@ def workbook() -> None:
 
     book = Workbook(write_only=True)
     index = book.create_sheet("About")
-    index.append(["HALT study data. Every sheet is also a CSV in results/tables."])
+    index.append(["LHD study data. Every sheet is also a CSV in results/tables."])
     index.append([])
     index.append(["Sheet", "What it holds", "CSV file"])
     present = [(sheet, name, about) for sheet, name, about in SHEETS if (TABLES / name).exists()]
@@ -176,7 +176,7 @@ def workbook() -> None:
         with open(TABLES / name) as f:
             for i, row in enumerate(csv.reader(f)):
                 ws.append(row if i == 0 else [_cell(v) for v in row])
-    book.save(RESULTS / "HALT_data.xlsx")
+    book.save(RESULTS / "LHD_data.xlsx")
 
 
 def _cell(value: str):

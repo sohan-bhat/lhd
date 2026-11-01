@@ -69,22 +69,22 @@ def headline_table(summary: dict) -> list[str]:
     row("Training runs", lambda s: str(sum(s["runs"].values())))
     row("Epochs per run", lambda s: str(ARCHS[_arch_of(summary, s)]["epochs"]))
     row("Broken runs (frozen and dead units)", lambda s: str(s["proposal"].get("runs", 0)))
-    row("Caught by HALT", lambda s: short(s["proposal"].get("detected")))
+    row("Caught by LHD", lambda s: short(s["proposal"].get("detected")))
     row("Right layer, when caught", lambda s: short(s["proposal"].get("layer_ok")))
     row("Right cause, when caught", lambda s: short(s["proposal"].get("cause_ok")))
-    row("Median epoch HALT stops", lambda s: num(s["proposal"].get("halt_median_epoch"), 0))
+    row("Median epoch LHD stops", lambda s: num(s["proposal"].get("lhd_median_epoch"), 0))
     row("Caught by the accuracy curve", lambda s: short(s["proposal"].get("acc_detected")))
     row("Median epoch accuracy notices", lambda s: num(s["proposal"].get("acc_median_epoch"), 0))
-    row("HALT first", lambda s: short(s["proposal"].get("halt_first")))
+    row("LHD first", lambda s: short(s["proposal"].get("lhd_first")))
     row("Final accuracy still inside healthy range", lambda s: short(s["proposal"].get("silent_share")))
     row("Compute saved per broken run", lambda s: pct(s["proposal"].get("mean_compute_saved")))
     row("Fresh healthy runs", lambda s: str(s["healthy"]["runs"]))
-    row("HALT false alarms", lambda s: short(s["healthy"]["halt_false_alarm"]))
+    row("LHD false alarms", lambda s: short(s["healthy"]["lhd_false_alarm"]))
     row("Accuracy curve false alarms", lambda s: short(s["healthy"]["acc_false_alarm"]))
-    row("HALT time overhead", lambda s: pct(s["healthy"]["overhead"], 1))
-    row("Fault conditions where HALT was earlier on average",
+    row("LHD time overhead", lambda s: pct(s["healthy"]["overhead"], 1))
+    row("Fault conditions where LHD was earlier on average",
         lambda s: _groups(s.get("proposal_clustered", {}).get("by_condition")))
-    row("Seeds where HALT was earlier on average",
+    row("Seeds where LHD was earlier on average",
         lambda s: _groups(s.get("proposal_clustered", {}).get("by_seed")))
     row("Mean epochs earlier, 95% seed bootstrap",
         lambda s: _gap(s["proposal"].get("mean_gap"), s.get("proposal_clustered", {}).get("mean_gap_ci")))
@@ -92,10 +92,10 @@ def headline_table(summary: dict) -> list[str]:
 
 
 def _groups(entry: dict | None) -> str:
-    """Groups where HALT was earlier, with the one-sided Wilcoxon p on group means."""
+    """Groups where LHD was earlier, with the one-sided Wilcoxon p on group means."""
     if not entry:
         return "n/a"
-    return (f"{entry['halt_earlier']} of {entry['groups']} "
+    return (f"{entry['lhd_earlier']} of {entry['groups']} "
             f"(p {pvalue(entry.get('wilcoxon_p'))})")
 
 
@@ -111,7 +111,7 @@ def _arch_of(summary: dict, section: dict) -> str:
 
 def family_table(summary: dict) -> list[str]:
     lines = ["| Architecture | Fault | Runs | Caught | Right layer | Right cause | "
-             "HALT median epoch | Accuracy caught | Accuracy median epoch | Mean accuracy lost |",
+             "LHD median epoch | Accuracy caught | Accuracy median epoch | Mean accuracy lost |",
              "|---|---|---|---|---|---|---|---|---|---|"]
     for arch in [a for a in ARCH_ORDER if a in summary["archs"]]:
         for fam, s in summary["archs"][arch]["families"].items():
@@ -121,7 +121,7 @@ def family_table(summary: dict) -> list[str]:
             lines.append(
                 f"| {ARCH_NAMES[arch]} | {FAMILY_NAMES.get(fam, fam)} | {s['runs']} | "
                 f"{short(s['detected'])} | {short(s['layer_ok'])} | {short(s['cause_ok'])} | "
-                f"{num(s['halt_median_epoch'], 0)} | {short(s['acc_detected'])} | "
+                f"{num(s['lhd_median_epoch'], 0)} | {short(s['acc_detected'])} | "
                 f"{num(s['acc_median_epoch'], 0)} | "
                 f"{'n/a' if drop is None else f'{100 * drop:.1f} pts'} |")
     return lines
@@ -188,13 +188,13 @@ def _kn(stat: dict) -> str:
 
 
 def detector_section() -> list[str]:
-    """HALT against the accuracy and loss curves and against simple fixed checks, pooled."""
+    """LHD against the accuracy and loss curves and against simple fixed checks, pooled."""
     rows = [r for r in read("detectors.csv") if r["arch"] == "pooled"]
     if not rows:
         return []
     names = list(dict.fromkeys(r["detector"] for r in rows))
     lines = ["| Detector | Frozen layers caught | Dead units caught | Median alarm epoch | "
-             "Earlier than HALT / later / tie | Healthy runs flagged |",
+             "Earlier than LHD / later / tie | Healthy runs flagged |",
              "|---|---|---|---|---|---|"]
     for name in names:
         mine = [r for r in rows if r["detector"] == name]
@@ -203,8 +203,8 @@ def detector_section() -> list[str]:
         dead = _sum_rows(mine, DEAD_FAMILIES)
         if proposal is None:
             continue
-        timing = ("n/a" if name == "HALT" else
-                  f"{proposal['this_earlier']} / {proposal['halt_earlier']} / {proposal['ties']}")
+        timing = ("n/a" if name == "LHD" else
+                  f"{proposal['this_earlier']} / {proposal['lhd_earlier']} / {proposal['ties']}")
         alarms = {"k": int(proposal["false_alarms"]), "n": int(proposal["healthy_runs"]),
                   "rate": float(proposal["false_alarm_rate"])}
         lines.append(f"| {name} | {_kn(frozen)} | {_kn(dead)} | {num(_float(proposal['median_epoch']), 1)} | "
@@ -221,13 +221,13 @@ def harm_section() -> list[str]:
     rows = [r for r in read("harm.csv") if r["scope"] == "proposal"]
     if not rows:
         return []
-    lines = ["| Network | Accuracy cost against twin | Broken runs | Mean cost | HALT | Accuracy curve | "
+    lines = ["| Network | Accuracy cost against twin | Broken runs | Mean cost | LHD | Accuracy curve | "
              "Loss curve | Simple fixed checks |", "|---|---|---|---|---|---|---|---|"]
     order = [a for a in ARCH_ORDER] + ["pooled"]
     for arch in order:
         for r in [r for r in rows if r["arch"] == arch]:
             cells = []
-            for name in ("halt", "accuracy", "loss", "simple"):
+            for name in ("lhd", "accuracy", "loss", "simple"):
                 cells.append(_kn({"k": int(r[f"{name}_caught"]), "n": int(r["broken_runs"]),
                                   "rate": float(r[f"{name}_rate"])}))
             label = "All three" if arch == "pooled" else ARCH_NAMES[arch]
@@ -247,10 +247,10 @@ def honest_section(summary: dict) -> list[str]:
         by[r["detector"]].append(r)
     if not rows or not prop:
         return []
-    halt_frozen = _sum_rows(by["HALT"], ("frozen",))
+    lhd_frozen = _sum_rows(by["LHD"], ("frozen",))
     zero_frozen = _sum_rows(by["Zero update check"], ("frozen",))
     zero_prop = next(r for r in by["Zero update check"] if r["family"] == "proposal")
-    halt_dead = _sum_rows(by["HALT"], DEAD_FAMILIES)
+    lhd_dead = _sum_rows(by["LHD"], DEAD_FAMILIES)
     dead_rules = []
     for t in (25, 50, 70, 80):
         mine = next((v for k, v in by.items() if k.startswith(f"Dead units check, {t}%")), [])
@@ -269,24 +269,24 @@ def honest_section(summary: dict) -> list[str]:
     lines = [
         "These points are written to be read by a skeptic. Each one gives the numbers behind it.",
         "",
-        f"- HALT caught {_kn(prop['detected'])} of the proposal's broken runs and flagged "
-        f"{_kn(healthy['halt_false_alarm'])} of fresh healthy runs, with the same rules on all three networks.",
-        f"- HALT was earlier than the accuracy curve on average for {clustered.get('by_seed', {}).get('halt_earlier')} "
-        f"of {clustered.get('by_seed', {}).get('groups')} seed groups (one per network and seed) and {clustered.get('by_condition', {}).get('halt_earlier')} "
+        f"- LHD caught {_kn(prop['detected'])} of the proposal's broken runs and flagged "
+        f"{_kn(healthy['lhd_false_alarm'])} of fresh healthy runs, with the same rules on all three networks.",
+        f"- LHD was earlier than the accuracy curve on average for {clustered.get('by_seed', {}).get('lhd_earlier')} "
+        f"of {clustered.get('by_seed', {}).get('groups')} seed groups (one per network and seed) and {clustered.get('by_condition', {}).get('lhd_earlier')} "
         f"of {clustered.get('by_condition', {}).get('groups')} fault conditions. Its alarm epoch is mostly 3 "
         "because patience 3 makes epoch 3 the earliest possible alarm for a fault planted at epoch 1.",
-        f"- For frozen layers HALT adds nothing over a one line check. The zero update check caught "
+        f"- For frozen layers LHD adds nothing over a one line check. The zero update check caught "
         f"{_kn(zero_frozen)} at epoch 1 with {zero_prop['false_alarms']} false alarms in "
-        f"{zero_prop['healthy_runs']} healthy runs, while HALT caught {_kn(halt_frozen)} at epoch 3.",
-        f"- For dead units HALT does better than the fixed thresholds tested, including the defaults of "
-        "SageMaker Debugger (50%), DeepDiagnosis (70%), and wandb-callbacks (80%). HALT caught "
-        f"{_kn(halt_dead)} with {healthy['halt_false_alarm']['k']} false alarms. A fixed dead unit rule "
+        f"{zero_prop['healthy_runs']} healthy runs, while LHD caught {_kn(lhd_frozen)} at epoch 3.",
+        f"- For dead units LHD does better than the fixed thresholds tested, including the defaults of "
+        "SageMaker Debugger (50%), DeepDiagnosis (70%), and wandb-callbacks (80%). LHD caught "
+        f"{_kn(lhd_dead)} with {healthy['lhd_false_alarm']['k']} false alarms. A fixed dead unit rule "
         + ", ".join(dead_rules) + ". Healthy networks differ in how many units die on their own, so one "
-        "threshold cannot fit all of them, and HALT's per layer healthy range can.",
-        "- HALT misses small dead unit faults in layers where healthy runs already lose many units, such as "
+        "threshold cannot fit all of them, and LHD's per layer healthy range can.",
+        "- LHD misses small dead unit faults in layers where healthy runs already lose many units, such as "
         "10% in the fully connected network's middle layers and every fraction in the CNN's fc1.",
-        "- The planted faults were designed to show up in the signals HALT measures. A frozen layer has a "
-        "weight change of exactly 0 and a killed unit outputs exactly 0. HALT's high rate of naming the "
+        "- The planted faults were designed to show up in the signals LHD measures. A frozen layer has a "
+        "weight change of exactly 0 and a killed unit outputs exactly 0. LHD's high rate of naming the "
         "right cause is largely built into that design, since its cause rules map those same patterns.",
     ]
     if harm:
@@ -298,7 +298,7 @@ def honest_section(summary: dict) -> list[str]:
                          "lost under half a point of final accuracy against their healthy twin. The accuracy "
                          "curve missing those runs is partly the curve being right.")
         if high:
-            lines.append(f"- On broken runs that lost 2 points or more, HALT caught {high['halt_caught']} of "
+            lines.append(f"- On broken runs that lost 2 points or more, LHD caught {high['lhd_caught']} of "
                          f"{high['broken_runs']} and the accuracy curve caught {high['accuracy_caught']}.")
     lines += [
         "- Not tested here are real bugs found in the wild, large networks, long training runs, other "
@@ -325,21 +325,21 @@ CAPTIONS = (
      "of broken runs for each planted fault."),
     ("anatomy_{arch}_frozen", "One broken {name} run with a frozen layer. Each panel is one signal of the "
      "planted layer against its healthy range, and the last panel is validation accuracy. The vertical rule "
-     "marks HALT's alarm."),
+     "marks LHD's alarm."),
     ("anatomy_{arch}_dead25", "One broken {name} run with 25% of one layer's units killed, drawn the same way."),
-    ("cumulative_detection", "Share of the proposal's broken runs flagged by each epoch, for HALT, the "
+    ("cumulative_detection", "Share of the proposal's broken runs flagged by each epoch, for LHD, the "
      "accuracy curve, the loss curve, and the simple fixed checks."),
     ("detector_comparison", "Every detector on the same runs, pooled over the three networks. Whiskers are "
      "95% Wilson intervals."),
-    ("dose_response", "Share of dead unit faults caught as the killed fraction grows, for HALT and for the "
+    ("dose_response", "Share of dead unit faults caught as the killed fraction grows, for LHD and for the "
      "accuracy curve, by network. Whiskers are 95% Wilson intervals."),
     ("harm", "Share of broken runs caught, split by how much final accuracy the fault cost against the "
      "run's healthy twin. Whiskers are 95% Wilson intervals."),
     ("false_alarms", "Share of fresh healthy runs each detector flagged, with 95% Wilson intervals."),
-    ("diagnosis_matrix", "Planted fault against the cause HALT named, pooled over the three networks."),
-    ("per_layer", "Share of broken runs where HALT named both the planted layer and the right cause, by "
+    ("diagnosis_matrix", "Planted fault against the cause LHD named, pooled over the three networks."),
+    ("per_layer", "Share of broken runs where LHD named both the planted layer and the right cause, by "
      "fault and layer."),
-    ("ablation", "HALT with each signal removed, or with one signal alone, on the same runs."),
+    ("ablation", "LHD with each signal removed, or with one signal alone, on the same runs."),
     ("tradeoff", "Broken runs caught and healthy runs flagged as the margin changes, at floor 0.05. Solid "
      "lines use patience 3 and dashed lines patience 1. The rule marks the margin fixed before testing."),
     ("sensitivity", "Broken runs caught and healthy runs flagged for every margin and patience, at floor 0.05."),
@@ -377,7 +377,7 @@ def misses() -> list[str]:
         if r["role"] == "fault" and r["detected"] == "False":
             missed[(r["arch"], r["family"], r["fault_layer"] or "all")].append(r["seed"])
     if missed:
-        lines += ["", f"Broken runs HALT never caught ({sum(len(v) for v in missed.values())}), "
+        lines += ["", f"Broken runs LHD never caught ({sum(len(v) for v in missed.values())}), "
                   "grouped by fault and layer:", "",
                   "| Architecture | Fault | Layer | Seeds missed |", "|---|---|---|---|"]
         lines += [f"| {ARCH_NAMES[a]} | {FAMILY_NAMES.get(f, f)} | {layer} | {', '.join(seeds)} |"
@@ -386,20 +386,20 @@ def misses() -> list[str]:
         return ["", "None. Every caught run named the right layer and cause, "
                 "and no fresh healthy run was flagged."]
     if wrong:
-        lines += ["", f"Runs where HALT named the wrong layer ({len(wrong)}):", "",
-                  "| Run | Planted in | HALT named | Cause named | Signals |", "|---|---|---|---|---|"]
-        lines += [f"| {r['run_id']} | {r['fault_layer']} | {r['halt_layer']} | {r['halt_cause']} | "
-                  f"{r['halt_signals']} |" for r in wrong]
+        lines += ["", f"Runs where LHD named the wrong layer ({len(wrong)}):", "",
+                  "| Run | Planted in | LHD named | Cause named | Signals |", "|---|---|---|---|---|"]
+        lines += [f"| {r['run_id']} | {r['fault_layer']} | {r['lhd_layer']} | {r['lhd_cause']} | "
+                  f"{r['lhd_signals']} |" for r in wrong]
     if causes:
-        lines += ["", f"Runs where HALT found the right layer but named the wrong cause ({len(causes)}):", "",
-                  "| Run | Planted | HALT named | Signals | Epoch |", "|---|---|---|---|---|"]
-        lines += [f"| {r['run_id']} | {r['fault_type']} | {r['halt_cause']} | {r['halt_signals']} | "
-                  f"{r['halt_epoch']} |" for r in causes]
+        lines += ["", f"Runs where LHD found the right layer but named the wrong cause ({len(causes)}):", "",
+                  "| Run | Planted | LHD named | Signals | Epoch |", "|---|---|---|---|---|"]
+        lines += [f"| {r['run_id']} | {r['fault_type']} | {r['lhd_cause']} | {r['lhd_signals']} | "
+                  f"{r['lhd_epoch']} |" for r in causes]
     if alarms:
         lines += ["", f"False alarms on fresh healthy runs ({len(alarms)}):", "",
                   "| Run | Epoch | Layer | Cause named | Signals |", "|---|---|---|---|---|"]
-        lines += [f"| {r['run_id']} | {r['halt_epoch']} | {r['halt_layer']} | {r['halt_cause']} | "
-                  f"{r['halt_signals']} |" for r in alarms]
+        lines += [f"| {r['run_id']} | {r['lhd_epoch']} | {r['lhd_layer']} | {r['lhd_cause']} | "
+                  f"{r['lhd_signals']} |" for r in alarms]
     return lines
 
 
@@ -412,7 +412,7 @@ def main() -> None:
     clustered = pooled.get("proposal_clustered", {})
     total_runs = sum(sum(s["runs"].values()) for s in summary["archs"].values())
     out = [
-        "# HALT results",
+        "# LHD results",
         "",
         "Generated by `python -m experiments.report` from "
         f"{total_runs} training runs. Settings were fixed before any broken run was trained: "
@@ -423,39 +423,39 @@ def main() -> None:
         "## Pooled over all three architectures",
         "",
         f"- Broken runs with a frozen layer or dead units: {pooled['proposal'].get('runs', 0)}",
-        f"- Caught by HALT: {pct(pooled['proposal'].get('detected'), 1)}",
+        f"- Caught by LHD: {pct(pooled['proposal'].get('detected'), 1)}",
         f"- Right layer when caught: {pct(pooled['proposal'].get('layer_ok'), 1)}",
         f"- Right cause when caught: {pct(pooled['proposal'].get('cause_ok'), 1)}",
         f"- Caught by the accuracy curve at any point: {pct(pooled['proposal'].get('acc_detected'), 1)}",
-        f"- HALT flagged the run before the accuracy curve did: {pct(pooled['proposal'].get('halt_first'), 1)}",
-        f"- Of the runs HALT caught, the accuracy curve never noticed: {pct(pooled.get('acc_never_on_detected'), 1)}",
+        f"- LHD flagged the run before the accuracy curve did: {pct(pooled['proposal'].get('lhd_first'), 1)}",
+        f"- Of the runs LHD caught, the accuracy curve never noticed: {pct(pooled.get('acc_never_on_detected'), 1)}",
         f"- Mean compute saved per broken run: {pct(pooled['proposal'].get('mean_compute_saved'), 1)}",
-        f"- HALT false alarms on fresh healthy runs: {pct(pooled['healthy']['halt_false_alarm'], 1)}",
+        f"- LHD false alarms on fresh healthy runs: {pct(pooled['healthy']['lhd_false_alarm'], 1)}",
         f"- Accuracy curve false alarms on the same runs: {pct(pooled['healthy']['acc_false_alarm'], 1)}",
-        f"- Mean epochs HALT was earlier than the accuracy curve, with \"never\" counted as one "
+        f"- Mean epochs LHD was earlier than the accuracy curve, with \"never\" counted as one "
         f"epoch past the end: {num(pooled['proposal'].get('mean_gap'))}, 95% interval "
         f"{_gap(pooled['proposal'].get('mean_gap'), clustered.get('mean_gap_ci')).split(' ', 1)[-1]} "
         f"from a bootstrap that resamples whole seeds.",
-        f"- Fault conditions (fault and layer) where HALT was earlier on average: "
+        f"- Fault conditions (fault and layer) where LHD was earlier on average: "
         f"{_groups(clustered.get('by_condition'))}, one-sided Wilcoxon on condition means.",
-        f"- Seeds where HALT was earlier on average: {_groups(clustered.get('by_seed'))}.",
+        f"- Seeds where LHD was earlier on average: {_groups(clustered.get('by_seed'))}.",
         f"- Run by run, for reference only since runs that share a seed are not independent: "
-        f"HALT earlier on {tests.get('halt_earlier')}, accuracy earlier on {tests.get('acc_earlier')}, "
+        f"LHD earlier on {tests.get('lhd_earlier')}, accuracy earlier on {tests.get('acc_earlier')}, "
         f"ties {tests.get('ties')}.",
         "",
         "## What the results show and what they do not",
         "",
         *honest_section(summary),
         "",
-        "## HALT against other detectors",
+        "## LHD against other detectors",
         "",
         "Pooled over all three networks, on the proposal's broken runs. The simple fixed checks need no "
-        "healthy runs and were added after the core results to test whether HALT beats rules anyone could "
-        "write by hand. Earlier, later, and tie compare each detector with HALT run by run.",
+        "healthy runs and were added after the core results to test whether LHD beats rules anyone could "
+        "write by hand. Earlier, later, and tie compare each detector with LHD run by run.",
         "",
         *detector_section(),
         "",
-        "## Does HALT catch faults that cost accuracy",
+        "## Does LHD catch faults that cost accuracy",
         "",
         "Broken runs split by how much final accuracy they lost against their healthy twin.",
         "",
@@ -471,7 +471,7 @@ def main() -> None:
         "",
         "## Each signal's part",
         "",
-        "Each cell shows broken runs caught, then runs where HALT named the right layer and cause, "
+        "Each cell shows broken runs caught, then runs where LHD named the right layer and cause, "
         "then fresh healthy runs flagged.",
         "",
         *ablation_table(),

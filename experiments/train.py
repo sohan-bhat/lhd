@@ -1,5 +1,5 @@
 """Trains one network, with or without a planted fault, and saves
-HALT's signals for every epoch.
+LHD's signals for every epoch.
 
 Runs always finish every epoch, even when broken, so the saved
 history can be replayed later through any detector setting and
@@ -17,9 +17,9 @@ import torch
 
 from experiments.data import load_task
 from experiments.models import CNN, MLP, TinyTransformer
-from halt.faults import FrozenLayer, kill_units
-from halt.recorder import Recorder
-from halt.torch_adapter import TorchAdapter
+from lhd.faults import FrozenLayer, kill_units
+from lhd.recorder import Recorder
+from lhd.torch_adapter import TorchAdapter
 
 ARCHS = {
     "cnn": {"dataset": "gtsrb", "epochs": 15, "batch_size": 128, "lr": 1e-3,
@@ -151,7 +151,7 @@ def train_run(spec: dict, out_path: str | Path, threads: int = 1) -> dict:
     cfg = ARCHS[arch]
     task = get_task(arch)
     model = build_model(arch, task, seed)
-    adapter = TorchAdapter(model, model.halt_layers())
+    adapter = TorchAdapter(model, model.lhd_layers())
     recorder = Recorder(adapter, task.probe)
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg["lr"])
     fault = PlantedFault(spec["fault"], model, adapter, optimizer, seed)
@@ -159,13 +159,13 @@ def train_run(spec: dict, out_path: str | Path, threads: int = 1) -> dict:
     generator = torch.Generator().manual_seed(seed)
 
     run_start = time.perf_counter()
-    halt_total = 0.0
+    lhd_total = 0.0
     for epoch in range(1, cfg["epochs"] + 1):
         fault.on_epoch_start(epoch)
         epoch_start = time.perf_counter()
         tick = time.perf_counter()
         recorder.start_epoch()
-        halt_seconds = time.perf_counter() - tick
+        lhd_seconds = time.perf_counter() - tick
         correct = total = 0
         loss_sum = 0.0
         model.train()
@@ -176,7 +176,7 @@ def train_run(spec: dict, out_path: str | Path, threads: int = 1) -> dict:
             loss.backward()
             tick = time.perf_counter()
             recorder.after_batch()
-            halt_seconds += time.perf_counter() - tick
+            lhd_seconds += time.perf_counter() - tick
             optimizer.step()
             fault.after_step()
             hit, count = task.hits(logits.detach(), y)
@@ -188,11 +188,11 @@ def train_run(spec: dict, out_path: str | Path, threads: int = 1) -> dict:
         seconds = time.perf_counter() - epoch_start
         tick = time.perf_counter()
         entry = recorder.end_epoch(epoch, correct / total, val_accuracy, seconds)
-        halt_seconds += time.perf_counter() - tick
+        lhd_seconds += time.perf_counter() - tick
         entry["train_loss"] = loss_sum / total
         entry["val_loss"] = val_loss
-        entry["halt_seconds"] = halt_seconds
-        halt_total += halt_seconds
+        entry["lhd_seconds"] = lhd_seconds
+        lhd_total += lhd_seconds
 
     metadata = {
         **spec,
@@ -200,7 +200,7 @@ def train_run(spec: dict, out_path: str | Path, threads: int = 1) -> dict:
         "killed_units": fault.units,
         "layers": adapter.layer_names(),
         "total_seconds": time.perf_counter() - run_start,
-        "halt_seconds": halt_total,
+        "lhd_seconds": lhd_total,
         "torch": torch.__version__,
         "threads": threads,
     }

@@ -1,8 +1,8 @@
-"""Datasets and training tasks for HALT's experiments.
+"""Datasets and training tasks for LHD's experiments.
 
 Each dataset is downloaded once and cached as tensors in data/.
 A task hands out shuffled training batches, scores the model on the
-validation set, and holds the fixed probe batch HALT uses to count
+validation set, and holds the fixed probe batch LHD uses to count
 dead units.
 """
 

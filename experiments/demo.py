@@ -1,4 +1,4 @@
-"""Trains one network live with HALT watching, and stops it when HALT fires.
+"""Trains one network live with LHD watching, and stops it when LHD fires.
 
 Usage:
     python -m experiments.demo --arch cnn --fault frozen --layer conv2
@@ -20,9 +20,9 @@ import torch
 
 from experiments.evaluate import SETTINGS, load_runs, split_runs
 from experiments.train import ARCHS, PlantedFault, build_model, get_task
-from halt.baseline import healthy_band
-from halt.monitor import Monitor
-from halt.torch_adapter import TorchAdapter
+from lhd.baseline import healthy_band
+from lhd.monitor import Monitor
+from lhd.torch_adapter import TorchAdapter
 
 
 def main(argv=None) -> None:
@@ -41,7 +41,7 @@ def main(argv=None) -> None:
     cfg = ARCHS[args.arch]
     task = get_task(args.arch)
     model = build_model(args.arch, task, args.seed)
-    adapter = TorchAdapter(model, model.halt_layers())
+    adapter = TorchAdapter(model, model.lhd_layers())
     monitor = Monitor(adapter, task.probe, band, **SETTINGS)
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg["lr"])
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg["epochs"])
@@ -73,13 +73,13 @@ def main(argv=None) -> None:
         print(f"epoch {epoch:2d}  val accuracy {100 * val_accuracy:5.1f}%")
         if report is not None:
             saved = 100 * (cfg["epochs"] - epoch) / cfg["epochs"]
-            print(f"\nHALT stopped the run at epoch {epoch} of {cfg['epochs']} "
+            print(f"\nLHD stopped the run at epoch {epoch} of {cfg['epochs']} "
                   f"({saved:.0f}% of the compute saved)")
             entry = monitor.recorder.history[-1]["layers"][report["layer"]]
             print(json.dumps({**report, "values": {k: round(v, 5) for k, v in entry.items()
                                                    if v is not None and np.isfinite(v)}}, indent=2))
             return
-    print("\nHALT stayed quiet for the whole run")
+    print("\nLHD stayed quiet for the whole run")
 
 
 if __name__ == "__main__":
