@@ -30,20 +30,20 @@ proposal lhd_before_simple 95% interval,22.8 to 38.4%,17.8 to 30.4%,8.2 to 18.1%
 proposal simple_before_lhd,53.8% (70/130),76.5% (130/170),84.1% (143/170),73.0% (343/470)
 proposal simple_before_lhd 95% interval,45.3 to 62.2%,69.6 to 82.2%,77.9 to 88.8%,68.8 to 76.8%
 proposal mean_acc_drop_vs_twin,0.0032,0.0058,0.0441,0.019
-healthy runs,50,30,30,110
-healthy lhd_false_alarm,2.0% (1/50),0.0% (0/30),6.7% (2/30),2.7% (3/110)
-healthy lhd_false_alarm 95% interval,0.4 to 10.5%,0.0 to 11.4%,1.8 to 21.3%,0.9 to 7.7%
-healthy acc_false_alarm,2.0% (1/50),16.7% (5/30),0.0% (0/30),5.5% (6/110)
-healthy acc_false_alarm 95% interval,0.4 to 10.5%,7.3 to 33.6%,0.0 to 11.4%,2.5 to 11.4%
-healthy acc1_false_alarm,60.0% (30/50),26.7% (8/30),0.0% (0/30),34.5% (38/110)
-healthy acc1_false_alarm 95% interval,46.2 to 72.4%,14.2 to 44.4%,0.0 to 11.4%,26.3 to 43.8%
-healthy loss_false_alarm,6.0% (3/50),13.3% (4/30),0.0% (0/30),6.4% (7/110)
-healthy loss_false_alarm 95% interval,2.1 to 16.2%,5.3 to 29.7%,0.0 to 11.4%,3.1 to 12.6%
-healthy zero_update_false_alarm,0.0% (0/50),0.0% (0/30),0.0% (0/30),0.0% (0/110)
-healthy zero_update_false_alarm 95% interval,0.0 to 7.1%,0.0 to 11.4%,0.0 to 11.4%,0.0 to 3.4%
-healthy simple_false_alarm,0.0% (0/50),0.0% (0/30),40.0% (12/30),10.9% (12/110)
-healthy simple_false_alarm 95% interval,0.0 to 7.1%,0.0 to 11.4%,24.6 to 57.7%,6.4 to 18.1%
-healthy overhead,0.1162,0.0583,0.0223,0.0748
+healthy runs,50,50,50,150
+healthy lhd_false_alarm,2.0% (1/50),0.0% (0/50),4.0% (2/50),2.0% (3/150)
+healthy lhd_false_alarm 95% interval,0.4 to 10.5%,0.0 to 7.1%,1.1 to 13.5%,0.7 to 5.7%
+healthy acc_false_alarm,2.0% (1/50),12.0% (6/50),0.0% (0/50),4.7% (7/150)
+healthy acc_false_alarm 95% interval,0.4 to 10.5%,5.6 to 23.8%,0.0 to 7.1%,2.3 to 9.3%
+healthy acc1_false_alarm,60.0% (30/50),26.0% (13/50),2.0% (1/50),29.3% (44/150)
+healthy acc1_false_alarm 95% interval,46.2 to 72.4%,15.9 to 39.6%,0.4 to 10.5%,22.6 to 37.1%
+healthy loss_false_alarm,6.0% (3/50),10.0% (5/50),2.0% (1/50),6.0% (9/150)
+healthy loss_false_alarm 95% interval,2.1 to 16.2%,4.3 to 21.4%,0.4 to 10.5%,3.2 to 11.0%
+healthy zero_update_false_alarm,0.0% (0/50),0.0% (0/50),0.0% (0/50),0.0% (0/150)
+healthy zero_update_false_alarm 95% interval,0.0 to 7.1%,0.0 to 7.1%,0.0 to 7.1%,0.0 to 2.5%
+healthy simple_false_alarm,0.0% (0/50),0.0% (0/50),44.0% (22/50),14.7% (22/150)
+healthy simple_false_alarm 95% interval,0.0 to 7.1%,0.0 to 7.1%,31.2 to 57.7%,9.9 to 21.2%
+healthy overhead,0.1162,0.0594,0.0218,0.0658
 clustered by_seed lhd earlier,10 of 10,10 of 10,10 of 10,30 of 30
 clustered by_seed wilcoxon p,0.0009765625,0.0009765625,0.0009765625,9.313225746154785e-10
 clustered by_condition lhd earlier,10 of 13,17 of 17,14 of 17,41 of 47

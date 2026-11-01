@@ -136,23 +136,23 @@ Calibration seeds and evaluation seeds never overlap. Every broken run has a hea
 | CNN | core | calibration | 20 | 20 |
 | CNN | core | fault | 85 | 85 |
 | CNN | core | fresh | 30 | 30 |
-| CNN | more | fault | 65 | 0 |
-| CNN | more | fresh | 20 | 0 |
+| CNN | more | fault | 65 | 65 |
+| CNN | more | fresh | 20 | 20 |
 | CNN | seeds | fault | 85 | 85 |
 | Fully connected | core | calibration | 20 | 20 |
 | Fully connected | core | fault | 65 | 65 |
 | Fully connected | core | fresh | 30 | 30 |
-| Fully connected | more | fault | 55 | 5 |
+| Fully connected | more | fault | 55 | 55 |
 | Fully connected | more | fresh | 20 | 20 |
 | Fully connected | seeds | fault | 65 | 65 |
 | Transformer | core | calibration | 20 | 20 |
 | Transformer | core | fault | 85 | 85 |
 | Transformer | core | fresh | 30 | 30 |
-| Transformer | more | fault | 85 | 0 |
-| Transformer | more | fresh | 20 | 0 |
+| Transformer | more | fault | 85 | 85 |
+| Transformer | more | fresh | 20 | 20 |
 | Transformer | seeds | fault | 85 | 85 |
 
-Planned runs in total 885. Finished when this file was written 645.
+Planned runs in total 885. Finished when this file was written 885.
 
 ## 9. Detectors compared
 
@@ -202,10 +202,10 @@ Python 3.10.16, PyTorch 2.2.2, NumPy 1.26.4, SciPy 1.13.1, Matplotlib 3.10.0. Al
 
 | Network | Runs | Training hours | Hours spent inside LHD | Mean minutes per run |
 |---|---|---|---|---|
-| Fully connected | 205 | 15.0 | 1.8 | 4.4 |
-| Transformer | 220 | 35.2 | 2.0 | 9.6 |
-| CNN | 220 | 43.9 | 1.0 | 12.0 |
-| All networks | 645 | 94.2 | 4.8 |  |
+| Fully connected | 255 | 16.9 | 2.0 | 4.0 |
+| Transformer | 325 | 39.7 | 2.3 | 7.3 |
+| CNN | 305 | 50.7 | 1.1 | 10.0 |
+| All networks | 885 | 107.3 | 5.4 |  |
 
 ## 13. Choices and changes made during the study
 
