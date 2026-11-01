@@ -57,6 +57,9 @@ below 2. The core library still needs only numpy.
     python -m experiments.analyze
     python -m experiments.figures
     python -m experiments.report
+    python -m experiments.export
+    python -m experiments.methods
+    python -m experiments.paper
 
 Datasets download on first use into `data/`. Each run is saved to
 `results/runs/<arch>/<run id>.json`, and finished runs are skipped,
@@ -68,7 +71,7 @@ proposal's faults on five more seeds.
 Finished runs are packed into one compressed file per architecture
 with `python -m experiments.bundle`, and the analysis reads those
 files when the per run folders are gone. Results land in
-`results/REPORT.md`.
+`results/REPORT.md`, and the paper built from them in `paper/lhd.pdf`.
 
 To watch LHD stop a broken run live:
 
