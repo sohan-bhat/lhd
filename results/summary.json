@@ -856,218 +856,647 @@
         "weight_change": 50,
         "weight_change+grad_norm": 5
       }
+    },
+    "cnn": {
+      "runs": {
+        "calibration": 20,
+        "fault": 85,
+        "fresh": 30
+      },
+      "healthy": {
+        "runs": 30,
+        "halt_false_alarm": {
+          "k": 2,
+          "n": 30,
+          "rate": 0.06666666666666667,
+          "low": 0.01847663532769335,
+          "high": 0.21323817721072091
+        },
+        "acc_false_alarm": {
+          "k": 0,
+          "n": 30,
+          "rate": 0.0,
+          "low": 0.0,
+          "high": 0.113517091390478
+        },
+        "acc1_false_alarm": {
+          "k": 0,
+          "n": 30,
+          "rate": 0.0,
+          "low": 0.0,
+          "high": 0.113517091390478
+        },
+        "loss_false_alarm": {
+          "k": 0,
+          "n": 30,
+          "rate": 0.0,
+          "low": 0.0,
+          "high": 0.113517091390478
+        },
+        "overhead": 0.02225814427408048
+      },
+      "proposal": {
+        "runs": 85,
+        "detected": {
+          "k": 66,
+          "n": 85,
+          "rate": 0.7764705882352941,
+          "low": 0.6770628717994043,
+          "high": 0.8519685729291915
+        },
+        "fired_before_onset": {
+          "k": 0,
+          "n": 85,
+          "rate": 0.0,
+          "low": 0.0,
+          "high": 0.04324100421424198
+        },
+        "layer_ok": {
+          "k": 64,
+          "n": 66,
+          "rate": 0.9696969696969697,
+          "low": 0.8960728112941316,
+          "high": 0.9916502649240535
+        },
+        "cause_ok": {
+          "k": 64,
+          "n": 66,
+          "rate": 0.9696969696969697,
+          "low": 0.8960728112941316,
+          "high": 0.9916502649240535
+        },
+        "acc_detected": {
+          "k": 25,
+          "n": 85,
+          "rate": 0.29411764705882354,
+          "low": 0.20785389608177995,
+          "high": 0.3981865174182021
+        },
+        "halt_first": {
+          "k": 62,
+          "n": 85,
+          "rate": 0.7294117647058823,
+          "low": 0.6265784025645939,
+          "high": 0.8124051366782833
+        },
+        "halt_median_epoch": 3.0,
+        "acc_median_epoch": 8.0,
+        "halt_median_delay": 3.0,
+        "acc_median_delay": 8.0,
+        "mean_gap": 7.552941176470588,
+        "mean_compute_saved": 0.6211764705882351,
+        "silent_share": {
+          "k": 58,
+          "n": 85,
+          "rate": 0.6823529411764706,
+          "low": 0.5773362018838148,
+          "high": 0.7715994318733441
+        },
+        "mean_acc_drop_vs_twin": 0.041741176470588254
+      },
+      "proposal_tests": {
+        "n": 85,
+        "mean_gap": 7.552941176470588,
+        "halt_earlier": 62,
+        "acc_earlier": 1,
+        "ties": 22,
+        "wilcoxon_p": 4.2510058781237646e-13,
+        "sign_p": 6.938893903907228e-18
+      },
+      "proposal_clustered": {
+        "by_seed": {
+          "groups": 5,
+          "halt_earlier": 5,
+          "acc_earlier": 0,
+          "ties": 0,
+          "wilcoxon_p": 0.03125,
+          "sign_p": 0.03125
+        },
+        "by_condition": {
+          "groups": 17,
+          "halt_earlier": 14,
+          "acc_earlier": 1,
+          "ties": 2,
+          "wilcoxon_p": 6.103515625e-05,
+          "sign_p": 0.00048828125
+        },
+        "mean_gap_ci": [
+          6.964705882352941,
+          8.141176470588235
+        ]
+      },
+      "families": {
+        "dead10": {
+          "runs": 20,
+          "detected": {
+            "k": 11,
+            "n": 20,
+            "rate": 0.55,
+            "low": 0.3420820083075997,
+            "high": 0.7418049791429071
+          },
+          "fired_before_onset": {
+            "k": 0,
+            "n": 20,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.16113012549493322
+          },
+          "layer_ok": {
+            "k": 11,
+            "n": 11,
+            "rate": 1.0,
+            "low": 0.7411599827511859,
+            "high": 1.0
+          },
+          "cause_ok": {
+            "k": 11,
+            "n": 11,
+            "rate": 1.0,
+            "low": 0.7411599827511859,
+            "high": 1.0
+          },
+          "acc_detected": {
+            "k": 0,
+            "n": 20,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.16113012549493322
+          },
+          "halt_first": {
+            "k": 11,
+            "n": 20,
+            "rate": 0.55,
+            "low": 0.3420820083075997,
+            "high": 0.7418049791429071
+          },
+          "halt_median_epoch": 3.0,
+          "acc_median_epoch": null,
+          "halt_median_delay": 3.0,
+          "acc_median_delay": null,
+          "mean_gap": 7.15,
+          "mean_compute_saved": 0.44000000000000006,
+          "silent_share": {
+            "k": 20,
+            "n": 20,
+            "rate": 1.0,
+            "low": 0.8388698745050667,
+            "high": 1.0
+          },
+          "mean_acc_drop_vs_twin": 0.009425000000000017
+        },
+        "dead25": {
+          "runs": 20,
+          "detected": {
+            "k": 15,
+            "n": 20,
+            "rate": 0.75,
+            "low": 0.5312949900419365,
+            "high": 0.888139947210597
+          },
+          "fired_before_onset": {
+            "k": 0,
+            "n": 20,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.16113012549493322
+          },
+          "layer_ok": {
+            "k": 15,
+            "n": 15,
+            "rate": 1.0,
+            "low": 0.7961107336956521,
+            "high": 1.0
+          },
+          "cause_ok": {
+            "k": 15,
+            "n": 15,
+            "rate": 1.0,
+            "low": 0.7961107336956521,
+            "high": 1.0
+          },
+          "acc_detected": {
+            "k": 0,
+            "n": 20,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.16113012549493322
+          },
+          "halt_first": {
+            "k": 15,
+            "n": 20,
+            "rate": 0.75,
+            "low": 0.5312949900419365,
+            "high": 0.888139947210597
+          },
+          "halt_median_epoch": 3.0,
+          "acc_median_epoch": null,
+          "halt_median_delay": 3.0,
+          "acc_median_delay": null,
+          "mean_gap": 9.75,
+          "mean_compute_saved": 0.6,
+          "silent_share": {
+            "k": 20,
+            "n": 20,
+            "rate": 1.0,
+            "low": 0.8388698745050667,
+            "high": 1.0
+          },
+          "mean_acc_drop_vs_twin": 0.011950000000000027
+        },
+        "dead50": {
+          "runs": 20,
+          "detected": {
+            "k": 15,
+            "n": 20,
+            "rate": 0.75,
+            "low": 0.5312949900419365,
+            "high": 0.888139947210597
+          },
+          "fired_before_onset": {
+            "k": 0,
+            "n": 20,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.16113012549493322
+          },
+          "layer_ok": {
+            "k": 15,
+            "n": 15,
+            "rate": 1.0,
+            "low": 0.7961107336956521,
+            "high": 1.0
+          },
+          "cause_ok": {
+            "k": 15,
+            "n": 15,
+            "rate": 1.0,
+            "low": 0.7961107336956521,
+            "high": 1.0
+          },
+          "acc_detected": {
+            "k": 3,
+            "n": 20,
+            "rate": 0.15,
+            "low": 0.05236779195949584,
+            "high": 0.36042329588695743
+          },
+          "halt_first": {
+            "k": 15,
+            "n": 20,
+            "rate": 0.75,
+            "low": 0.5312949900419365,
+            "high": 0.888139947210597
+          },
+          "halt_median_epoch": 3.0,
+          "acc_median_epoch": 7.0,
+          "halt_median_delay": 3.0,
+          "acc_median_delay": 7.0,
+          "mean_gap": 8.6,
+          "mean_compute_saved": 0.6,
+          "silent_share": {
+            "k": 16,
+            "n": 20,
+            "rate": 0.8,
+            "low": 0.5839782779742401,
+            "high": 0.9193436467288
+          },
+          "mean_acc_drop_vs_twin": 0.030237500000000018
+        },
+        "frozen": {
+          "runs": 25,
+          "detected": {
+            "k": 25,
+            "n": 25,
+            "rate": 1.0,
+            "low": 0.8668035060468213,
+            "high": 1.0
+          },
+          "fired_before_onset": {
+            "k": 0,
+            "n": 25,
+            "rate": 0.0,
+            "low": 0.0,
+            "high": 0.13319649395317873
+          },
+          "layer_ok": {
+            "k": 23,
+            "n": 25,
+            "rate": 0.92,
+            "low": 0.7503348787704218,
+            "high": 0.977780066308908
+          },
+          "cause_ok": {
+            "k": 23,
+            "n": 25,
+            "rate": 0.92,
+            "low": 0.7503348787704218,
+            "high": 0.977780066308908
+          },
+          "acc_detected": {
+            "k": 22,
+            "n": 25,
+            "rate": 0.88,
+            "low": 0.7004380781662651,
+            "high": 0.9583325864293191
+          },
+          "halt_first": {
+            "k": 21,
+            "n": 25,
+            "rate": 0.84,
+            "low": 0.6534598601976183,
+            "high": 0.9359665239142201
+          },
+          "halt_median_epoch": 3.0,
+          "acc_median_epoch": 8.0,
+          "halt_median_delay": 3.0,
+          "acc_median_delay": 8.0,
+          "mean_gap": 5.28,
+          "mean_compute_saved": 0.8000000000000002,
+          "silent_share": {
+            "k": 2,
+            "n": 25,
+            "rate": 0.08,
+            "low": 0.02221993369109193,
+            "high": 0.24966512122957818
+          },
+          "mean_acc_drop_vs_twin": 0.10063000000000002
+        }
+      },
+      "family_tests": {
+        "dead10": {
+          "n": 20,
+          "mean_gap": 7.15,
+          "halt_earlier": 11,
+          "acc_earlier": 0,
+          "ties": 9,
+          "wilcoxon_p": 0.00048828125,
+          "sign_p": 0.00048828125
+        },
+        "dead25": {
+          "n": 20,
+          "mean_gap": 9.75,
+          "halt_earlier": 15,
+          "acc_earlier": 0,
+          "ties": 5,
+          "wilcoxon_p": 3.0517578125e-05,
+          "sign_p": 3.0517578125e-05
+        },
+        "dead50": {
+          "n": 20,
+          "mean_gap": 8.6,
+          "halt_earlier": 15,
+          "acc_earlier": 1,
+          "ties": 4,
+          "wilcoxon_p": 4.57763671875e-05,
+          "sign_p": 0.0002593994140625
+        },
+        "frozen": {
+          "n": 25,
+          "mean_gap": 5.28,
+          "halt_earlier": 21,
+          "acc_earlier": 0,
+          "ties": 4,
+          "wilcoxon_p": 4.76837158203125e-07,
+          "sign_p": 4.76837158203125e-07
+        }
+      },
+      "confusion": {
+        "dead10": {
+          "dead_units": 11,
+          "not detected": 9
+        },
+        "dead25": {
+          "dead_units": 15,
+          "not detected": 5
+        },
+        "dead50": {
+          "dead_units": 15,
+          "not detected": 5
+        },
+        "frozen": {
+          "frozen_layer": 23,
+          "dead_units": 2
+        }
+      },
+      "first_signal": {
+        "dead_unit_fraction": 43,
+        "weight_change": 12,
+        "weight_change+grad_norm": 8,
+        "weight_change+grad_norm+dead_unit_fraction": 3
+      }
     }
   },
   "pooled": {
     "healthy": {
-      "runs": 60,
+      "runs": 90,
       "halt_false_alarm": {
-        "k": 0,
-        "n": 60,
-        "rate": 0.0,
-        "low": 0.0,
-        "high": 0.06017393047793289
+        "k": 2,
+        "n": 90,
+        "rate": 0.022222222222222223,
+        "low": 0.006115313794863603,
+        "high": 0.07744677380807581
       },
       "acc_false_alarm": {
         "k": 6,
-        "n": 60,
-        "rate": 0.1,
-        "low": 0.04664219945723587,
-        "high": 0.20149694492511044
+        "n": 90,
+        "rate": 0.06666666666666667,
+        "low": 0.030909506550389258,
+        "high": 0.1379026194150674
       },
       "acc1_false_alarm": {
         "k": 29,
-        "n": 60,
-        "rate": 0.48333333333333334,
-        "low": 0.3617484128577001,
-        "high": 0.6069240514915643
+        "n": 90,
+        "rate": 0.32222222222222224,
+        "low": 0.23466628727198596,
+        "high": 0.42433355927794497
       },
       "loss_false_alarm": {
         "k": 6,
-        "n": 60,
-        "rate": 0.1,
-        "low": 0.04664219945723587,
-        "high": 0.20149694492511044
+        "n": 90,
+        "rate": 0.06666666666666667,
+        "low": 0.030909506550389258,
+        "high": 0.1379026194150674
       },
-      "overhead": 0.08756239794527483
+      "overhead": 0.06579431338821005
     },
     "proposal": {
-      "runs": 150,
+      "runs": 235,
       "detected": {
-        "k": 139,
-        "n": 150,
-        "rate": 0.9266666666666666,
-        "low": 0.873463014734016,
-        "high": 0.9585616131949707
+        "k": 205,
+        "n": 235,
+        "rate": 0.8723404255319149,
+        "low": 0.823607517540284,
+        "high": 0.9090956631451578
       },
       "fired_before_onset": {
         "k": 0,
-        "n": 150,
+        "n": 235,
         "rate": 0.0,
         "low": 0.0,
-        "high": 0.02497113914571871
+        "high": 0.016084300222406814
       },
       "layer_ok": {
-        "k": 139,
-        "n": 139,
-        "rate": 1.0,
-        "low": 0.9731058739190823,
-        "high": 1.0
+        "k": 203,
+        "n": 205,
+        "rate": 0.9902439024390244,
+        "low": 0.965131433049975,
+        "high": 0.997320492236941
       },
       "cause_ok": {
-        "k": 137,
-        "n": 139,
-        "rate": 0.9856115107913669,
-        "low": 0.9490574967673888,
-        "high": 0.996045330420209
+        "k": 201,
+        "n": 205,
+        "rate": 0.9804878048780488,
+        "low": 0.950911961729602,
+        "high": 0.9923866914123007
       },
       "acc_detected": {
-        "k": 55,
-        "n": 150,
-        "rate": 0.36666666666666664,
-        "low": 0.293773196710732,
-        "high": 0.4462191070614596
+        "k": 80,
+        "n": 235,
+        "rate": 0.3404255319148936,
+        "low": 0.2828415985159164,
+        "high": 0.4031427526188943
       },
       "halt_first": {
-        "k": 131,
-        "n": 150,
-        "rate": 0.8733333333333333,
-        "low": 0.8106321928453123,
-        "high": 0.9173893565925509
+        "k": 193,
+        "n": 235,
+        "rate": 0.8212765957446808,
+        "low": 0.7672462331862149,
+        "high": 0.8649719398623661
       },
       "halt_median_epoch": 3.0,
-      "acc_median_epoch": 6.0,
+      "acc_median_epoch": 7.0,
       "halt_median_delay": 3.0,
-      "acc_median_delay": 6.0,
-      "mean_gap": 10.473333333333333,
-      "mean_compute_saved": 0.7489999999999998,
+      "acc_median_delay": 7.0,
+      "mean_gap": 9.417021276595746,
+      "mean_compute_saved": 0.7027659574468086,
       "silent_share": {
-        "k": 89,
-        "n": 150,
-        "rate": 0.5933333333333334,
-        "low": 0.51334517440468,
-        "high": 0.6686602129547861
+        "k": 147,
+        "n": 235,
+        "rate": 0.625531914893617,
+        "low": 0.5620987259423216,
+        "high": 0.6849269178316273
       },
-      "mean_acc_drop_vs_twin": 0.004517536783854163
+      "mean_acc_drop_vs_twin": 0.01798140645777926
     },
     "proposal_tests": {
-      "n": 150,
-      "mean_gap": 10.473333333333333,
-      "halt_earlier": 131,
-      "acc_earlier": 1,
-      "ties": 18,
-      "wilcoxon_p": 4.373055555956476e-24,
-      "sign_p": 2.442824197802566e-38
+      "n": 235,
+      "mean_gap": 9.417021276595746,
+      "halt_earlier": 193,
+      "acc_earlier": 2,
+      "ties": 40,
+      "wilcoxon_p": 7.686249307014095e-35,
+      "sign_p": 3.805697439206537e-55
     },
     "proposal_clustered": {
       "by_seed": {
-        "groups": 10,
-        "halt_earlier": 10,
+        "groups": 15,
+        "halt_earlier": 15,
         "acc_earlier": 0,
         "ties": 0,
-        "wilcoxon_p": 0.0009765625,
-        "sign_p": 0.0009765625
+        "wilcoxon_p": 3.0517578125e-05,
+        "sign_p": 3.0517578125e-05
       },
       "by_condition": {
-        "groups": 30,
-        "halt_earlier": 27,
-        "acc_earlier": 1,
-        "ties": 2,
-        "wilcoxon_p": 7.450580596923828e-09,
-        "sign_p": 1.0803341865539551e-07
+        "groups": 47,
+        "halt_earlier": 41,
+        "acc_earlier": 2,
+        "ties": 4,
+        "wilcoxon_p": 5.684341886080801e-13,
+        "sign_p": 1.0766143532237038e-10
       },
       "mean_gap_ci": [
-        8.72,
-        11.7
+        8.293617021276596,
+        10.246808510638298
       ]
     },
     "all_faults": {
-      "runs": 150,
+      "runs": 235,
       "detected": {
-        "k": 139,
-        "n": 150,
-        "rate": 0.9266666666666666,
-        "low": 0.873463014734016,
-        "high": 0.9585616131949707
+        "k": 205,
+        "n": 235,
+        "rate": 0.8723404255319149,
+        "low": 0.823607517540284,
+        "high": 0.9090956631451578
       },
       "fired_before_onset": {
         "k": 0,
-        "n": 150,
+        "n": 235,
         "rate": 0.0,
         "low": 0.0,
-        "high": 0.02497113914571871
+        "high": 0.016084300222406814
       },
       "layer_ok": {
-        "k": 139,
-        "n": 139,
-        "rate": 1.0,
-        "low": 0.9731058739190823,
-        "high": 1.0
+        "k": 203,
+        "n": 205,
+        "rate": 0.9902439024390244,
+        "low": 0.965131433049975,
+        "high": 0.997320492236941
       },
       "cause_ok": {
-        "k": 137,
-        "n": 139,
-        "rate": 0.9856115107913669,
-        "low": 0.9490574967673888,
-        "high": 0.996045330420209
+        "k": 201,
+        "n": 205,
+        "rate": 0.9804878048780488,
+        "low": 0.950911961729602,
+        "high": 0.9923866914123007
       },
       "acc_detected": {
-        "k": 55,
-        "n": 150,
-        "rate": 0.36666666666666664,
-        "low": 0.293773196710732,
-        "high": 0.4462191070614596
+        "k": 80,
+        "n": 235,
+        "rate": 0.3404255319148936,
+        "low": 0.2828415985159164,
+        "high": 0.4031427526188943
       },
       "halt_first": {
-        "k": 131,
-        "n": 150,
-        "rate": 0.8733333333333333,
-        "low": 0.8106321928453123,
-        "high": 0.9173893565925509
+        "k": 193,
+        "n": 235,
+        "rate": 0.8212765957446808,
+        "low": 0.7672462331862149,
+        "high": 0.8649719398623661
       },
       "halt_median_epoch": 3.0,
-      "acc_median_epoch": 6.0,
+      "acc_median_epoch": 7.0,
       "halt_median_delay": 3.0,
-      "acc_median_delay": 6.0,
-      "mean_gap": 10.473333333333333,
-      "mean_compute_saved": 0.7489999999999998,
+      "acc_median_delay": 7.0,
+      "mean_gap": 9.417021276595746,
+      "mean_compute_saved": 0.7027659574468086,
       "silent_share": {
-        "k": 89,
-        "n": 150,
-        "rate": 0.5933333333333334,
-        "low": 0.51334517440468,
-        "high": 0.6686602129547861
+        "k": 147,
+        "n": 235,
+        "rate": 0.625531914893617,
+        "low": 0.5620987259423216,
+        "high": 0.6849269178316273
       },
-      "mean_acc_drop_vs_twin": 0.004517536783854163
+      "mean_acc_drop_vs_twin": 0.01798140645777926
     },
     "all_faults_clustered": {
       "by_seed": {
-        "groups": 10,
-        "halt_earlier": 10,
+        "groups": 15,
+        "halt_earlier": 15,
         "acc_earlier": 0,
         "ties": 0,
-        "wilcoxon_p": 0.0009765625,
-        "sign_p": 0.0009765625
+        "wilcoxon_p": 3.0517578125e-05,
+        "sign_p": 3.0517578125e-05
       },
       "by_condition": {
-        "groups": 30,
-        "halt_earlier": 27,
-        "acc_earlier": 1,
-        "ties": 2,
-        "wilcoxon_p": 7.450580596923828e-09,
-        "sign_p": 1.0803341865539551e-07
+        "groups": 47,
+        "halt_earlier": 41,
+        "acc_earlier": 2,
+        "ties": 4,
+        "wilcoxon_p": 5.684341886080801e-13,
+        "sign_p": 1.0766143532237038e-10
       },
       "mean_gap_ci": [
-        8.72,
-        11.7
+        8.293617021276596,
+        10.246808510638298
       ]
     },
     "acc_never_on_detected": {
-      "k": 85,
-      "n": 139,
-      "rate": 0.6115107913669064,
-      "low": 0.5285236431426338,
-      "high": 0.6884999690263701
+      "k": 127,
+      "n": 205,
+      "rate": 0.6195121951219512,
+      "low": 0.5514290620749349,
+      "high": 0.6831985217014775
     }
   }
 }
