@@ -1,6 +1,6 @@
-# HALT
+# LHD
 
-Health Analysis of Layers during Training: early detection of silent
+Layer Health Diagnostics: early detection of silent
 training failures in neural networks.
 
 **Status:** in development. Signal functions and tests are being built.
@@ -15,28 +15,28 @@ Experiments begin after science fair review approval.
 
 ## Layout
 
-    src/halt/          the monitor itself, numpy only
+    src/lhd/           the monitor itself, numpy only
       signals.py         the four per-layer signals
       recorder.py        logs every layer's signals each epoch
       baseline.py        healthy band from healthy runs only
       detector.py        fires after `patience` epochs out of band
       diagnosis.py       names the likely cause from the signal pattern
       monitor.py         ties the three together for a live run
-      replay.py          runs a saved history through HALT after the fact
+      replay.py          runs a saved history through LHD after the fact
       faults.py          plants a frozen layer or dead units
-      torch_adapter.py   lets HALT watch any PyTorch model
+      torch_adapter.py   lets LHD watch any PyTorch model
     experiments/       the study from the proposal
       models.py          CNN, fully connected network, small transformer
       data.py            GTSRB, Fashion-MNIST, Tiny Shakespeare
       train.py           one run with one planted fault
       grid.py            every run in the study and its seed
       run.py             trains the grid in parallel, resumable
-      evaluate.py        scores HALT against the accuracy curve
+      evaluate.py        scores LHD against the accuracy curve
       sweep.py           settings, calibration size, and signal ablations
       analyze.py         writes results/summary.json and results/tables
       figures.py         writes results/figures
       report.py          writes results/REPORT.md
-      demo.py            trains live and stops when HALT fires
+      demo.py            trains live and stops when LHD fires
     results/           every saved run, the tables, figures, and report
 
 ## Running the experiments
@@ -70,6 +70,6 @@ with `python -m experiments.bundle`, and the analysis reads those
 files when the per run folders are gone. Results land in
 `results/REPORT.md`.
 
-To watch HALT stop a broken run live:
+To watch LHD stop a broken run live:
 
     python -m experiments.demo --arch cnn --fault frozen --layer conv2
