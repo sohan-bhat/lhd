@@ -1,0 +1,4 @@
+arch,dataset,task,classes_or_vocab,train_examples,val_examples,probe_examples,parameters,watched_layers,relu_layers,epochs,batch_size,steps_per_epoch,context,optimizer,learning_rate,schedule
+mlp,"Fashion-MNIST, 28x28 grayscale",image classification,10,60000,10000,256,242762,4,3,20,128,469,,Adam,0.001,cosine annealing to 0 over the run
+transformer,"Tiny Shakespeare, characters",next character prediction,65,1003854,512,256,112577,11,2,15,32,100,64,Adam,0.001,cosine annealing to 0 over the run
+cnn,"GTSRB traffic signs, 32x32 color",image classification,43,26640,4000,256,41659,5,4,15,128,209,,Adam,0.001,cosine annealing to 0 over the run

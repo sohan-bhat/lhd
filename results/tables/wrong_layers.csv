@@ -1,3 +1,4 @@
 arch,run_id,family,fault_layer,halt_layer,halt_cause,halt_signals,halt_epoch
 cnn,cnn-fault-frozen-fc1-s1000,frozen,fc1,conv3,dead_units,dead_unit_fraction,3
 cnn,cnn-fault-frozen-fc1-s1002,frozen,fc1,conv3,dead_units,dead_unit_fraction,3
+cnn,cnn-fault-frozen-fc1-s1005,frozen,fc1,conv3,dead_units,dead_unit_fraction,3
