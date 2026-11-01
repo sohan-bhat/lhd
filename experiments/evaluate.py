@@ -95,6 +95,48 @@ def curve_alarm(history: list[dict], band: dict, key: str, direction: str,
     return None
 
 
+DEAD_CHECKS = (0.25, 0.5, 0.75)
+HARM_BINS = ((None, 0.005, "under 0.5 pts"), (0.005, 0.02, "0.5 to 2 pts"), (0.02, None, "2 pts or more"))
+
+
+def zero_update_epoch(history: list[dict]) -> int | None:
+    """First epoch in which some watched layer's weights did not move at all.
+
+    A check that needs no healthy runs, the kind of assert an engineer
+    might add by hand. It is a baseline for HALT, not part of it.
+    """
+    for entry in history:
+        if any(values["weight_change"] == 0.0 for values in entry["layers"].values()):
+            return entry["epoch"]
+    return None
+
+
+def dead_check_epoch(history: list[dict], threshold: float) -> int | None:
+    """First epoch in which some layer has at least `threshold` of its units dead.
+
+    A fixed rule that needs no healthy runs, used as a baseline.
+    """
+    for entry in history:
+        if any(values["dead_unit_fraction"] >= threshold for values in entry["layers"].values()):
+            return entry["epoch"]
+    return None
+
+
+def harm_bin(drop: float | None) -> str | None:
+    """Which harm group a broken run falls in, from its accuracy drop against its twin."""
+    if drop is None:
+        return None
+    for low, high, label in HARM_BINS:
+        if (low is None or drop >= low) and (high is None or drop < high):
+            return label
+    return None
+
+
+def _first(*epochs):
+    epochs = [e for e in epochs if e is not None]
+    return min(epochs) if epochs else None
+
+
 def reference(groups: dict[str, list[dict]]) -> dict:
     """Everything built from calibration runs: HALT's band and the curve bands."""
     histories = [run["history"] for run in groups["calibration"]]
@@ -136,6 +178,8 @@ def score_run(run: dict, ref: dict, settings: dict, twins: dict[int, float]) -> 
         "acc_epoch": curve_alarm(history, ref["accuracy"], "val_accuracy", "below", patience),
         "acc1_epoch": curve_alarm(history, ref["accuracy"], "val_accuracy", "below", 1),
         "loss_epoch": curve_alarm(history, ref["loss"], "val_loss", "above", patience),
+        "zero_update_epoch": zero_update_epoch(history),
+        **{f"dead{int(t * 100)}_check_epoch": dead_check_epoch(history, t) for t in DEAD_CHECKS},
         "final_acc": final,
         "best_acc": max(e["val_accuracy"] for e in history),
         "healthy_final_mean": ref["final_mean"],
@@ -180,6 +224,14 @@ def _judge(row: dict, fault: dict, arch: str) -> None:
     row["compute_saved"] = (epochs - halt) / epochs if row["detected"] else 0.0
     twin = row["twin_final_acc"]
     row["acc_drop_vs_twin"] = (twin - row["final_acc"]) if twin is not None else None
+    row["harm"] = harm_bin(row["acc_drop_vs_twin"])
+    zero = row["zero_update_epoch"]
+    simple = _first(zero, row["dead50_check_epoch"])
+    row["zero_update_detected"] = zero is not None and zero >= onset
+    row["simple_epoch"] = simple
+    row["simple_detected"] = simple is not None and simple >= onset
+    simple_c = simple if row["simple_detected"] else censor
+    row["simple_gap"] = simple_c - halt_c
 
 
 def score_arch(arch: str, settings: dict = SETTINGS, runs: list[dict] | None = None) -> list[dict]:
@@ -234,6 +286,11 @@ def summarize_faults(rows: list[dict]) -> dict:
         "mean_gap": float(np.mean([r["gap"] for r in faults])),
         "mean_compute_saved": float(np.mean([r["compute_saved"] for r in faults])),
         "silent_share": rate(faults, "final_in_healthy_range"),
+        "zero_update_detected": rate(faults, "zero_update_detected"),
+        "simple_detected": rate(faults, "simple_detected"),
+        "simple_median_epoch": _median([r["simple_epoch"] for r in faults if r["simple_detected"]]),
+        "halt_before_simple": rate([{**r, "x": r["simple_gap"] > 0} for r in faults], "x"),
+        "simple_before_halt": rate([{**r, "x": r["simple_gap"] < 0} for r in faults], "x"),
         "mean_acc_drop_vs_twin": _mean([r["acc_drop_vs_twin"] for r in faults]),
     }
 
@@ -252,6 +309,9 @@ def summarize_healthy(rows: list[dict]) -> dict:
         "acc_false_alarm": rate([{**r, "x": r["acc_epoch"] is not None} for r in fresh], "x"),
         "acc1_false_alarm": rate([{**r, "x": r["acc1_epoch"] is not None} for r in fresh], "x"),
         "loss_false_alarm": rate([{**r, "x": r["loss_epoch"] is not None} for r in fresh], "x"),
+        "zero_update_false_alarm": rate([{**r, "x": r["zero_update_epoch"] is not None} for r in fresh], "x"),
+        "simple_false_alarm": rate([{**r, "x": _first(r["zero_update_epoch"], r["dead50_check_epoch"])
+                                     is not None} for r in fresh], "x"),
         "overhead": _mean([r["halt_seconds"] / r["total_seconds"] for r in fresh
                            if r["halt_seconds"] is not None]),
     }

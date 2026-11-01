@@ -129,3 +129,45 @@ def test_clustered_tests_average_within_groups():
     assert result["by_condition"]["halt_earlier"] == 2
     low, high = result["mean_gap_ci"]
     assert low <= 2.5 <= high
+
+
+def layer_history(values, signal):
+    return [{"epoch": i + 1, "layers": {"fc1": {"weight_change": 0.1, "dead_unit_fraction": 0.0, signal: v}}}
+            for i, v in enumerate(values)]
+
+
+def test_zero_update_check_fires_on_first_exact_zero():
+    from experiments.evaluate import zero_update_epoch
+
+    assert zero_update_epoch(layer_history([0.2, 1e-9, 0.0, 0.0], "weight_change")) == 3
+    assert zero_update_epoch(layer_history([0.2, 0.1], "weight_change")) is None
+
+
+def test_dead_check_uses_threshold_inclusively():
+    from experiments.evaluate import dead_check_epoch
+
+    history = layer_history([0.1, 0.5, 0.9], "dead_unit_fraction")
+    assert dead_check_epoch(history, 0.5) == 2
+    assert dead_check_epoch(history, 0.95) is None
+
+
+def test_harm_bins_cover_every_drop():
+    from experiments.evaluate import harm_bin
+
+    assert harm_bin(-0.01) == "under 0.5 pts"
+    assert harm_bin(0.005) == "0.5 to 2 pts"
+    assert harm_bin(0.02) == "2 pts or more"
+    assert harm_bin(None) is None
+
+
+def test_score_arch_scores_simple_checks():
+    healthy = {"type": "none"}
+    runs = [fake_run("calibration", s, healthy, 0.1 + 0.01 * s, 0.9) for s in range(3)]
+    runs.append(fake_run("fresh", 1000, healthy, 0.11, 0.9))
+    runs.append(fake_run("fault", 1000, {"type": "frozen", "layer": "fc1", "onset": 1}, 0.0, 0.9))
+    rows = {r["role"]: r for r in score_arch("mlp", runs=runs)}
+    assert rows["fresh"]["zero_update_epoch"] is None
+    fault = rows["fault"]
+    assert fault["zero_update_epoch"] == 1 and fault["simple_detected"]
+    assert fault["simple_gap"] == 1 - 3
+    assert fault["harm"] == "under 0.5 pts"
