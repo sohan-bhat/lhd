@@ -67,9 +67,10 @@ def test_paired_tests_count_direction():
 
 
 def test_grid_ids_unique_and_seeds_split():
-    for phase in ("core", "more"):
-        grid = build_grid(phase)
-        assert len({s["run_id"] for s in grid}) == len(grid)
+    ids = []
+    for phase in ("core", "more", "seeds"):
+        ids += [s["run_id"] for s in build_grid(phase)]
+    assert len(set(ids)) == len(ids)
     core = build_grid("core")
     calibration = {s["seed"] for s in core if s["role"] == "calibration"}
     evaluation = {s["seed"] for s in core if s["role"] != "calibration"}

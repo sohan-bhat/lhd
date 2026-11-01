@@ -3,6 +3,7 @@
 Usage:
     python -m experiments.run --phase core --workers 5
     python -m experiments.run --phase more --arch mlp --workers 5
+    python -m experiments.run --phase seeds --workers 5
 """
 
 from __future__ import annotations
@@ -34,7 +35,7 @@ def _work(spec: dict) -> tuple[str, float, float]:
 
 def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--phase", choices=("core", "more"), required=True)
+    parser.add_argument("--phase", choices=("core", "more", "seeds"), required=True)
     parser.add_argument("--arch", choices=ARCH_ORDER, action="append")
     parser.add_argument("--workers", type=int, default=5)
     parser.add_argument("--limit", type=int, default=None)

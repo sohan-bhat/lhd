@@ -6,8 +6,9 @@ healthy runs and broken runs use seeds from 1000 up, so each broken
 run has a healthy twin with the same starting weights and data order.
 
 Phase "core" is the proposal: frozen layers and dead units planted
-at the start. Phase "more" adds seeds and faults that start mid-run,
-cut gradients, or raise the learning rate.
+at the start. Phase "more" adds fresh healthy runs and faults beyond
+the proposal: faults that start mid-run, cut gradients, or raise the
+learning rate. Phase "seeds" repeats the core faults on five more seeds.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from experiments.models import CNN, MLP, TinyTransformer, relu_layers
 
 CALIBRATION_SEEDS = list(range(0, 20))
 FRESH_SEEDS = {"core": list(range(1000, 1030)), "more": list(range(1030, 1050))}
-FAULT_SEEDS = {"core": list(range(1000, 1005)), "more": list(range(1005, 1010))}
+FAULT_SEEDS = {"core": list(range(1000, 1005)), "more": [], "seeds": list(range(1005, 1010))}
 DEAD_FRACTIONS = (0.1, 0.25, 0.5)
 LATE_ONSET = 6
 EXTRA_SEEDS = list(range(1000, 1005))
@@ -73,7 +74,7 @@ def build_grid(phase: str, archs=ARCH_ORDER) -> list[dict]:
         if phase == "core":
             for seed in CALIBRATION_SEEDS:
                 specs.append(_spec(arch, "calibration", seed, healthy, "none", phase))
-        for seed in FRESH_SEEDS[phase]:
+        for seed in FRESH_SEEDS.get(phase, []):
             specs.append(_spec(arch, "fresh", seed, healthy, "none", phase))
         for seed in FAULT_SEEDS[phase]:
             for layer in watched_layers(arch):
