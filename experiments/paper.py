@@ -1008,11 +1008,7 @@ This work presented LHD, a monitor that compares four signals of every layer wit
 
 \\section*{{Use of generative AI}}
 
-This study used Claude, an AI assistant made by Anthropic, in two ways. While the author wrote the LHD library from 5 to 12 October 2026, a Claude chat served as a tutor. It laid out the library in phases, supplied the docstring of each function, and reviewed the author's code. The author wrote the function bodies of the four signals, the recorder that logs them, the network adapter, and the fault switches.
-
-Claude Code, running Claude Opus 5.5, wrote the rest of the code. On 12 October it wrote the library's healthy range, detector, diagnosis rules, and monitor from outlines the author pasted in from the chat, and on 13 October it suggested the margin of 0.5 and the floor of 0.05. From 31 October to 1 November it wrote the PyTorch adapter, the three networks and their data loading, the training harness, the run plan, replay, and the evaluation, where it set the patience of 3. It chose the network sizes and the datasets other than GTSRB, designed the faults of Section~\\ref{{sec:extra}}, and added the fixed rule baselines. It trained all {d.total_runs()} runs on the author's laptop and wrote the analysis, the statistics, and the figure code. It also wrote the text of this paper, except for the first two paragraphs of the introduction and seven sentences of the related work, which are the author's own words from the proposal.
-
-The idea, the hypothesis, the four signals, the healthy range built only from healthy runs, and the plan to compare LHD with the accuracy curve on three networks come from that proposal. The author directed the study, decided what to test and what to change in the paper, and is responsible for all of its content.
+The author used Claude, made by Anthropic, as a tutor and through Claude Code. The author wrote the code for the signals, recorder, network adapter, and faults, with docstrings from Claude. Claude wrote the rest of the code, including the healthy range, detector, and diagnosis rules, suggested the settings, ran the training, and wrote most of the text. The idea, hypothesis, and plan come from the author's proposal, and the author is responsible for all content.
 
 \\section*{{Code and data}}
 
