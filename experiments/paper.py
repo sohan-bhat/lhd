@@ -1008,7 +1008,7 @@ This work presented LHD, a monitor that compares four signals of every layer wit
 
 \\section*{{Use of generative AI}}
 
-The author used Claude, made by Anthropic, as a tutor and through Claude Code. The author wrote the code for the signals, recorder, network adapter, and faults, with docstrings from Claude. Claude wrote the rest of the code, including the healthy range, detector, and diagnosis rules, suggested the settings, ran the training, and wrote most of the text. The idea, hypothesis, and plan come from the author's proposal, and the author is responsible for all content.
+The author used Claude, made by Anthropic, to write code, run the experiments, and draft the text, and is responsible for all content.
 
 \\section*{{Code and data}}
 
