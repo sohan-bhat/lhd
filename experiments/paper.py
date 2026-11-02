@@ -38,8 +38,8 @@ DEEPDIAGNOSIS = "Dead units check, 70% (DeepDiagnosis Dead Node)"
 WANDB = "Dead units check, 80% (wandb-callbacks default)"
 ANY_DEAD = "Any dead unit (wandb-callbacks verbose)"
 WORDS = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine"}
-PLAN_COMMIT = "e18cb3a"
-DRAFT = {"commit": "5cc6db1", "fresh": 110, "alarms": 3}
+PLAN_COMMIT = "b6bfb6a"
+DRAFT = {"commit": "d3f5275", "fresh": 110, "alarms": 3}
 REPO = "https://github.com/sohan-bhat/lhd"
 
 
@@ -407,7 +407,7 @@ with margin $m = {m}$ and floor $f = {f}$, and a value that is not a finite numb
 
 \\subsection{{Alarm and diagnosis}}
 
-LHD raises an alarm once one signal of one layer stays out of range for $p = {pat}$ epochs in a row. If several layers reach that point in the same epoch, it reports the first one in the order data flows through the network. The settings $m$, $f$, and $p$ come from the tests of the LHD library, written on 12 October 2026, and were committed to the experiment code on 31 October 2026 (commit \\href{{https://github.com/sohan-bhat/lhd/commit/f55a811}}{{\\texttt{{f55a811}}}}) before any of the study's training runs started. An earlier draft of this work defined the threshold as a multiple of the largest healthy value, and the rule above replaced it, adding the floor and a margin below the lowest healthy value, before any run was trained. LHD then names a likely cause from the pattern across the alarmed layer's four signals (Table~\\ref{{tab:rules}}), stops training, and reports the layer, the signals out of range, the cause, and a suggested check. For a frozen layer, for example, it suggests checking that the layer's parameters are passed to the optimizer. The main study planted only frozen layers and dead units, so it tested only the frozen layer and dead unit rules.{untested} Figure~\\ref{{fig:how_lhd_works}} shows LHD stopping one CNN run with a frozen layer.
+LHD raises an alarm once one signal of one layer stays out of range for $p = {pat}$ epochs in a row. If several layers reach that point in the same epoch, it reports the first one in the order data flows through the network. The settings $m$, $f$, and $p$ come from the tests of the LHD library, written on 12 October 2026, and were committed to the experiment code on 31 October 2026 (commit \\href{{https://github.com/sohan-bhat/lhd/commit/e83806f}}{{\\texttt{{e83806f}}}}) before any of the study's training runs started. An earlier draft of this work defined the threshold as a multiple of the largest healthy value, and the rule above replaced it, adding the floor and a margin below the lowest healthy value, before any run was trained. LHD then names a likely cause from the pattern across the alarmed layer's four signals (Table~\\ref{{tab:rules}}), stops training, and reports the layer, the signals out of range, the cause, and a suggested check. For a frozen layer, for example, it suggests checking that the layer's parameters are passed to the optimizer. The main study planted only frozen layers and dead units, so it tested only the frozen layer and dead unit rules.{untested} Figure~\\ref{{fig:how_lhd_works}} shows LHD stopping one CNN run with a frozen layer.
 
 \\begin{{table}}[t]
 \\centering
