@@ -137,8 +137,9 @@ Every run used Adam with a learning rate of 0.001 and a cosine schedule on one C
 Each broken run has one fault planted in one layer at the start of training. A frozen layer has its weights and bias put back after every optimizer step, so gradients are computed but never applied, which is the same failure as a layer left out of the optimizer. Dead units are made by setting the incoming weights of 10\%, 25\%, or 50\% of a layer's units to 0 and their bias to $-1$, so their ReLU output is 0 for every input. The units are drawn at random without replacement by a generator seeded with the run's seed plus 7919, and their number is the fraction times the layer's width, rounded, with at least one unit. The optimizer's running averages for those units are cleared. Frozen layers were planted in every watched layer and dead units in every layer followed by a ReLU. A third set of runs added faults beyond these two, reported in Section~\ref{sec:extra}.
 
 \subsection{Runs}
+\label{sec:runs}
 
-Calibration runs used seeds 0 to 19 and were used only to set the healthy range. Fresh healthy runs and broken runs used seeds from 1000 up, so no scored run ever touched the range. Every run trained for all of its epochs, and LHD's alarm was found by replaying the saved signals. Replaying gives the same answer as running LHD live and lets every detector be scored on the same complete runs.
+Calibration runs used seeds 0 to 19 and were used only to set the healthy range. Fresh healthy runs and broken runs used seeds from 1000 up, so no scored run ever touched the range. Every run trained for all of its epochs, and LHD's alarm was found by replaying the saved signals. Replaying gives the same answer as running LHD live and lets every detector be scored on the same complete runs. All 885 runs were in the run plan committed on 31 October 2026 (commit \href{https://github.com/sohan-bhat/lhd/commit/e18cb3a}{\texttt{e18cb3a}}), before any training started, and were trained in three sets. The first held the calibration runs, 90 fresh healthy runs, and the broken runs on five seeds, and the second repeated the broken runs on five more seeds. The third added 60 fresh healthy runs and the faults of Section~\ref{sec:extra}, and it was trained last, after the main results were in. An earlier draft of this paper (commit \href{https://github.com/sohan-bhat/lhd/commit/5cc6db1}{\texttt{5cc6db1}}), written when 110 fresh healthy runs had finished, reported 3 false alarms, 2.7\% of 110. The 40 healthy runs that finished after it raised none, so the same 3 alarms are now 2.0\% of 150.
 
 \subsection{Detectors compared}
 
@@ -162,7 +163,7 @@ On fresh healthy runs, LHD raised 3 false alarms in 150 runs: one run in the ful
 \begin{table}[t]
 \centering
 \small
-\caption{LHD (bold) next to the accuracy curve on the planted frozen layers and dead units. The median epoch is over the runs each method caught.}
+\caption{LHD next to the accuracy curve on the planted frozen layers and dead units. The median epoch is over the runs each method caught. Bold marks the better of the two where they differ.}
 \label{tab:headline}
 \begin{tabular}{@{}lrrrrrr@{}}
 \toprule
@@ -172,7 +173,7 @@ On fresh healthy runs, LHD raised 3 false alarms in 150 runs: one run in the ful
 \midrule
 Broken runs caught & \textbf{84\%} & 26\% & \textbf{100\%} & 48\% & \textbf{78\%} & 29\% \\
 Median epoch of the alarm & \textbf{3} & 17 & \textbf{3} & 5 & \textbf{3} & 7 \\
-Healthy runs flagged & \textbf{1 of 50} & 1 of 50 & \textbf{0 of 50} & 6 of 50 & \textbf{2 of 50} & 0 of 50 \\
+Healthy runs flagged & 1 of 50 & 1 of 50 & \textbf{0 of 50} & 6 of 50 & 2 of 50 & \textbf{0 of 50} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -196,7 +197,7 @@ Dead units are different, because healthy networks lose units on their own and t
 \begin{table}[t]
 \centering
 \small
-\caption{Each detector held to three epochs in a row, with a broken run counted only when the detector named the planted layer. The accuracy and loss curves name no layer, so they are compared in Table~\ref{tab:headline} instead.}
+\caption{Each detector held to three epochs in a row, with a broken run counted only when the detector named the planted layer. The accuracy and loss curves name no layer, so they are compared in Table~\ref{tab:headline} instead. Bold marks the best value in a column when no other detector matches it.}
 \label{tab:detectors}
 \begin{tabular}{@{}lrrr@{}}
 \toprule
@@ -204,8 +205,8 @@ Dead units are different, because healthy networks lose units on their own and t
 \cmidrule(lr){2-3}
 Detector & Frozen layers & Dead units & Healthy runs flagged \\
 \midrule
-\textbf{LHD} & \textbf{97\%} & \textbf{78\%} & \textbf{3 of 150} \\
-Zero update check & 100\% & 0\% & 0 of 150 \\
+LHD & 97\% & \textbf{78\%} & 3 of 150 \\
+Zero update check & \textbf{100\%} & 0\% & 0 of 150 \\
 25\% dead rule & 0\% & 71\% & 51 of 150 \\
 SageMaker Debugger (50\%) & 0\% & 40\% & 22 of 150 \\
 DeepDiagnosis (70\%) & 0\% & 4\% & 0 of 150 \\
@@ -258,7 +259,7 @@ Signals used & \multicolumn{2}{c}{Broken runs caught} & \multicolumn{2}{c}{Right
 \cmidrule(lr){2-3} \cmidrule(l){4-5}
  & Rate & Change & Rate & Change \\
 \midrule
-All four & \textbf{87\%} & & \textbf{85\%} & \\
+All four & 87\% & & 85\% & \\
 \midrule
 Without weight change & 70\% & $-$18 & 45\% & $-$40 \\
 Without weight norm & 87\% & same & 85\% & same \\
@@ -284,22 +285,27 @@ Monitoring added 11.6\% for the fully connected network, 5.9\% for the transform
 \subsection{Faults beyond frozen layers and dead units}
 \label{sec:extra}
 
-A third set of runs tested faults the rules were not built around: a frozen layer or 50\% dead units planted at epoch 6, a cut that stops gradients from reaching earlier layers, and a learning rate raised 10 or 100 times at epoch 6 (Table~\ref{tab:extra}). LHD caught 100 of 100 runs with a frozen layer planted at epoch 6, naming the layer and cause in 100 of them, while the accuracy curve caught 20. It caught 40 of 45 runs with half a layer's units killed at epoch 6, naming the layer and cause in 40. For the gradient cuts, it caught 30 of 30, named a layer before the cut in 30, and called the cause a vanishing gradient, which is the only test of that rule. LHD also fired on every learning rate jump, but the causes it named are mixed. For a tenfold jump it named an unrecognized pattern in nine runs and dead units in six runs, and for a hundredfold jump it named dead units in five runs, runaway weights in five runs, and a vanishing gradient in five runs. No run produced a signal that was not a finite number, so the divergence rule never fired.
+A third set of runs, planned with the rest and trained after the main results were in (Section~\ref{sec:runs}), tested faults the rules were not built around (Table~\ref{tab:extra}). Two of them are the main faults started at epoch 6 instead of epoch 1, a frozen layer and half of a layer's units killed. A gradient cut detaches the input of one layer from the first epoch, so that layer and the layers after it keep learning while no gradient reaches any layer before it. The cut sits before fc2 or fc4 in the fully connected network, before the second block or the output layer in the transformer, and before conv3 or fc1 in the CNN. A learning rate jump multiplies Adam's learning rate by 10 or 100 at the start of epoch 6. The cosine schedule then keeps shrinking the rate from the raised value, so every later epoch trains at 10 or 100 times the rate it would otherwise have, falling along the same curve. In the 15 epoch networks, for example, epoch 6 trains at 0.0075 or 0.075 instead of 0.00075.
+
+LHD caught 100 of 100 runs with a frozen layer planted at epoch 6, naming the layer and cause in 100 of them, while the accuracy curve caught 20. It caught 40 of 45 runs with half a layer's units killed at epoch 6, naming the layer and cause in 40. For the gradient cuts, it caught 30 of 30, named a layer before the cut in 30, and called the cause a vanishing gradient, which is the only test of that rule. LHD also fired on every learning rate jump, but the causes it named are mixed. For a tenfold jump it named an unrecognized pattern in nine runs and dead units in six runs, and for a hundredfold jump it named dead units in five runs, runaway weights in five runs, and a vanishing gradient in five runs. No run produced a signal that was not a finite number, so the divergence rule never fired. The zero update check and the 50\% dead rule, the default of SageMaker Debugger, were scored on the same runs the way Table~\ref{tab:detectors} scores them. As in the main study, the zero update check caught every frozen layer planted at epoch 6. Held to three epochs it fired in the same epoch as LHD in all 100 runs, and when one epoch is enough it fires at epoch 6, two epochs before LHD. It also caught 30 of 30 gradient cuts, since the layers before a cut never move. The 50\% rule caught 37 of 45 runs with half a layer's units killed at epoch 6, against 40 for LHD, while flagging 22 of 150 healthy runs.
 
 \begin{table}[t]
 \centering
 \small
-\caption{Faults beyond the main study, pooled over the three networks.}
+\caption{Faults beyond the main study, pooled over the three networks. Every detector is held to three epochs in a row. The zero update check and the 50\% dead rule count a run only when they name the planted layer, or a layer before a gradient cut, and any alarm counts for a learning rate jump, which has no planted layer. Bold marks the best value in a row when no other detector matches it.}
 \label{tab:extra}
-\begin{tabular}{@{}lrrr@{}}
+\begin{tabular}{@{}lrrrrr@{}}
 \toprule
-Fault & Runs & LHD & Accuracy curve \\
+ & & & Accuracy & Zero update & 50\% dead \\
+Fault & Runs & LHD & curve & check & rule \\
 \midrule
-Frozen layer at epoch 6 & 100 & \textbf{100\%} & 20\% \\
-50\% dead units at epoch 6 & 45 & \textbf{89\%} & 16\% \\
-Gradient cut & 30 & \textbf{100\%} & 100\% \\
-Learning rate $\times 10$ at epoch 6 & 15 & \textbf{100\%} & 33\% \\
-Learning rate $\times 100$ at epoch 6 & 15 & \textbf{100\%} & 100\% \\
+Frozen layer at epoch 6 & 100 & 100\% & 20\% & 100\% & 0\% \\
+50\% dead units at epoch 6 & 45 & \textbf{89\%} & 16\% & 0\% & 82\% \\
+Gradient cut & 30 & 100\% & 100\% & 100\% & 0\% \\
+Learning rate $\times 10$ at epoch 6 & 15 & \textbf{100\%} & 33\% & 0\% & 0\% \\
+Learning rate $\times 100$ at epoch 6 & 15 & 100\% & 100\% & 67\% & 60\% \\
+\midrule
+Healthy runs flagged & 150 & 3 & 7 & \textbf{0} & 22 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -316,7 +322,7 @@ This work presented LHD, a monitor that compares four signals of every layer wit
 
 \section*{Use of generative AI}
 
-Claude, an AI assistant made by Anthropic, wrote the experiment scripts that trained and scored the networks, ran the training runs, wrote the analysis and figure code, and drafted parts of this paper, including the results and the related work on existing tools. The idea, the hypothesis, and the experimental design come from the author's earlier proposal, and the author directed the study and decided what to test and what to change in the paper. The author is responsible for all of its content.
+Claude, an AI assistant made by Anthropic, wrote the experiment scripts that trained and scored the networks, ran the training runs, wrote the analysis and figure code, and drafted parts of this paper, including the results and the related work on existing tools. In the LHD library, the author wrote the function bodies of the four signals, the recorder that logs them, the network adapter, and the fault switches between 5 and 12 October 2026, and the docstrings of those functions came from Claude. Claude wrote the library's healthy range, detector, diagnosis rules, and monitor on 12 October, and its PyTorch adapter and replay on 31 October. The idea, the hypothesis, and the experimental design come from the author's earlier proposal, and the author directed the study and decided what to test and what to change in the paper. The author is responsible for all of its content.
 
 \section*{Code and data}
 
