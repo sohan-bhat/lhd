@@ -17,12 +17,13 @@ from __future__ import annotations
 import csv
 import gzip
 import json
+import math
 import subprocess
 from collections import defaultdict
 from pathlib import Path
 
 from experiments.evaluate import RESULTS, SETTINGS
-from experiments.grid import ARCH_ORDER, build_grid
+from experiments.grid import ARCH_ORDER, DETACH_CUTS, LATE_ONSET, build_grid
 
 PAPER = RESULTS.parent / "paper"
 TABLES = RESULTS / "tables"
@@ -37,6 +38,28 @@ DEEPDIAGNOSIS = "Dead units check, 70% (DeepDiagnosis Dead Node)"
 WANDB = "Dead units check, 80% (wandb-callbacks default)"
 ANY_DEAD = "Any dead unit (wandb-callbacks verbose)"
 WORDS = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine"}
+PLAN_COMMIT = "e18cb3a"
+DRAFT = {"commit": "5cc6db1", "fresh": 110, "alarms": 3}
+REPO = "https://github.com/sohan-bhat/lhd"
+
+
+def commit_link(sha: str) -> str:
+    return f"commit \\href{{{REPO}/commit/{sha}}}{{\\texttt{{{sha}}}}}"
+
+
+def bold_best(values: list, lower: bool = False) -> list[bool]:
+    """Which cells to bold: only a best value that no other cell matches."""
+    present = [v for v in values if v is not None]
+    if not present:
+        return [False] * len(values)
+    best = min(present) if lower else max(present)
+    if present.count(best) > 1:
+        return [False] * len(values)
+    return [v == best for v in values]
+
+
+def bold(text: str, on: bool) -> str:
+    return f"\\textbf{{{text}}}" if on else text
 
 
 def read(name: str) -> list[dict]:
@@ -240,6 +263,18 @@ class Data:
                 out["both"][1] += st["detected"]["k"]
         return out
 
+    def fresh_by_phase(self) -> dict:
+        """Fresh healthy runs per phase of the run plan."""
+        out = defaultdict(int)
+        for r in self.runs:
+            if r["role"] == "fresh":
+                out[r["phase"]] += 1
+        return out
+
+    def family_row(self, name: str, family: str) -> dict:
+        """One detector's pooled scores on one fault family."""
+        return next(r for r in self.detectors if r["detector"] == name and r["family"] == family)
+
     def more_complete(self) -> bool:
         """Whether every run with a fault beyond frozen layers and dead units has been trained and scored."""
         planned = defaultdict(int)
@@ -410,6 +445,22 @@ def setup(d: Data) -> str:
     extra_col, run_cols, last_col = ("r", 4, 8) if done else ("", 3, 7)
     extra_h1, extra_h2 = (" & Other", " & faults") if done else ("", "")
     extra_caption = " Runs with other faults are reported in Section~\\ref{sec:extra}." if done else ""
+    fresh = d.fresh_by_phase()
+    h = d.pooled["healthy"]["lhd_false_alarm"]
+    draft_fresh, draft_alarms = DRAFT["fresh"], DRAFT["alarms"]
+    later = sum(fresh.values()) - draft_fresh
+    same = h["k"] == draft_alarms
+    draft_text = (f" An earlier draft of this paper ({commit_link(DRAFT['commit'])}), written when {draft_fresh} fresh "
+                  f"healthy runs had finished, reported {draft_alarms} false alarms, {pct(draft_alarms, draft_fresh, 1)} "
+                  f"of {draft_fresh}. The {later} healthy runs that finished after it raised "
+                  + (f"none, so the same {h['k']} alarms are now {pct(h['k'], h['n'], 1)} of {h['n']}." if same
+                     else f"{h['k'] - draft_alarms} more, for {h['k']} of {h['n']}."))
+    phase_text = (f" All {d.total_runs()} runs were in the run plan committed on 31 October 2026 "
+                  f"({commit_link(PLAN_COMMIT)}), before any training started, and were trained in three sets. The first "
+                  f"held the calibration runs, {fresh['core']} fresh healthy runs, and the broken runs on five seeds, and the "
+                  f"second repeated the broken runs on five more seeds. The third added {fresh['more']} fresh healthy runs "
+                  f"and the faults of Section~\\ref{{sec:extra}}, and it was trained last, after the main results were in."
+                  + draft_text) if done else ""
     return f"""\\section{{Experimental Setup}}
 
 \\subsection{{Networks and data}}
@@ -440,8 +491,9 @@ Every run used Adam with a learning rate of 0.001 and a cosine schedule on one C
 Each broken run has one fault planted in one layer at the start of training. A frozen layer has its weights and bias put back after every optimizer step, so gradients are computed but never applied, which is the same failure as a layer left out of the optimizer. Dead units are made by setting the incoming weights of 10\\%, 25\\%, or 50\\% of a layer's units to 0 and their bias to $-1$, so their ReLU output is 0 for every input. The units are drawn at random without replacement by a generator seeded with the run's seed plus 7919, and their number is the fraction times the layer's width, rounded, with at least one unit. The optimizer's running averages for those units are cleared. Frozen layers were planted in every watched layer and dead units in every layer followed by a ReLU.{extra}
 
 \\subsection{{Runs}}
+\\label{{sec:runs}}
 
-Calibration runs used seeds 0 to 19 and were used only to set the healthy range. Fresh healthy runs and broken runs used seeds from 1000 up, so no scored run ever touched the range. Every run trained for all of its epochs, and LHD's alarm was found by replaying the saved signals. Replaying gives the same answer as running LHD live and lets every detector be scored on the same complete runs.
+Calibration runs used seeds 0 to 19 and were used only to set the healthy range. Fresh healthy runs and broken runs used seeds from 1000 up, so no scored run ever touched the range. Every run trained for all of its epochs, and LHD's alarm was found by replaying the saved signals. Replaying gives the same answer as running LHD live and lets every detector be scored on the same complete runs.{phase_text}
 
 \\subsection{{Detectors compared}}
 
@@ -509,12 +561,27 @@ def detection_section(d: Data) -> str:
     def median(v):
         return "never" if v is None else f"{v:.0f}"
 
-    caught = " & ".join(f"\\textbf{{{rate(s[a]['proposal']['detected'])}}} & {rate(s[a]['proposal']['acc_detected'])}"
+    def pair(cells, values, lower=False):
+        marks = bold_best(values, lower)
+        return f"{bold(cells[0], marks[0])} & {bold(cells[1], marks[1])}"
+
+    def frac(stat):
+        return stat["k"] / stat["n"] if stat["n"] else None
+
+    def never(v, a):
+        return v if v is not None else int(d.networks[a]["epochs"]) + 1
+
+    caught = " & ".join(pair([rate(s[a]['proposal']['detected']), rate(s[a]['proposal']['acc_detected'])],
+                             [frac(s[a]['proposal']['detected']), frac(s[a]['proposal']['acc_detected'])])
                         for a in d.archs)
-    epoch = " & ".join(f"\\textbf{{{median(s[a]['proposal']['lhd_median_epoch'])}}} & "
-                       f"{median(s[a]['proposal']['acc_median_epoch'])}" for a in d.archs)
-    flagged = " & ".join(f"\\textbf{{{kofn(s[a]['healthy']['lhd_false_alarm'])}}} & "
-                         f"{kofn(s[a]['healthy']['acc_false_alarm'])}" for a in d.archs)
+    epoch = " & ".join(pair([median(s[a]['proposal']['lhd_median_epoch']), median(s[a]['proposal']['acc_median_epoch'])],
+                            [never(s[a]['proposal']['lhd_median_epoch'], a),
+                             never(s[a]['proposal']['acc_median_epoch'], a)], lower=True)
+                       for a in d.archs)
+    flagged = " & ".join(pair([kofn(s[a]['healthy']['lhd_false_alarm']), kofn(s[a]['healthy']['acc_false_alarm'])],
+                              [frac(s[a]['healthy']['lhd_false_alarm']), frac(s[a]['healthy']['acc_false_alarm'])],
+                              lower=True)
+                         for a in d.archs)
     both = d.both_gap()
     cond = d.conditions()
     seeds = c["by_seed"]
@@ -549,7 +616,7 @@ On the {both['n']} runs that both LHD and the accuracy curve caught, LHD fired {
 \\begin{{table}}[t]
 \\centering
 \\small
-\\caption{{LHD (bold) next to the accuracy curve on the planted frozen layers and dead units. The median epoch is over the runs each method caught.}}
+\\caption{{LHD next to the accuracy curve on the planted frozen layers and dead units. The median epoch is over the runs each method caught. Bold marks the better of the two where they differ.}}
 \\label{{tab:headline}}
 \\begin{{tabular}}{{@{{}}l{'rr' * len(d.archs)}@{{}}}}
 \\toprule
@@ -582,11 +649,16 @@ def detector_section(d: Data) -> str:
     p3 = ", 3 epochs"
     lhd_frozen, lhd_dead = d.detector_right("LHD", ("frozen",)), d.detector_right("LHD", DEAD)
     lhd_fa = d.detector_alarms("LHD")
-    rows = [f"\\textbf{{LHD}} & \\textbf{{{pct(lhd_frozen['k'], lhd_frozen['n'])}}} & "
-            f"\\textbf{{{pct(lhd_dead['k'], lhd_dead['n'])}}} & \\textbf{{{lhd_fa['k']} of {lhd_fa['n']}}} \\\\"]
+    table = [("LHD", lhd_frozen, lhd_dead, lhd_fa)]
     for name, label in FIXED:
-        fr, de, fa = d.detector_right(name + p3, ("frozen",)), d.detector_right(name + p3, DEAD), d.detector_alarms(name + p3)
-        rows.append(f"{label} & {pct(fr['k'], fr['n'])} & {pct(de['k'], de['n'])} & {fa['k']} of {fa['n']} \\\\")
+        table.append((label, d.detector_right(name + p3, ("frozen",)), d.detector_right(name + p3, DEAD),
+                      d.detector_alarms(name + p3)))
+    best_frozen = bold_best([fr["k"] / fr["n"] for _, fr, _, _ in table])
+    best_dead = bold_best([de["k"] / de["n"] for _, _, de, _ in table])
+    best_fa = bold_best([fa["k"] / fa["n"] for _, _, _, fa in table], lower=True)
+    rows = [f"{label} & {bold(pct(fr['k'], fr['n']), bf)} & {bold(pct(de['k'], de['n']), bd)} & "
+            f"{bold(kofn(fa), ba)} \\\\"
+            for (label, fr, de, fa), bf, bd, ba in zip(table, best_frozen, best_dead, best_fa)]
     zero = d.detector_right("Zero update check" + p3, ("frozen",))
     zero1 = d.detector("Zero update check", ("frozen",))
     q25, q25_fa = d.detector_right("Dead units check, 25%" + p3, DEAD), d.detector_alarms("Dead units check, 25%" + p3)
@@ -617,7 +689,7 @@ Dead units are different, because healthy networks lose units on their own and t
 \\begin{{table}}[t]
 \\centering
 \\small
-\\caption{{Each detector held to three epochs in a row, with a broken run counted only when the detector named the planted layer. The accuracy and loss curves name no layer, so they are compared in Table~\\ref{{tab:headline}} instead.}}
+\\caption{{Each detector held to three epochs in a row, with a broken run counted only when the detector named the planted layer. The accuracy and loss curves name no layer, so they are compared in Table~\\ref{{tab:headline}} instead. Bold marks the best value in a column when no other detector matches it.}}
 \\label{{tab:detectors}}
 \\begin{{tabular}}{{@{{}}lrrr@{{}}}}
 \\toprule
@@ -749,7 +821,7 @@ def ablation_section(d: Data) -> str:
         sign = "+" if diff > 0 else "$-$"
         return f"{sign}{abs(diff):.0f}"
 
-    lines = [f"All four & \\textbf{{{100 * base[1]:.0f}\\%}} & & \\textbf{{{100 * base[2]:.0f}\\%}} & \\\\", "\\midrule"]
+    lines = [f"All four & {100 * base[1]:.0f}\\% & & {100 * base[2]:.0f}\\% & \\\\", "\\midrule"]
     first_only = True
     for name, caught, both in rows:
         if name == "all four":
@@ -825,20 +897,31 @@ Monitoring added {overhead} to the training time, measured on fresh healthy runs
 
 
 def extra_section(d: Data) -> str:
-    names = {"latefrozen": "Frozen layer at epoch 6", "latedead50": "50\\% dead units at epoch 6",
-             "detach": "Gradient cut", "lr10": "Learning rate $\\times 10$ at epoch 6",
-             "lr100": "Learning rate $\\times 100$ at epoch 6"}
+    names = {"latefrozen": f"Frozen layer at epoch {LATE_ONSET}", "latedead50": f"50\\% dead units at epoch {LATE_ONSET}",
+             "detach": "Gradient cut", "lr10": f"Learning rate $\\times 10$ at epoch {LATE_ONSET}",
+             "lr100": f"Learning rate $\\times 100$ at epoch {LATE_ONSET}"}
+    columns = ("LHD", "Accuracy curve, 3 epochs below healthy", "Zero update check, 3 epochs", SAGEMAKER + ", 3 epochs")
+
+    def caught(name: str, fam: str) -> tuple[int, int]:
+        row = d.family_row(name, fam)
+        right = row.get("caught_right_layer")
+        k = int(right) if name != "LHD" and right not in ("", None) else int(row["caught"])
+        return k, int(row["broken_runs"])
+
     rows = []
     for fam, label in names.items():
-        k = n = acc = 0
-        for a in d.archs:
-            st = d.summary["archs"][a]["families"].get(fam)
-            if st:
-                k += st["detected"]["k"]
-                n += st["detected"]["n"]
-                acc += st["acc_detected"]["k"]
-        if n:
-            rows.append(f"{label} & {n} & \\textbf{{{pct(k, n)}}} & {pct(acc, n)} \\\\")
+        if not any(r["family"] == fam for r in d.detectors):
+            continue
+        cells = [caught(name, fam) for name in columns]
+        marks = bold_best([k / n for k, n in cells])
+        rows.append(f"{label} & {cells[0][1]} & " + " & ".join(bold(pct(k, n), m) for (k, n), m in zip(cells, marks))
+                    + " \\\\")
+    alarms = [d.detector_alarms(name) if name != "LHD" else d.detector_alarms("LHD") for name in columns]
+    alarms[1] = {"k": d.pooled["healthy"]["acc_false_alarm"]["k"], "n": d.pooled["healthy"]["acc_false_alarm"]["n"]}
+    marks = bold_best([a["k"] / a["n"] for a in alarms], lower=True)
+    rows.append("\\midrule")
+    rows.append(f"Healthy runs flagged & {alarms[0]['n']} & " + " & ".join(bold(str(a["k"]), m) for a, m in zip(alarms, marks))
+                + " \\\\")
     lf, ld, dc, l10, l100 = (d.extra(f) for f in ("latefrozen", "latedead50", "detach", "lr10", "lr100"))
 
     def causes(info):
@@ -846,28 +929,62 @@ def extra_section(d: Data) -> str:
                         if c != "not detected"])
 
     diverged = sum(d.extra(f)["causes"].get("diverged", 0) for f in ("lr10", "lr100", "detach", "latefrozen", "latedead50"))
-    extra_text = (f"LHD caught {lf['detected'][0]} of {lf['detected'][1]} runs with a frozen layer planted at epoch 6, naming the "
+    extra_text = (f"LHD caught {lf['detected'][0]} of {lf['detected'][1]} runs with a frozen layer planted at epoch {LATE_ONSET}, naming the "
                   f"layer and cause in {lf['both'][0]} of them, while the accuracy curve caught {lf['acc']}. It caught "
-                  f"{ld['detected'][0]} of {ld['detected'][1]} runs with half a layer's units killed at epoch 6, naming the layer "
+                  f"{ld['detected'][0]} of {ld['detected'][1]} runs with half a layer's units killed at epoch {LATE_ONSET}, naming the layer "
                   f"and cause in {ld['both'][0]}. For the gradient cuts, it caught {dc['detected'][0]} of {dc['detected'][1]}, "
                   f"named a layer before the cut in {dc['both'][0]}, and called the cause a vanishing gradient, which is the "
                   f"only test of that rule. LHD also fired on every learning rate jump, but the causes it named are mixed. For a "
                   f"tenfold jump it named {causes(l10)}, and for a hundredfold jump it named {causes(l100)}.")
     if diverged == 0:
         extra_text += " No run produced a signal that was not a finite number, so the divergence rule never fired."
+
+    cut_names = {"blocks.1": "the second block", "head": "the output layer"}
+    cuts = listing([f"before {' or '.join(cut_names.get(c, c) for c in DETACH_CUTS[a])} in the {PROSE[a]}" for a in d.archs])
+    short = min(int(d.networks[a]["epochs"]) for a in d.archs)
+    normal = 0.001 * (1 + math.cos(math.pi * (LATE_ONSET - 1) / short)) / 2
+    definitions = (f"Two of them are the main faults started at epoch {LATE_ONSET} instead of epoch 1, a frozen layer and half "
+                   f"of a layer's units killed. A gradient cut detaches the input of one layer from the first epoch, so that "
+                   f"layer and the layers after it keep learning while no gradient reaches any layer before it. The cut sits "
+                   f"{cuts}. A learning rate jump multiplies Adam's learning rate by 10 or 100 at the start of epoch "
+                   f"{LATE_ONSET}. The cosine schedule then keeps shrinking the rate from the raised value, so every later "
+                   f"epoch trains at 10 or 100 times the rate it would otherwise have, falling along the same curve. In the "
+                   f"{short} epoch networks, for example, epoch {LATE_ONSET} trains at {10 * normal:.4g} or {100 * normal:.4g} "
+                   f"instead of {normal:.4g}.")
+
+    lhd_lf = d.family_row("LHD", "latefrozen")
+    zero1 = d.family_row("Zero update check", "latefrozen")
+    zero3 = d.family_row("Zero update check, 3 epochs", "latefrozen")
+    zcut = caught("Zero update check, 3 epochs", "detach")
+    s_ld, lhd_ld = caught(SAGEMAKER + ", 3 epochs", "latedead50"), caught("LHD", "latedead50")
+    sage_fa = d.detector_alarms(SAGEMAKER + ", 3 epochs")
+    lead = int(float(lhd_lf["median_epoch"]) - float(zero1["median_epoch"]))
+    same = int(zero3["ties"]) == int(zero3["broken_runs"])
+    zero_text = (f"The zero update check and the 50\\% dead rule, the default of SageMaker Debugger, were scored on the "
+                 f"same runs the way Table~\\ref{{tab:detectors}} scores them. As in the main study, the zero update check "
+                 f"caught every frozen layer planted at epoch {LATE_ONSET}. Held to three epochs it fired "
+                 + (f"in the same epoch as LHD in all {zero3['broken_runs']} runs" if same else "close to LHD")
+                 + f", and when one epoch is enough it fires at epoch {float(zero1['median_epoch']):.0f}, "
+                 f"{WORDS.get(lead, lead)} epochs before LHD. It also caught {zcut[0]} of {zcut[1]} gradient cuts, since the "
+                 f"layers before a cut never move. The 50\\% rule caught {s_ld[0]} of {s_ld[1]} runs with half a layer's "
+                 f"units killed at epoch {LATE_ONSET}, against {lhd_ld[0]} for LHD, while flagging {sage_fa['k']} of "
+                 f"{sage_fa['n']} healthy runs.")
     return f"""\\subsection{{Faults beyond frozen layers and dead units}}
 \\label{{sec:extra}}
 
-A third set of runs tested faults the rules were not built around: a frozen layer or 50\\% dead units planted at epoch 6, a cut that stops gradients from reaching earlier layers, and a learning rate raised 10 or 100 times at epoch 6 (Table~\\ref{{tab:extra}}). {extra_text}
+A third set of runs, planned with the rest and trained after the main results were in (Section~\\ref{{sec:runs}}), tested faults the rules were not built around (Table~\\ref{{tab:extra}}). {definitions}
+
+{extra_text} {zero_text}
 
 \\begin{{table}}[t]
 \\centering
 \\small
-\\caption{{Faults beyond the main study, pooled over the three networks.}}
+\\caption{{Faults beyond the main study, pooled over the three networks. Every detector is held to three epochs in a row. The zero update check and the 50\\% dead rule count a run only when they name the planted layer, or a layer before a gradient cut, and any alarm counts for a learning rate jump, which has no planted layer. Bold marks the best value in a row when no other detector matches it.}}
 \\label{{tab:extra}}
-\\begin{{tabular}}{{@{{}}lrrr@{{}}}}
+\\begin{{tabular}}{{@{{}}lrrrrr@{{}}}}
 \\toprule
-Fault & Runs & LHD & Accuracy curve \\\\
+ & & & Accuracy & Zero update & 50\\% dead \\\\
+Fault & Runs & LHD & curve & check & rule \\\\
 \\midrule
 {chr(10).join(rows)}
 \\bottomrule
@@ -891,7 +1008,7 @@ This work presented LHD, a monitor that compares four signals of every layer wit
 
 \\section*{{Use of generative AI}}
 
-Claude, an AI assistant made by Anthropic, wrote the experiment scripts that trained and scored the networks, ran the training runs, wrote the analysis and figure code, and drafted parts of this paper, including the results and the related work on existing tools. The idea, the hypothesis, and the experimental design come from the author's earlier proposal, and the author directed the study and decided what to test and what to change in the paper. The author is responsible for all of its content.
+Claude, an AI assistant made by Anthropic, wrote the experiment scripts that trained and scored the networks, ran the training runs, wrote the analysis and figure code, and drafted parts of this paper, including the results and the related work on existing tools. In the LHD library, the author wrote the function bodies of the four signals, the recorder that logs them, the network adapter, and the fault switches between 5 and 12 October 2026, and the docstrings of those functions came from Claude. Claude wrote the library's healthy range, detector, diagnosis rules, and monitor on 12 October, and its PyTorch adapter and replay on 31 October. The idea, the hypothesis, and the experimental design come from the author's earlier proposal, and the author directed the study and decided what to test and what to change in the paper. The author is responsible for all of its content.
 
 \\section*{{Code and data}}
 
