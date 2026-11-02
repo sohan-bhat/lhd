@@ -1008,7 +1008,7 @@ This work presented LHD, a monitor that compares four signals of every layer wit
 
 \\section*{{Use of generative AI}}
 
-The author came up with the idea and built the foundation of LHD, working alongside Claude, made by Anthropic, on the code, experiments, and writing.
+The author came up with the idea, designed the study in an earlier proposal, and wrote the signals, recorder, and fault switches of the LHD library, with Claude, made by Anthropic, providing function outlines and docstrings. Claude wrote the detector and diagnosis code and the experiment scripts that trained and scored the networks, ran the training runs, wrote the analysis and figure code, and drafted parts of this paper, including the results and related work. The author directed the study, decided what to test and change, and is responsible for all of its content.
 
 \\section*{{Code and data}}
 
