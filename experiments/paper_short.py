@@ -569,7 +569,7 @@ def related_notes() -> list[str]:
     for name, body in re.findall(r"\\paragraph\{([^}]*)\}(.*?)(?=\\paragraph|\\medskip)", text, re.S):
         keys = sorted({k.strip() for group in re.findall(r"\\cite[pt]?\{([^}]*)\}", body) for k in group.split(",")})
         quoted = [(n + w).replace("\\%", "%") for n, w in
-                  re.findall(r"(?<![\w-])(\d+(?:\.\d+)?(?:\\%)?(?: of \d+)?)((?: [A-Za-z]+){0,2})", body)
+                  re.findall(r"(?<![\w-])(\d+(?:\.\d+)?(?:\\%)?(?: of (?:the )?\d+)?)((?: [A-Za-z0-9-]+){0,2})", body)
                   if not re.fullmatch(r"(19|20)\d\d", n)]
         notes.append(f"{name.rstrip('.')}  cites {', '.join(keys)}"
                      + (f"  numbers it quotes: {'; '.join(quoted)}" if quoted else ""))
@@ -619,7 +619,7 @@ def limitation_items(s: Sheet) -> list[str]:
 
 
 def preamble() -> str:
-    return long.preamble().replace("\\begin{document}", "\\input{numbers}\n\n\\begin{document}")
+    return long.preamble().replace("\\begin{document}", "\\usepackage{placeins}\n\\input{numbers}\n\n\\begin{document}")
 
 
 def outline(s: Sheet, d: long.Data) -> str:
@@ -759,7 +759,7 @@ def outline(s: Sheet, d: long.Data) -> str:
                   + block(s, "3 sentences", ["Runs", "CaughtRate", "LayerRight", "FalseAlarms", "HealthyRuns",
                                              "LhdDeadRight"], []))
     statement = ai_statement(tex)
-    back = ("% MAIN TEXT ENDS HERE. Everything above must fit in 6 pages.\n\n"
+    back = ("% MAIN TEXT ENDS HERE. Everything above must fit in 6 pages.\n\\FloatBarrier\n\n"
             "\\section*{Use of generative AI}\n\\label{sec:ai}\n\n"
             + block(s, "not counted", [], ["The long paper's statement, for reference  [paper/lhd.tex]",
                                            statement])
@@ -768,7 +768,87 @@ def outline(s: Sheet, d: long.Data) -> str:
                     [f"Repository {long.REPO}", "The long version is tagged v0-long"])
             + "\n\\input{../references}\n")
     end = "\n\\end{document}\n"
-    return "\n".join([preamble(), abstract, intro, related, method, setup, results, limitations, conclusion, back, end])
+    return "\n".join([preamble(), abstract, intro, related, method, setup, results, limitations, conclusion, back,
+                      appendix(s), end])
+
+
+def appendix(s: Sheet) -> str:
+    from experiments.evaluate import clustered_tests
+
+    draws = inspect.signature(clustered_tests).parameters["draws"].default
+    parts = [
+        "\\section{Networks and runs in detail}\n\\label{app:runs}\n\n"
+        + block(s, "not counted",
+                ["MlpWidths", "CnnFilters", "CnnDense", "TransformerWidth", "TransformerHeads", "TransformerBlocks",
+                 "TransformerHidden", "CnnValImages", "TextWindows", "TextContext", "TextHeldOut", "CalibrationSeeds",
+                 "ScoredSeedStart", "SeedsPerFault", "UnitSeedOffset", "DeadBias", "FreshFirstSet", "FreshThirdSet",
+                 "PlanCommit", "PlanDate"],
+                layer_notes()
+                + ["Killed units are drawn without replacement, their number is the share times the layer's width "
+                   "rounded with at least one unit, and Adam's running averages for them are cleared  [experiments/train.py]",
+                   f"Statistics: one sided Wilcoxon signed rank test on the gap averaged within each seed and within "
+                   f"each fault condition, a bootstrap with {draws:,} draws that resamples whole seeds, and Wilson "
+                   f"score intervals for rates  [experiments/evaluate.py]"]),
+        "\\section{Detection over time}\n\\label{app:time}\n\n"
+        + block(s, "not counted", [m for m in s.facts if m.startswith("Time")], [])
+        + figure_float("detection_over_time", "the share of broken runs flagged by each epoch, LHD against the "
+                                              "accuracy curve, one panel per network"),
+        "\\section{Every detector}\n\\label{app:detectors}\n\n"
+        + block(s, "not counted",
+                ["PatienceAlarmChange", "PatienceDeadChange", "SageAnyTen", "SageRightTen", "SageAnyTwentyFive",
+                 "SageRightTwentyFive", "AccOneCaught", "AccOneFlagged", "LossCaught", "LossFlagged"],
+                ["Requiring three epochs instead of one changed little, since a layer's dead unit fraction rarely "
+                 "drops back once it crosses a threshold",
+                 "Counted at any layer, the 50% rule caught more runs with 10% dead units than with 25%, because it "
+                 "fired on units that died on their own in other layers"])
+        + table_float("detectors", "detectors", "every detector held to three epochs, frozen layers and dead units "
+                                                "caught at the planted layer, and healthy runs flagged"),
+        "\\section{Each layer and how many units must die}\n\\label{app:layers}\n\n"
+        + block(s, "not counted",
+                [m for m in s.facts if m.startswith("Dose")]
+                + ["WrongLayerRuns", "WrongLayerList", "WrongCauseRuns", "WrongCauseList"],
+                ["In each wrong layer run, the layer LHD named had its own signal out of range",
+                 "A frozen attention projection also lowers the gradient that reaches it, so its pattern can match "
+                 "a vanishing gradient"])
+        + figure_float("per_layer", "for every layer and fault, the share of broken runs where LHD caught the fault "
+                                    "and named both the planted layer and the right cause"),
+        "\\section{What each signal adds}\n\\label{app:ablation}\n\n"
+        + block(s, "not counted", [m for m in s.facts if m.startswith("Ablation")],
+                ["None of the planted faults was designed to move the weight norm or the gradient norm"])
+        + table_float("ablation", "ablation", "the same runs replayed with each signal removed or used alone"),
+        "\\section{Margin and calibration size}\n\\label{app:settings}\n\n"
+        + block(s, "not counted",
+                ["Margin", "EdgeFlagged", "EdgeCaught", "MarginFlagged", "MarginCaught"]
+                + [m for m in s.facts if m.startswith("Cal") and m[3] in LETTERS],
+                ["These checks replay the same saved runs after the main results; the settings were fixed before "
+                 "them  [experiments/sweep.py]"]),
+        "\\section{Cost}\n\\label{app:cost}\n\n"
+        + block(s, "not counted", ["MlpOverhead", "TransformerOverhead", "CnnOverhead", "ComputeSaved", "TrainingHours"],
+                ["Measured on fresh healthy runs on one CPU thread; most of the overhead is the gradient norm, read "
+                 "after every batch, and the probe batch, run once per epoch"]),
+        "\\section{Faults beyond frozen layers and dead units}\n\\label{app:extra}\n\n"
+        + block(s, "not counted",
+                ["LateOnset"] + [m for m in s.facts if any(m.startswith(k) for k in EXTRA_KEYS.values())]
+                + ["LrNormal", "LrTimesTen", "LrTimesHundred", "LateZeroEpoch", "LateZeroTies", "CutZero",
+                   "LateDeadSage", "SageFlagged", "DivergenceFired"],
+                ["Late faults are the main faults started at the epoch above instead of epoch 1",
+                 "A gradient cut detaches one layer's input from the first epoch, so no gradient reaches the layers "
+                 "before it  [experiments/grid.py DETACH_CUTS]",
+                 "A learning rate jump multiplies Adam's rate at the start of that epoch, and the cosine schedule "
+                 "keeps shrinking it from the raised value",
+                 "This third set was trained after the main results were in"])
+        + table_float("extra", "extra", "each extra fault, caught by LHD, the accuracy curve, the zero update check, "
+                                        "and the 50% rule, with healthy runs flagged"),
+        "\\section{Statistics for each seed and condition}\n\\label{app:stats}\n\n"
+        + block(s, "not counted",
+                ["SeedGroups", "SeedGroupsLHD", "SeedP", "Conditions", "ConditionsLHD", "ConditionsAcc",
+                 "ConditionsSame", "ConditionsNeither", "ConditionP", "MeanGapAll", "MeanGapInterval"],
+                ["The mean gap over all runs leans on the runs the accuracy curve missed, so the gap on runs both "
+                 "caught is the fairer measure"]),
+    ]
+    return ("\\clearpage\n\\appendix\n\\setcounter{figure}{0}\n\\setcounter{table}{0}\n"
+            "\\renewcommand{\\thefigure}{A\\arabic{figure}}\n\\renewcommand{\\thetable}{A\\arabic{table}}\n\n"
+            + "\n".join(parts))
 
 
 def sheet(d: long.Data) -> Sheet:
