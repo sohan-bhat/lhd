@@ -21,6 +21,7 @@ import subprocess
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 
 from experiments import data as data_code
 from experiments import models
@@ -851,6 +852,106 @@ def appendix(s: Sheet) -> str:
             + "\n".join(parts))
 
 
+MAIN_END = "% MAIN TEXT ENDS HERE"
+MAIN_PAGES = 6
+
+
+def compile_pdf(folder: Path, name: str, out: Path) -> str:
+    """Compiles with tectonic into out and returns the log, stopping on any undefined reference."""
+    result = subprocess.run([str(long.TECTONIC), "-X", "compile", "--keep-logs", "--keep-intermediates",
+                             "--outdir", str(out), f"{name}.tex"], cwd=folder, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(result.stderr[-3000:])
+        raise SystemExit(1)
+    log = (out / f"{name}.log").read_text(errors="ignore")
+    undefined = sorted(set(re.findall(r"(?:Reference|Citation) `([^']+)' on page \d+ undefined", log)))
+    if undefined:
+        raise SystemExit(f"undefined references in {name}.pdf: {', '.join(undefined)}")
+    return log
+
+
+def headings(text: str) -> list[tuple[str, str, float | None]]:
+    """Each heading of the main text with its level and the page budget written under it."""
+    found = []
+    for level, title, rest in re.findall(r"^\\(section|subsection)\{([^}]*)\}\n(.*?)(?=^\\(?:sub)?section\{|\Z)",
+                                         text, re.S | re.M):
+        budget = re.search(r"% BUDGET (?:about )?([\d.]+) pages?", rest)
+        found.append((level, title, float(budget.group(1)) if budget else None))
+    return found
+
+
+def measure(tex: str, folder: Path) -> list[tuple[str, float, float | None]]:
+    """Pages each part of the main text takes, from positions saved while typesetting."""
+    import shutil
+    import tempfile
+
+    main, rest = tex.split(MAIN_END, 1)
+    count = iter(range(1000))
+
+    def mark(match) -> str:
+        n = next(count)
+        return f"\\par\\zsavepos{{lhdpos{n}}}\\label{{lhdpage{n}}}\n{match.group(0)}"
+
+    marked = re.sub(r"^\\(?:sub)?section\{", mark, main, flags=re.M)
+    end = next(count)
+    marked += f"\\par\\zsavepos{{lhdpos{end}}}\\label{{lhdpage{end}}}\n"
+    marked = marked.replace("\\begin{document}", "\\usepackage{zref-savepos}\n\\begin{document}", 1)
+    marked = marked.replace("\\maketitle", "\\maketitle\\typeout{LHDTEXT \\the\\textheight\\space "
+                            "\\the\\dimexpr\\paperheight-1in-\\voffset-\\topmargin-\\headheight-\\headsep\\relax}", 1)
+    with tempfile.TemporaryDirectory() as tmp:
+        work = Path(tmp) / "short"
+        shutil.copytree(folder, work)
+        shutil.copy(long.PAPER / "references.tex", Path(tmp) / "references.tex")
+        (work / "measure.tex").write_text(marked + MAIN_END + rest)
+        log = compile_pdf(work, "measure", work)
+        aux = (work / "measure.aux").read_text()
+    height, top = (float(v) * 65536 for v in re.search(r"LHDTEXT ([\d.]+)pt ([\d.]+)pt", log).groups())
+    ys = {int(n): int(y) for n, y in re.findall(r"\\zref@newlabel\{lhdpos(\d+)\}\{.*?\\posy\{(-?\d+)\}", aux)}
+    pages = {int(n): int(p) for n, p in re.findall(r"\\newlabel\{lhdpage(\d+)\}\{\{[^}]*\}\{(\d+)\}", aux)}
+    spot = [pages[i] - 1 + (top - ys[i]) / height for i in range(end + 1)]
+    parts = headings(main)
+    out = [("Title and abstract", spot[0], None)]
+    out += [("  " + title if level == "subsection" else title, spot[i + 1] - spot[i], budget)
+            for i, (level, title, budget) in enumerate(parts)]
+    starts = [i for i, (level, _, _) in enumerate(parts) if level == "section"] + [end]
+    for a, b in zip(starts, starts[1:]):
+        if b - a > 1:
+            title, _, budget = out[a + 1]
+            out[a + 1] = (title, spot[b] - spot[a], budget)
+    out.append(("Main text in all", spot[end], float(MAIN_PAGES)))
+    return out
+
+
+def words(text: str) -> int:
+    body = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("%"))
+    body = re.sub(r"\\(?:begin|end)\{[^}]*\}", " ", body)
+    return len(re.findall(r"[A-Za-z0-9\\][^\s]*", body))
+
+
+def report(tex: str) -> None:
+    abstract = re.search(r"\\begin\{abstract\}(.*?)\\end\{abstract\}", tex, re.S).group(1)
+    conclusion = re.search(r"\\section\{Conclusion\}(.*?)" + re.escape(MAIN_END), tex, re.S).group(1)
+    prose = "\n".join(line for line in conclusion.splitlines() if not line.lstrip().startswith(("%", "\\label")))
+    sentences = len(re.findall(r"[.!?](?:\s|$)", prose))
+    text = "\n".join(line.split("%")[0] for line in tex.splitlines())
+    dashes = len(re.findall("\u2014|\u2013|(?<!-)--(?!-)|---", text))
+    print(f"abstract {words(abstract)} words of 120, conclusion {sentences} sentences of 3, "
+          f"dashes outside comments {dashes}")
+    print(f"{'part':44} {'pages':>6} {'budget':>7}")
+    for title, used, budget in measure(tex, SHORT):
+        print(f"{title:44} {used:6.2f} {'' if budget is None else f'{budget:7.2f}'}")
+
+
+def build_pdf() -> None:
+    import shutil
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        compile_pdf(SHORT, "lhd_short", Path(tmp))
+        shutil.copy(Path(tmp) / "lhd_short.pdf", SHORT / "lhd_short.pdf")
+    print(f"wrote {SHORT / 'lhd_short.pdf'} with no undefined references", flush=True)
+
+
 def sheet(d: long.Data) -> Sheet:
     s = Sheet()
     for part in (headline, harm, detectors, false_alarms, method_facts, setup_facts, limitation_facts,
@@ -884,6 +985,10 @@ def main(argv=None) -> None:
             raise SystemExit(f"{target} exists and holds your prose, so it is left alone")
         target.write_text(outline(s, d))
         print(f"wrote {target}", flush=True)
+    if not (SHORT / "lhd_short.tex").exists():
+        raise SystemExit("no paper/short/lhd_short.tex yet; run with --outline to write it")
+    build_pdf()
+    report((SHORT / "lhd_short.tex").read_text())
 
 
 if __name__ == "__main__":

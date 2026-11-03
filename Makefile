@@ -1,6 +1,6 @@
 PY := .venv-exp/bin/python
 
-.PHONY: setup test runs unpack results paper table1 table2 table3 table4 table5
+.PHONY: setup test runs unpack results paper paper-short table1 table2 table3 table4 table5
 
 setup:
 	python3.10 -m venv .venv-exp
@@ -28,6 +28,9 @@ results:
 
 paper:
 	$(PY) -m experiments.paper
+
+paper-short:
+	$(PY) -m experiments.paper_short
 
 table1:
 	$(PY) -m experiments.paper --table tab:rules
