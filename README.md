@@ -39,6 +39,22 @@ Experiments begin after science fair review approval.
       demo.py            trains live and stops when LHD fires
     results/           every saved run, the tables, figures, and report
 
+## Where everything is
+
+Every LHD file lives in this folder.
+
+    paper/lhd.pdf                    the long paper, tagged v0-long
+    paper/short/lhd_short.pdf        the short paper, six pages of main text
+    paper/short/lhd_extended.pdf     the extended results the short paper points to
+    results/REPORT.md                the full report from every run
+    results/METHODS.md               the methods record
+    results/LHD_data.xlsx            every table in one workbook
+    archive/                         the Google Docs proposal draft and the AI use
+                                     disclosure, kept here and not on GitHub
+
+The website serves its own copies of the paper and the proposal from
+the portfolio repository.
+
 ## Running the experiments
 
 The experiments use the exact package versions in
@@ -53,6 +69,7 @@ The paper is compiled with tectonic.
     make unpack     or skip training and unpack the saved runs
     make results    tables, figures, methods record, and report
     make paper      the paper in paper/lhd.pdf
+    make paper-short  the short paper and extended results in paper/short
     make table3     print one table of the paper, from table1 to table5
 
 Datasets download on first use into `data/`. Each run is saved to
