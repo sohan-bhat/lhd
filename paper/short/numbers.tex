@@ -1,0 +1,248 @@
+% Written by experiments/paper_short.py from the saved runs. Rebuild it, never edit it.
+\newcommand{\lhdRuns}{885}
+\newcommand{\lhdCalibrationRuns}{60}
+\newcommand{\lhdCalibrationPerNet}{20}
+\newcommand{\lhdFreshRuns}{150}
+\newcommand{\lhdBrokenRuns}{470}
+\newcommand{\lhdOtherRuns}{205}
+\newcommand{\lhdCaught}{411}
+\newcommand{\lhdCaughtRate}{87\%}
+\newcommand{\lhdCaughtInterval}{84 to 90\%}
+\newcommand{\lhdAccCaught}{166}
+\newcommand{\lhdAccCaughtRate}{35\%}
+\newcommand{\lhdMedianEpoch}{3}
+\newcommand{\lhdAccMedianEpoch}{6}
+\newcommand{\lhdAccNever}{61\%}
+\newcommand{\lhdSilentShare}{66\%}
+\newcommand{\lhdBothCaught}{162}
+\newcommand{\lhdBothGap}{4.6}
+\newcommand{\lhdBothMedian}{3}
+\newcommand{\lhdBothAccEarlier}{1}
+\newcommand{\lhdBothTies}{26}
+\newcommand{\lhdLayerRight}{98.1\%}
+\newcommand{\lhdLayerRightRuns}{403 of 411}
+\newcommand{\lhdCauseRight}{96.8\%}
+\newcommand{\lhdCauseRightRuns}{398 of 411}
+\newcommand{\lhdFalseAlarms}{3}
+\newcommand{\lhdHealthyRuns}{150}
+\newcommand{\lhdFalseAlarmRate}{2.0\%}
+\newcommand{\lhdFalseAlarmInterval}{0.7 to 5.7\%}
+\newcommand{\lhdAccFalseAlarms}{7}
+\newcommand{\lhdAccFalseAlarmInterval}{2.3 to 9.3\%}
+\newcommand{\lhdSeedGroups}{30}
+\newcommand{\lhdSeedGroupsLHD}{30}
+\newcommand{\lhdSeedP}{$p = 9.3 \times 10^{-10}$}
+\newcommand{\lhdConditions}{47}
+\newcommand{\lhdConditionsLHD}{41}
+\newcommand{\lhdConditionsAcc}{3}
+\newcommand{\lhdConditionsSame}{1}
+\newcommand{\lhdConditionsNeither}{2}
+\newcommand{\lhdConditionP}{$p < 10^{-10}$}
+\newcommand{\lhdMeanGapAll}{9.1}
+\newcommand{\lhdMeanGapInterval}{8.4 to 9.7}
+\newcommand{\lhdHarmSmall}{223}
+\newcommand{\lhdHarmSmallLHD}{186}
+\newcommand{\lhdHarmSmallAcc}{33}
+\newcommand{\lhdHarmMid}{142}
+\newcommand{\lhdHarmMidLHD}{131}
+\newcommand{\lhdHarmMidAcc}{73}
+\newcommand{\lhdHarmBig}{105}
+\newcommand{\lhdHarmBigLHD}{94}
+\newcommand{\lhdHarmBigAcc}{60}
+\newcommand{\lhdCnnFrozenDrop}{11.1}
+\newcommand{\lhdCnnHalfDeadDrop}{3.1}
+\newcommand{\lhdOtherMaxDrop}{0.8}
+\newcommand{\lhdLhdFrozenRight}{97\%}
+\newcommand{\lhdLhdDeadRight}{78\%}
+\newcommand{\lhdLhdDeadAny}{78\%}
+\newcommand{\lhdZeroFrozen}{100\%}
+\newcommand{\lhdZeroDead}{0\%}
+\newcommand{\lhdZeroFlagged}{0}
+\newcommand{\lhdQuarterFrozen}{0\%}
+\newcommand{\lhdQuarterDead}{71\%}
+\newcommand{\lhdQuarterFlagged}{51}
+\newcommand{\lhdSageFrozen}{0\%}
+\newcommand{\lhdSageDead}{40\%}
+\newcommand{\lhdSageFlagged}{22}
+\newcommand{\lhdDeepFrozen}{0\%}
+\newcommand{\lhdDeepDead}{4\%}
+\newcommand{\lhdDeepFlagged}{0}
+\newcommand{\lhdWandbFrozen}{0\%}
+\newcommand{\lhdWandbDead}{0\%}
+\newcommand{\lhdWandbFlagged}{0}
+\newcommand{\lhdAnyDeadFrozen}{2\%}
+\newcommand{\lhdAnyDeadDead}{74\%}
+\newcommand{\lhdAnyDeadFlagged}{100}
+\newcommand{\lhdZeroFrozenRuns}{200 of 200}
+\newcommand{\lhdZeroFrozenOneEpoch}{200 of 200}
+\newcommand{\lhdZeroEpoch}{1}
+\newcommand{\lhdLhdFrozenEpoch}{3}
+\newcommand{\lhdZeroLead}{2}
+\newcommand{\lhdPatienceAlarmChange}{0}
+\newcommand{\lhdPatienceDeadChange}{2}
+\newcommand{\lhdSageAnyTen}{26}
+\newcommand{\lhdSageRightTen}{8}
+\newcommand{\lhdSageAnyTwentyFive}{25}
+\newcommand{\lhdSageRightTwentyFive}{10}
+\newcommand{\lhdCnnDenseLow}{36\%}
+\newcommand{\lhdCnnDenseHigh}{70\%}
+\newcommand{\lhdTransformerDeadMax}{0\%}
+\newcommand{\lhdAlarmARun}{mlp-fresh-none-s1046}
+\newcommand{\lhdAlarmALayer}{fc2}
+\newcommand{\lhdAlarmAEpoch}{16}
+\newcommand{\lhdAlarmASignal}{dead unit fraction}
+\newcommand{\lhdAlarmAValue}{1.6\%}
+\newcommand{\lhdAlarmAEdge}{3.9\%}
+\newcommand{\lhdAlarmBRun}{cnn-fresh-none-s1015}
+\newcommand{\lhdAlarmBLayer}{conv2}
+\newcommand{\lhdAlarmBEpoch}{4}
+\newcommand{\lhdAlarmBSignal}{dead unit fraction}
+\newcommand{\lhdAlarmBValue}{6.2\%}
+\newcommand{\lhdAlarmBEdge}{0.0\%}
+\newcommand{\lhdAlarmCRun}{cnn-fresh-none-s1028}
+\newcommand{\lhdAlarmCLayer}{conv2}
+\newcommand{\lhdAlarmCEpoch}{3}
+\newcommand{\lhdAlarmCSignal}{dead unit fraction}
+\newcommand{\lhdAlarmCValue}{6.2\%}
+\newcommand{\lhdAlarmCEdge}{0.0\%}
+\newcommand{\lhdFloor}{0.05}
+\newcommand{\lhdSmallLayerUnits}{16}
+\newcommand{\lhdOneUnitShare}{6.25\%}
+\newcommand{\lhdMargin}{0.5}
+\newcommand{\lhdPatience}{3}
+\newcommand{\lhdProbeSize}{256}
+\newcommand{\lhdSettingsCommit}{e83806f}
+\newcommand{\lhdSettingsDate}{31 October 2026}
+\newcommand{\lhdDivergenceFired}{0}
+\newcommand{\lhdVanishingFired}{35}
+\newcommand{\lhdRunawayFired}{5}
+\newcommand{\lhdMlpParams}{242,762}
+\newcommand{\lhdMlpEpochs}{20}
+\newcommand{\lhdMlpFresh}{50}
+\newcommand{\lhdMlpBroken}{130}
+\newcommand{\lhdMlpOther}{55}
+\newcommand{\lhdTransformerParams}{112,577}
+\newcommand{\lhdTransformerEpochs}{15}
+\newcommand{\lhdTransformerFresh}{50}
+\newcommand{\lhdTransformerBroken}{170}
+\newcommand{\lhdTransformerOther}{85}
+\newcommand{\lhdCnnParams}{41,659}
+\newcommand{\lhdCnnEpochs}{15}
+\newcommand{\lhdCnnFresh}{50}
+\newcommand{\lhdCnnBroken}{170}
+\newcommand{\lhdCnnOther}{65}
+\newcommand{\lhdMlpWidths}{256, 128, 64}
+\newcommand{\lhdCnnFilters}{8, 16, 32}
+\newcommand{\lhdCnnDense}{64}
+\newcommand{\lhdTransformerWidth}{64}
+\newcommand{\lhdTransformerHeads}{4}
+\newcommand{\lhdTransformerBlocks}{2}
+\newcommand{\lhdTransformerHidden}{256}
+\newcommand{\lhdCnnValImages}{4,000}
+\newcommand{\lhdTextWindows}{512}
+\newcommand{\lhdTextContext}{64}
+\newcommand{\lhdTextHeldOut}{10\%}
+\newcommand{\lhdLearningRate}{0.001}
+\newcommand{\lhdThreads}{1}
+\newcommand{\lhdCalibrationSeeds}{0 to 19}
+\newcommand{\lhdScoredSeedStart}{1000}
+\newcommand{\lhdSeedsPerFault}{10}
+\newcommand{\lhdDeadFractions}{10\%, 25\%, and 50\%}
+\newcommand{\lhdDeadBias}{$-1$}
+\newcommand{\lhdUnitSeedOffset}{7919}
+\newcommand{\lhdDeadChecks}{25\%, 50\%, 70\%, and 80\%}
+\newcommand{\lhdFreshFirstSet}{90}
+\newcommand{\lhdFreshThirdSet}{60}
+\newcommand{\lhdPlanCommit}{b6bfb6a}
+\newcommand{\lhdPlanDate}{31 October 2026}
+\newcommand{\lhdDraftCommit}{d3f5275}
+\newcommand{\lhdDraftFresh}{110}
+\newcommand{\lhdDraftAlarms}{3}
+\newcommand{\lhdLaterFresh}{40}
+\newcommand{\lhdLaterAlarms}{0}
+\newcommand{\lhdEpochRange}{15 to 20}
+\newcommand{\lhdTransformerAcc}{37\%}
+\newcommand{\lhdCnnDenseACaught}{0 of 10}
+\newcommand{\lhdCnnDenseBCaught}{0 of 10}
+\newcommand{\lhdCnnDenseCCaught}{1 of 10}
+\newcommand{\lhdCalARuns}{2}
+\newcommand{\lhdCalAWorst}{22\%}
+\newcommand{\lhdCalANet}{CNN}
+\newcommand{\lhdCalBRuns}{3}
+\newcommand{\lhdCalBWorst}{15\%}
+\newcommand{\lhdCalBNet}{CNN}
+\newcommand{\lhdCalCRuns}{5}
+\newcommand{\lhdCalCWorst}{11\%}
+\newcommand{\lhdCalCNet}{fully connected network}
+\newcommand{\lhdCalDRuns}{10}
+\newcommand{\lhdCalDWorst}{5\%}
+\newcommand{\lhdCalDNet}{fully connected network}
+\newcommand{\lhdCalERuns}{15}
+\newcommand{\lhdCalEWorst}{4\%}
+\newcommand{\lhdCalENet}{CNN}
+\newcommand{\lhdCalFRuns}{20}
+\newcommand{\lhdCalFWorst}{4\%}
+\newcommand{\lhdCalFNet}{CNN}
+\newcommand{\lhdAccOneCaught}{291 of 470}
+\newcommand{\lhdAccOneFlagged}{44 of 150}
+\newcommand{\lhdLossCaught}{143 of 470}
+\newcommand{\lhdLossFlagged}{9 of 150}
+\newcommand{\lhdDoseALhd}{57\%}
+\newcommand{\lhdDoseAAcc}{7\%}
+\newcommand{\lhdDoseBLhd}{88\%}
+\newcommand{\lhdDoseBAcc}{9\%}
+\newcommand{\lhdDoseCLhd}{90\%}
+\newcommand{\lhdDoseCAcc}{29\%}
+\newcommand{\lhdDoseMisses}{CNN conv3 at 10\% (1 of 10); CNN fc1 at 10\% (0 of 10); CNN fc1 at 25\% (0 of 10); CNN fc1 at 50\% (1 of 10); fully connected network fc2 at 10\% (0 of 10); fully connected network fc3 at 10\% (0 of 10); fully connected network fc3 at 25\% (9 of 10)}
+\newcommand{\lhdWrongLayerRuns}{8}
+\newcommand{\lhdWrongLayerList}{50\% dead units in fc1 in the CNN named fc2 (1); a frozen conv2 in the CNN named conv1 (1); a frozen conv3 in the CNN named conv2 (1); a frozen fc1 in the CNN named conv1 (1); a frozen fc1 in the CNN named conv2 (1); a frozen fc1 in the CNN named conv3 (3)}
+\newcommand{\lhdWrongCauseRuns}{5}
+\newcommand{\lhdWrongCauseList}{a frozen b1.qkv in the transformer called vanishing gradient (5)}
+\newcommand{\lhdAblationAllFourCaught}{87\%}
+\newcommand{\lhdAblationAllFourBoth}{85\%}
+\newcommand{\lhdAblationNoDeadCaught}{43\%}
+\newcommand{\lhdAblationNoDeadBoth}{41\%}
+\newcommand{\lhdAblationNoChangeCaught}{70\%}
+\newcommand{\lhdAblationNoChangeBoth}{45\%}
+\newcommand{\lhdEdgeFlagged}{71\%}
+\newcommand{\lhdEdgeCaught}{98\%}
+\newcommand{\lhdMarginFlagged}{2\%}
+\newcommand{\lhdMarginCaught}{87\%}
+\newcommand{\lhdMlpOverhead}{11.6\%}
+\newcommand{\lhdTransformerOverhead}{5.9\%}
+\newcommand{\lhdCnnOverhead}{2.2\%}
+\newcommand{\lhdComputeSaved}{70\%}
+\newcommand{\lhdTrainingHours}{107}
+\newcommand{\lhdLateOnset}{6}
+\newcommand{\lhdLateFrozenRuns}{100}
+\newcommand{\lhdLateFrozenCaught}{100}
+\newcommand{\lhdLateFrozenBoth}{100}
+\newcommand{\lhdLateFrozenAcc}{20}
+\newcommand{\lhdLateFrozenCauses}{a frozen layer (100)}
+\newcommand{\lhdLateDeadRuns}{45}
+\newcommand{\lhdLateDeadCaught}{40}
+\newcommand{\lhdLateDeadBoth}{40}
+\newcommand{\lhdLateDeadAcc}{7}
+\newcommand{\lhdLateDeadCauses}{dead units (40)}
+\newcommand{\lhdCutRuns}{30}
+\newcommand{\lhdCutCaught}{30}
+\newcommand{\lhdCutBoth}{30}
+\newcommand{\lhdCutAcc}{30}
+\newcommand{\lhdCutCauses}{a vanishing gradient (30)}
+\newcommand{\lhdLrTenRuns}{15}
+\newcommand{\lhdLrTenCaught}{15}
+\newcommand{\lhdLrTenBoth}{0}
+\newcommand{\lhdLrTenAcc}{5}
+\newcommand{\lhdLrTenCauses}{an unrecognized pattern (9); dead units (6)}
+\newcommand{\lhdLrHundredRuns}{15}
+\newcommand{\lhdLrHundredCaught}{15}
+\newcommand{\lhdLrHundredBoth}{0}
+\newcommand{\lhdLrHundredAcc}{15}
+\newcommand{\lhdLrHundredCauses}{dead units (5); runaway weights (5); a vanishing gradient (5)}
+\newcommand{\lhdLrNormal}{0.00075}
+\newcommand{\lhdLrTimesTen}{0.0075}
+\newcommand{\lhdLrTimesHundred}{0.075}
+\newcommand{\lhdLateZeroEpoch}{6}
+\newcommand{\lhdLateZeroTies}{100 of 100}
+\newcommand{\lhdCutZero}{30 of 30}
+\newcommand{\lhdLateDeadSage}{37 of 45}
