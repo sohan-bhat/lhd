@@ -3,6 +3,7 @@
 Usage:
     python -m experiments.paper_short             numbers, tables, figures, and the PDF
     python -m experiments.paper_short --facts     print every number with its source and stop
+    python -m experiments.paper_short --outline   also write the outline, only if lhd_short.tex is missing
 
 Every number comes from the saved runs through the Data reader that
 experiments.paper uses, so the short paper and the long one read the same
@@ -474,7 +475,8 @@ def networks_table(d: long.Data) -> str:
         raise SystemExit(f"Table 2 adds up to {sum(totals)} runs, not {d.total_runs()}")
     rows += ["\\midrule", "Total & & & & " + " & ".join(str(t) for t in totals) + " \\\\"]
     return ("\\begin{tabular}{@{}llrrrrrr@{}}\n\\toprule\n"
-            "Network & Dataset & Parameters & Epochs & Calibration & Fresh healthy & Frozen or dead & Other faults \\\\\n"
+            " & & & & & Fresh & Frozen & Other \\\\\n"
+            "Network & Dataset & Parameters & Epochs & Calibration & healthy & or dead & faults \\\\\n"
             "\\midrule\n" + "\n".join(rows) + "\n\\bottomrule\n\\end{tabular}\n")
 
 
@@ -523,6 +525,252 @@ def figure_facts(s: Sheet, drawn: dict) -> None:
               f"broken runs the accuracy curve flagged by the end, {long.PROSE[a]}", source)
 
 
+PLACEHOLDER = "SOHAN WRITES THIS"
+
+
+def block(s: Sheet, budget: str, macros: list[str], notes: list[str]) -> str:
+    """A section's budget, the numbers it needs with their files, other facts, and the placeholder."""
+    lines = [f"% BUDGET {budget}"]
+    if macros:
+        lines.append("% NUMBERS. Each \\lhd macro prints the value next to it, and typing the value works too.")
+        pad = min(22, max(len(s[m].shown()) for m in macros))
+        name = max(len(m) for m in macros) + 4
+        for m in macros:
+            tag = "\\lhd" + m
+            lines.append(f"%   {s[m].shown():<{pad}}  {tag:<{name}}  {s[m].what}  [{s[m].source}]")
+    if notes:
+        lines.append("% FACTS")
+        lines += [f"%   {n}" for n in notes]
+    lines.append(PLACEHOLDER)
+    return "\n".join(lines) + "\n"
+
+
+def figure_float(name: str, shows: str) -> str:
+    return (f"% FIGURE shows {shows}\n\\begin{{figure}}[t]\n\\centering\n"
+            f"\\includegraphics[width=\\linewidth]{{figures/{name}.pdf}}\n\\caption{{{PLACEHOLDER}}}\n"
+            f"\\label{{fig:{name}}}\n\\end{{figure}}\n")
+
+
+def table_float(name: str, label: str, shows: str) -> str:
+    return (f"% TABLE shows {shows}. The tabular is rebuilt from the data, so edit only the caption.\n"
+            f"\\begin{{table}}[t]\n\\centering\n\\small\n\\caption{{{PLACEHOLDER}}}\n\\label{{tab:{label}}}\n"
+            f"\\input{{tables/{name}}}\n\\end{{table}}\n")
+
+
+def story(tex: str) -> tuple[str, str]:
+    before = re.search(r"plateaued at (\d+)\\%", tex).group(1)
+    after = re.search(r"raised the accuracy to (\d+)\\%", tex).group(1)
+    return before, after
+
+
+def related_notes() -> list[str]:
+    text = (long.PAPER / "related_work.tex").read_text()
+    notes = []
+    for name, body in re.findall(r"\\paragraph\{([^}]*)\}(.*?)(?=\\paragraph|\\medskip)", text, re.S):
+        keys = sorted({k.strip() for group in re.findall(r"\\cite[pt]?\{([^}]*)\}", body) for k in group.split(",")})
+        quoted = [(n + w).replace("\\%", "%") for n, w in
+                  re.findall(r"(?<![\w-])(\d+(?:\.\d+)?(?:\\%)?(?: of \d+)?)((?: [A-Za-z]+){0,2})", body)
+                  if not re.fullmatch(r"(19|20)\d\d", n)]
+        notes.append(f"{name.rstrip('.')}  cites {', '.join(keys)}"
+                     + (f"  numbers it quotes: {'; '.join(quoted)}" if quoted else ""))
+    refs = re.findall(r"\\bibitem\[([^\]]*)\]\{([^}]*)\}", (long.PAPER / "references.tex").read_text())
+    notes.append("All citation keys in paper/references.tex: " + "; ".join(f"{k} {label}" for label, k in refs))
+    return [n + "  [paper/related_work.tex]" if not n.startswith("All") else n for n in notes]
+
+
+def layer_notes() -> list[str]:
+    notes = []
+    for arch in long.ARCH_ORDER:
+        model = build(arch)
+        notes.append(f"{long.PROSE[arch]}: watched layers {', '.join(model.lhd_layers())}; ReLU layers where units "
+                     f"can die {', '.join(models.relu_layers(model))}  [experiments/models.py]")
+    return notes
+
+
+def ai_statement(tex: str) -> str:
+    found = re.search(r"\\section\*\{Use of generative AI\}\n\n(.*?)\n\n\\section\*", tex, re.S)
+    return found.group(1).strip() if found else ""
+
+def limitation_items(s: Sheet) -> list[str]:
+    """The nine limitations that must stay in, with the numbers behind each."""
+    def v(m: str) -> str:
+        return s[m].shown()
+
+    return [
+        f"1. The zero update check catches frozen layers {v('ZeroLead')} epochs sooner ({v('ZeroFrozenOneEpoch')} at "
+        f"epoch {v('ZeroEpoch')}); LHD's advantage is dead units",
+        "2. Faults were planted to show up in the signals LHD measures; they are not real bugs",
+        "3. Calibration needs 10 to 20 healthy runs of the same network and assumes they are healthy; this costs more "
+        f"than LHD saves for a model trained once. The study used {v('CalibrationPerNet')} per network, and the Cal "
+        "numbers above show the false alarms at each size",
+        "4. LHD misses dead units where healthy runs already lose many units (the CNN's dense layer, "
+        f"{v('CnnDenseLow')} to {v('CnnDenseHigh')} dead in healthy runs)",
+        f"5. {v('HarmSmall')} of {v('BrokenRuns')} planted faults cost less than half a point of accuracy",
+        "6. Only the frozen layer and dead unit rules were tested in the main study; the divergence rule never fired "
+        f"({v('DivergenceFired')} runs). In the main study the vanishing gradient rule fired only as a wrong cause, "
+        f"{v('WrongCauseList')}",
+        f"7. The {v('Floor')} floor is too low for small layers; one dead unit of {v('SmallLayerUnits')} is "
+        f"{v('OneUnitShare')}",
+        f"8. Small networks, laptop CPU, {v('EpochRange')} epochs; the transformer reaches about {v('TransformerAcc')} "
+        "accuracy; no GPU, large models, or other optimizers",
+        f"9. The third set of runs ({v('FreshThirdSet')} healthy runs and the extra faults) was trained after the main "
+        "results",
+    ]
+
+
+def preamble() -> str:
+    return long.preamble().replace("\\begin{document}", "\\input{numbers}\n\n\\begin{document}")
+
+
+def outline(s: Sheet, d: long.Data) -> str:
+    tex = long_tex()
+    before, after = story(tex)
+    hdr = ["Runs", "BrokenRuns", "Caught", "CaughtRate", "CaughtInterval", "AccCaught", "LayerRight", "FalseAlarms",
+           "HealthyRuns", "FalseAlarmInterval", "BothCaught", "BothGap", "HarmBig", "HarmBigLHD", "HarmBigAcc",
+           "ZeroLead", "LhdDeadRight"]
+    nets = "fully connected network on Fashion-MNIST, CNN on GTSRB, small transformer on Tiny Shakespeare  [experiments/paper.py]"
+    abstract = ("\\begin{abstract}\n"
+                + block(s, "120 words at most", hdr,
+                        ["LHD stands for Layer Health Diagnostics", nets,
+                         "Faults planted in the main study: frozen layers and dead units"])
+                + "\\end{abstract}\n")
+    intro = ("\\section{Introduction}\n\\label{sec:intro}\n\n"
+             + block(s, "0.75 page",
+                     ["Runs", "BrokenRuns", "Caught", "AccCaught", "MedianEpoch", "BothCaught", "BothGap",
+                      "SeedGroups", "SeedGroupsLHD", "FalseAlarms", "HealthyRuns", "AccFalseAlarms", "HarmBig",
+                      "HarmBigLHD", "HarmBigAcc", "HarmSmall", "ZeroLead", "LhdDeadRight", "SageDead", "SageFlagged"],
+                     [f"Your GTSRB model plateaued at {before}% with one convolution left out of the optimizer, and "
+                      f"fixing it gave {after}%. This is your own account, not from the runs  [paper/lhd.tex Section 1]",
+                      "Cite \\citep{stallkamp2012} for GTSRB and \\citep{chwilczynski2024} for errors in deep learning "
+                      "code that raise no exception",
+                      "When it fires, LHD reports the layer, the signals out of range, a likely cause, and a suggested "
+                      "check, then stops the run  [src/lhd/monitor.py]"]))
+    related = ("\\section{Related Work}\n\\label{sec:related}\n\n"
+               + block(s, "0.5 page", [], related_notes()
+                       + ["Thresholds the fixed rules use: SageMaker DeadRelu 50%, DeepDiagnosis 70%, wandb-callbacks "
+                          "80%. LHD instead measures a range for every layer, signal, and epoch from healthy runs of "
+                          "the same network  [experiments/paper.py, src/lhd/baseline.py]"]))
+    method = ("\\section{Method}\n\\label{sec:method}\n\n"
+              + block(s, "1 page, including Equation 1, Table 1, and Figure 1",
+                      ["ProbeSize", "Margin", "Floor", "Patience", "CalibrationPerNet", "SettingsCommit", "SettingsDate",
+                       "DivergenceFired", "VanishingFired", "RunawayFired"],
+                      ["Four signals per layer at the end of every epoch  [src/lhd/signals.py]",
+                       "  weight change ||W_e - W_(e-1)|| / ||W_(e-1)||, weights and bias flattened, exactly 0 for a frozen layer",
+                       "  gradient norm, mean of ||dL/dW|| over the epoch's batches, after backward and before the optimizer step",
+                       "  weight norm ||W_e||",
+                       "  dead unit fraction, share of units whose ReLU output is exactly 0 for every probe input; a filter "
+                       "counts only when 0 at every position; probe batch fixed, evaluation mode, no gradients",
+                       "Range from calibration runs only, lowest a and highest b per layer, signal, and epoch; a value "
+                       "that is not finite is always out of range; broken runs never set the range  [src/lhd/baseline.py]",
+                       "The floor keeps a signal that is 0 in every healthy run from flagging one unusual unit",
+                       "Alarm when one signal of one layer is out of range p epochs in a row; ties go to the first layer "
+                       "in data flow order  [src/lhd/detector.py]",
+                       "m, f, and p come from the library tests written 12 October 2026 and were committed before any "
+                       "study run; an earlier draft used a multiple of the largest healthy value  [paper/lhd.tex Section 3.3]",
+                       "Cause rules in Table 1, checked top to bottom  [src/lhd/diagnosis.py]; the main study tested only "
+                       "the frozen layer and dead unit rules"])
+              + "\n\\begin{equation}\nx < a_{\\ell s e}(1 - m) \\quad \\text{or} \\quad x > b_{\\ell s e}(1 + m) + f\n"
+                "\\label{eq:range}\n\\end{equation}\n\n"
+              + table_float("rules", "rules", "the cause LHD names for each pattern of the alarmed layer's signals")
+              + "\n% NUMBERS for Figure 1\n"
+              + "\n".join(f"%   {s[m].shown():<22}  \\lhd{m:<20}  {s[m].what}" for m in
+                          ("FigRun", "FigLayer", "FigAlarm", "FigAccuracy", "FigAccuracyRange", "FigFinal",
+                           "FigFinalRange", "CalibrationPerNet")) + "\n"
+              + figure_float("how_lhd_works", "(a) the frozen layer's weight change against the calibration range and "
+                                              "(b) the same run's validation accuracy"))
+    setup = ("\\section{Experimental Setup}\n\\label{sec:setup}\n\n"
+             + block(s, "0.5 page, including Table 2",
+                     ["Runs", "CalibrationRuns", "FreshRuns", "BrokenRuns", "OtherRuns", "MlpWidths", "CnnFilters",
+                      "CnnDense", "TransformerWidth", "TransformerHeads", "TransformerBlocks", "TransformerHidden",
+                      "LearningRate", "Threads", "CalibrationSeeds", "ScoredSeedStart", "SeedsPerFault", "DeadFractions",
+                      "DeadBias", "DeadChecks", "Patience", "PlanCommit", "PlanDate"],
+                     ["Adam with a cosine schedule, one CPU thread  [experiments/train.py]",
+                      "A broken run and the fresh healthy run with the same seed differ only by the fault; that run "
+                      "is its twin, and the twin's final accuracy gives the fault's cost",
+                      "Frozen layer: weights and bias put back after every optimizer step, the same failure as a layer "
+                      "left out of the optimizer; planted in every watched layer  [src/lhd/faults.py]",
+                      "Dead units: incoming weights 0 and bias as above, so the ReLU output is 0 for every input; "
+                      "planted in every layer followed by a ReLU  [experiments/train.py]",
+                      "Every run trained to the end, and LHD's alarm comes from replaying the saved signals  "
+                      "[src/lhd/replay.py]",
+                      "Accuracy curve: fires when validation accuracy is below the lowest calibration value p epochs "
+                      "in a row, with no margin  [experiments/evaluate.py]",
+                      "Zero update check: a layer's weights do not move in an epoch, like SageMaker's UnchangedTensor",
+                      "Dead unit checks at the thresholds above: SageMaker DeadRelu 50%, DeepDiagnosis 70%, "
+                      "wandb-callbacks 80%, plus a 25% rule and any dead unit; all held to p epochs and counted only "
+                      "at the planted layer",
+                      "Caught means the detector fired at or after the fault's onset; a false alarm is any alarm on a "
+                      "fresh healthy run; the gap is the accuracy curve's epoch minus LHD's, never counted as one "
+                      "past the end"])
+             + table_float("networks", "networks", "each network's dataset, size, epochs, and runs, with a total row"))
+    results = ("\\section{Results}\n\\label{sec:results}\n% BUDGET 2 pages for the four parts below, "
+               "split as suggested under each heading\n\n") + "\n".join([
+        "\\subsection{LHD and the accuracy curve}\n\\label{sec:detection}\n\n"
+        + block(s, "about 0.6 page, including Table 3",
+                ["Caught", "BrokenRuns", "CaughtRate", "CaughtInterval", "AccCaught", "AccCaughtRate", "MedianEpoch",
+                 "AccMedianEpoch", "AccNever", "SilentShare", "BothCaught", "BothGap", "BothMedian", "BothAccEarlier",
+                 "BothTies", "SeedGroups", "SeedGroupsLHD", "LayerRight", "LayerRightRuns", "CauseRight",
+                 "CauseRightRuns"],
+                ["Per network values are in Table 3  [tables/headline.tex]",
+                 "Epoch 3 is the earliest alarm possible for a fault planted at epoch 1 when p is 3",
+                 "Figure A1 in the appendix shows the share flagged by each epoch"])
+        + table_float("headline", "headline", "LHD next to the accuracy curve in each network"),
+        "\\subsection{Faults that cost accuracy}\n\\label{sec:harm}\n\n"
+        + block(s, "about 0.3 page",
+                ["HarmSmall", "HarmSmallLHD", "HarmSmallAcc", "HarmMid", "HarmMidLHD", "HarmMidAcc", "HarmBig",
+                 "HarmBigLHD", "HarmBigAcc", "CnnFrozenDrop", "CnnHalfDeadDrop", "OtherMaxDrop"],
+                ["Cost is the final accuracy below the healthy twin with the same seed",
+                 f"Compare with your GTSRB model, where the frozen convolution cost {int(after) - int(before)} points"]),
+        "\\subsection{Dead units and fixed thresholds}\n\\label{sec:fixed}\n\n"
+        + block(s, "about 0.8 page, including Figure 2",
+                ["ZeroFrozenRuns", "ZeroFrozenOneEpoch", "ZeroEpoch", "LhdFrozenEpoch", "ZeroLead", "ZeroFlagged",
+                 "LhdFrozenRight", "LhdDeadRight", "LhdDeadAny", "FalseAlarms", "QuarterDead", "QuarterFlagged",
+                 "SageDead", "SageFlagged", "DeepDead", "DeepFlagged", "WandbDead", "WandbFlagged", "AnyDeadDead",
+                 "AnyDeadFlagged", "CnnDenseLow", "CnnDenseHigh", "TransformerDeadMax"],
+                ["Every fixed rule is held to p epochs and counted only when it names the planted layer; the full "
+                 "table is Table A1 in the appendix",
+                 "A frozen layer's weight change is exactly 0, so a check for an exact 0 needs no range and no patience"])
+        + figure_float("detectors_tradeoff", "dead unit faults caught at the planted layer against healthy runs "
+                                             "flagged, for LHD and each fixed rule"),
+        "\\subsection{False alarms}\n\\label{sec:alarms}\n\n"
+        + block(s, "about 0.3 page",
+                ["FalseAlarms", "HealthyRuns", "FalseAlarmRate", "FalseAlarmInterval", "AccFalseAlarms",
+                 "AccFalseAlarmInterval"]
+                + [m for m in s.facts if m.startswith("Alarm")]
+                + ["Floor", "SmallLayerUnits", "OneUnitShare", "DraftCommit", "DraftFresh", "DraftAlarms", "LaterFresh",
+                   "LaterAlarms"],
+                ["When no calibration run has a dead unit in a layer, the top of its range is the floor, so one dead "
+                 "unit can cross it",
+                 "An alarm for too few dead units points to no fault; checking only the top of the range would "
+                 "remove it"]),
+    ])
+    limitations = ("\\section{Limitations}\n\\label{sec:limits}\n\n"
+                   + block(s, "0.5 page. Every item below must stay in.",
+                           ["ZeroFrozenOneEpoch", "ZeroEpoch", "ZeroLead", "LhdDeadRight", "CalibrationPerNet"]
+                           + [m for m in s.facts if m.startswith("Cal") and m[3] in LETTERS and m[4:] in
+                              ("Runs", "Worst", "Net")]
+                           + ["CnnDenseLow", "CnnDenseHigh", "CnnDenseACaught", "CnnDenseBCaught", "CnnDenseCCaught",
+                              "HarmSmall", "BrokenRuns", "VanishingFired", "RunawayFired", "DivergenceFired", "Floor",
+                              "SmallLayerUnits", "OneUnitShare", "EpochRange", "TransformerAcc", "MlpParams",
+                              "CnnParams", "TransformerParams", "Threads", "FreshThirdSet", "OtherRuns",
+                              "WrongCauseRuns", "WrongCauseList"],
+                           limitation_items(s)))
+    conclusion = ("\\section{Conclusion}\n\\label{sec:conclusion}\n\n"
+                  + block(s, "3 sentences", ["Runs", "CaughtRate", "LayerRight", "FalseAlarms", "HealthyRuns",
+                                             "LhdDeadRight"], []))
+    statement = ai_statement(tex)
+    back = ("% MAIN TEXT ENDS HERE. Everything above must fit in 6 pages.\n\n"
+            "\\section*{Use of generative AI}\n\\label{sec:ai}\n\n"
+            + block(s, "not counted", [], ["The long paper's statement, for reference  [paper/lhd.tex]",
+                                           statement])
+            + "\n\\section*{Code and data}\n\\label{sec:code}\n\n"
+            + block(s, "not counted", ["PlanCommit", "DraftCommit", "SettingsCommit"],
+                    [f"Repository {long.REPO}", "The long version is tagged v0-long"])
+            + "\n\\input{../references}\n")
+    end = "\n\\end{document}\n"
+    return "\n".join([preamble(), abstract, intro, related, method, setup, results, limitations, conclusion, back, end])
+
+
 def sheet(d: long.Data) -> Sheet:
     s = Sheet()
     for part in (headline, harm, detectors, false_alarms, method_facts, setup_facts, limitation_facts,
@@ -536,6 +784,7 @@ def main(argv=None) -> None:
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--facts", action="store_true", help="print every number with its source and stop")
+    parser.add_argument("--outline", action="store_true", help="write paper/short/lhd_short.tex if it is missing")
     args = parser.parse_args(argv)
     d = long.Data()
     drawn = write_figures()
@@ -549,6 +798,12 @@ def main(argv=None) -> None:
     (SHORT / "numbers.tex").write_text(s.tex())
     print(f"wrote {SHORT / 'numbers.tex'} with {len(s.facts)} numbers", flush=True)
     write_tables(d)
+    if args.outline:
+        target = SHORT / "lhd_short.tex"
+        if target.exists():
+            raise SystemExit(f"{target} exists and holds your prose, so it is left alone")
+        target.write_text(outline(s, d))
+        print(f"wrote {target}", flush=True)
 
 
 if __name__ == "__main__":
