@@ -16,14 +16,18 @@ from __future__ import annotations
 import inspect
 import re
 import subprocess
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 
+from experiments import data as data_code
 from experiments import models
+from experiments import train as train_code
 from experiments import paper as long
-from experiments.evaluate import SETTINGS
-from experiments.grid import CALIBRATION_SEEDS
-from experiments.train import ARCHS
+from experiments.data import PROBE_SIZE, TextTask
+from experiments.evaluate import DEAD_CHECKS, SETTINGS
+from experiments.grid import CALIBRATION_SEEDS, DEAD_FRACTIONS, FAULT_SEEDS, FRESH_SEEDS, LATE_ONSET
+from experiments.train import ARCHS, DEAD_BIAS, train_run
 
 SHORT = long.PAPER / "short"
 SUMMARY = "results/summary.json"
@@ -257,9 +261,198 @@ def false_alarms(s: Sheet, d: long.Data) -> None:
         s.add("OneUnitShare", f"{100 / units:.2f}\\%", "one dead unit in that layer", CODE["models"])
 
 
+def method_facts(s: Sheet, d: long.Data) -> None:
+    s.add("Margin", SETTINGS["margin"], "margin m", CODE["evaluate"])
+    s.add("Patience", SETTINGS["patience"], "patience p, epochs in a row", CODE["evaluate"])
+    s.add("ProbeSize", PROBE_SIZE, "validation examples in the probe batch", CODE["data"])
+    settings_commit = re.search(r"commit/([0-9a-f]{7})", long.method(d)).group(1)
+    s.add("SettingsCommit", settings_commit, "commit that fixed m, f, and p", CODE["paper"])
+    s.add("SettingsDate", git_date(settings_commit), "date of that commit", "git log")
+    named = Counter()
+    for fam in EXTRA_KEYS:
+        named.update(d.extra(fam)["causes"])
+    s.add("DivergenceFired", named.get("diverged", 0), "runs where the divergence rule fired, all faults",
+          SUMMARY)
+    s.add("VanishingFired", named.get("vanishing_gradient", 0), "runs named vanishing gradient, extra faults only",
+          SUMMARY)
+    s.add("RunawayFired", named.get("runaway_weights", 0), "runs named runaway weights, extra faults only", SUMMARY)
+
+
+def setup_facts(s: Sheet, d: long.Data) -> None:
+    for a in d.archs:
+        key = {"mlp": "Mlp", "cnn": "Cnn", "transformer": "Transformer"}[a]
+        s.add(f"{key}Params", f"{int(d.networks[a]['parameters']):,}", f"parameters, {long.PROSE[a]}",
+              table("networks.csv"))
+        s.add(f"{key}Epochs", ARCHS[a]["epochs"], f"epochs, {long.PROSE[a]}", CODE["train"])
+        s.add(f"{key}Fresh", d.role_count(a, "fresh"), f"fresh healthy runs, {long.PROSE[a]}", SUMMARY)
+        s.add(f"{key}Broken", d.main_count(a), f"broken runs in the main study, {long.PROSE[a]}", SUMMARY)
+        s.add(f"{key}Other", d.other_count(a), f"runs with extra faults, {long.PROSE[a]}", SUMMARY)
+    mlp, cnn = build("mlp"), build("cnn")
+    s.add("MlpWidths", ", ".join(str(mlp.lhd_layers()[n][0].out_features) for n in ("fc1", "fc2", "fc3")),
+          "hidden widths of the fully connected network", CODE["models"])
+    s.add("CnnFilters", ", ".join(str(cnn.lhd_layers()[n][0].out_channels) for n in ("conv1", "conv2", "conv3")),
+          "filters in the CNN's three convolutions", CODE["models"])
+    s.add("CnnDense", cnn.fc1.out_features, "units in the CNN's dense layer", CODE["models"])
+    defaults = inspect.signature(models.TinyTransformer).parameters
+    for name, label in (("width", "Width"), ("heads", "Heads"), ("depth", "Blocks"), ("hidden", "Hidden")):
+        s.add(f"Transformer{label}", defaults[name].default, f"transformer {name}", CODE["models"])
+    s.add("CnnValImages", f"{ARCHS['cnn']['val_size']:,}", "CNN validation images", CODE["train"])
+    s.add("TextWindows", inspect.signature(TextTask).parameters["val_windows"].default,
+          "transformer validation windows", CODE["data"])
+    s.add("TextContext", ARCHS["transformer"]["context"], "characters per window", CODE["train"])
+    split = float(source_number(data_code, r"int\(([\d.]+) \* len\(tokens\)\)"))
+    s.add("TextHeldOut", f"{100 * (1 - split):.0f}\\%", "share of the text held out for validation", CODE["data"])
+    rates = {cfg["lr"] for cfg in ARCHS.values()}
+    s.add("LearningRate", f"{rates.pop():g}" if len(rates) == 1 else "varies", "Adam learning rate", CODE["train"])
+    s.add("Threads", inspect.signature(train_run).parameters["threads"].default, "CPU threads per run", CODE["train"])
+    s.add("CalibrationSeeds", f"{min(CALIBRATION_SEEDS)} to {max(CALIBRATION_SEEDS)}", "calibration seeds",
+          CODE["grid"])
+    s.add("ScoredSeedStart", min(FRESH_SEEDS["core"] + FAULT_SEEDS["core"]), "first seed of scored runs",
+          CODE["grid"])
+    s.add("SeedsPerFault", len(FAULT_SEEDS["core"]) + len(FAULT_SEEDS["seeds"]), "seeds per fault condition",
+          CODE["grid"])
+    s.add("DeadFractions", long.listing([f"{100 * f:g}\\%" for f in DEAD_FRACTIONS]), "dead unit shares planted",
+          CODE["grid"])
+    s.add("DeadBias", f"${DEAD_BIAS:g}$", "bias given to killed units", CODE["train"])
+    s.add("UnitSeedOffset", source_number(train_code, r"seed \+ (\d+)"),
+          "added to the run's seed to pick the killed units", CODE["train"])
+    s.add("DeadChecks", long.listing([f"{100 * t:g}\\%" for t in DEAD_CHECKS]), "fixed dead unit thresholds scored",
+          CODE["evaluate"])
+    fresh = d.fresh_by_phase()
+    s.add("FreshFirstSet", fresh["core"], "fresh healthy runs in the first set", table("runs.csv"))
+    s.add("FreshThirdSet", fresh["more"], "fresh healthy runs in the third set", table("runs.csv"))
+    s.add("PlanCommit", long.PLAN_COMMIT, "commit with the run plan", CODE["paper"])
+    s.add("PlanDate", git_date(long.PLAN_COMMIT), "date of that commit", "git log")
+    s.add("DraftCommit", long.DRAFT["commit"], "commit of the earlier draft", CODE["paper"])
+    s.add("DraftFresh", long.DRAFT["fresh"], "fresh healthy runs done at that draft", CODE["paper"])
+    s.add("DraftAlarms", long.DRAFT["alarms"], "false alarms that draft reported", CODE["paper"])
+    h = d.pooled["healthy"]["lhd_false_alarm"]
+    s.add("LaterFresh", sum(fresh.values()) - long.DRAFT["fresh"], "fresh healthy runs finished after that draft",
+          table("runs.csv"))
+    s.add("LaterAlarms", h["k"] - long.DRAFT["alarms"], "false alarms those later runs added", SUMMARY)
+
+
+def limitation_facts(s: Sheet, d: long.Data) -> None:
+    epochs = [ARCHS[a]["epochs"] for a in d.archs]
+    s.add("EpochRange", f"{min(epochs)} to {max(epochs)}", "epochs per run", CODE["train"])
+    trans = [float(r["final_acc"]) for r in d.runs if r["arch"] == "transformer" and r["role"] == "fresh"]
+    s.add("TransformerAcc", f"{100 * sum(trans) / len(trans):.0f}\\%",
+          "mean final next character accuracy of fresh transformer runs", table("runs.csv"))
+    for fam in long.DEAD:
+        row = next(r for r in d.per_layer if r["arch"] == "cnn" and r["layer"] == "fc1" and r["family"] == fam)
+        s.add(f"CnnDense{LETTERS[long.DEAD.index(fam)]}Caught", f"{row['detected']} of {row['runs']}",
+              f"CNN fc1 runs with {fam[4:]}% dead units that LHD caught", table("per_layer.csv"))
+    cal = defaultdict(list)
+    for r in d.calibration:
+        cal[(r["arch"], int(r["k"]))].append(float(r["false_alarm"]))
+    for i, k in enumerate(sorted({k for _, k in cal})):
+        values = {a: sum(cal[(a, k)]) / len(cal[(a, k)]) for a in d.archs if cal[(a, k)]}
+        worst = max(values, key=values.get)
+        s.add(f"Cal{LETTERS[i]}Runs", k, "calibration runs used to build the range", table("sweep_calibration.csv"))
+        s.add(f"Cal{LETTERS[i]}Worst", f"{100 * values[worst]:.0f}\\%",
+              "highest mean false alarm rate over networks at that size", table("sweep_calibration.csv"))
+        s.add(f"Cal{LETTERS[i]}Net", long.PROSE[worst], "network with that rate", table("sweep_calibration.csv"))
+
+
+def appendix_facts(s: Sheet, d: long.Data) -> None:
+    fam = ("frozen",) + long.DEAD
+    for name, key in (("Accuracy curve, 1 epoch below healthy", "AccOne"), ("Loss curve, 3 epochs above healthy", "Loss")):
+        caught, alarms = d.detector(name, fam), d.detector_alarms(name)
+        s.add(f"{key}Caught", long.kofn(caught), f"{name}, broken runs caught", table("detectors.csv"))
+        s.add(f"{key}Flagged", long.kofn(alarms), f"{name}, healthy runs flagged", table("detectors.csv"))
+    for i, f in enumerate(long.DEAD):
+        lhd, acc = d.detector("LHD", (f,)), d.detector("Accuracy curve, 3 epochs below healthy", (f,))
+        s.add(f"Dose{LETTERS[i]}Lhd", long.pct(lhd["k"], lhd["n"]), f"LHD catches with {f[4:]}% dead units",
+              table("detectors.csv"))
+        s.add(f"Dose{LETTERS[i]}Acc", long.pct(acc["k"], acc["n"]), f"accuracy curve catches with {f[4:]}% dead units",
+              table("detectors.csv"))
+    misses = [r for r in d.per_layer if r["family"] in long.DEAD and int(r["detected"]) < int(r["runs"])]
+    s.add("DoseMisses", "; ".join(f"{long.PROSE[r['arch']]} {r['layer']} at {r['family'][4:]}\\% "
+                                  f"({r['detected']} of {r['runs']})" for r in misses),
+          "every layer and share where LHD missed some dead unit runs", table("per_layer.csv"))
+    groups = Counter((r["arch"], r["family"], r["fault_layer"], r["lhd_layer"]) for r in d.wrong)
+    s.add("WrongLayerRuns", len(d.wrong), "caught runs where LHD named another layer", table("wrong_layers.csv"))
+    s.add("WrongLayerList", "; ".join(f"{long.fault_name(f, layer)} in the {long.PROSE[a]} named {named} ({n})"
+                                      for (a, f, layer, named), n in sorted(groups.items())),
+          "those runs", table("wrong_layers.csv"))
+    causes = Counter((r["arch"], r["family"], r["fault_layer"], r["lhd_cause"]) for r in d.runs
+                     if r["role"] == "fault" and r["family"] in fam and r["detected"] == "True"
+                     and r["layer_ok"] == "True" and r["cause_ok"] == "False")
+    s.add("WrongCauseRuns", sum(causes.values()), "right layer but wrong cause", table("runs.csv"))
+    s.add("WrongCauseList", "; ".join(f"{long.fault_name(f, layer)} in the {long.PROSE[a]} called "
+                                      f"{cause.replace('_', ' ')} ({n})" for (a, f, layer, cause), n in sorted(causes.items())),
+          "those runs", table("runs.csv"))
+    rows = {name: (caught, both) for name, caught, both in long.pooled_ablation(d)}
+    for name, key in (("all four", "AllFour"), ("without dead_unit_fraction", "NoDead"),
+                      ("without weight_change", "NoChange")):
+        caught, both = rows[name]
+        s.add(f"Ablation{key}Caught", f"{100 * caught:.0f}\\%", f"broken runs caught, {name.replace('_', ' ')}",
+              table("ablation.csv"))
+        s.add(f"Ablation{key}Both", f"{100 * both:.0f}\\%", f"right layer and cause, {name.replace('_', ' ')}",
+              table("ablation.csv"))
+    sweep = {}
+    for margin in (0.0, SETTINGS["margin"]):
+        picked = [r for r in d.sweep if float(r["margin"]) == margin and int(r["patience"]) == SETTINGS["patience"]
+                  and float(r["floor"]) == SETTINGS["floor"]]
+        fresh, faults = sum(int(r["fresh"]) for r in picked), sum(int(r["faults"]) for r in picked)
+        sweep[margin] = (sum(float(r["false_alarm"]) * int(r["fresh"]) for r in picked) / fresh,
+                         sum(float(r["detection"]) * int(r["faults"]) for r in picked) / faults)
+    s.add("EdgeFlagged", f"{100 * sweep[0.0][0]:.0f}\\%", "healthy runs flagged with no margin",
+          table("sweep_settings.csv"))
+    s.add("EdgeCaught", f"{100 * sweep[0.0][1]:.0f}\\%", "broken runs caught with no margin", table("sweep_settings.csv"))
+    s.add("MarginFlagged", f"{100 * sweep[SETTINGS['margin']][0]:.0f}\\%", "healthy runs flagged with the margin used",
+          table("sweep_settings.csv"))
+    s.add("MarginCaught", f"{100 * sweep[SETTINGS['margin']][1]:.0f}\\%", "broken runs caught with the margin used",
+          table("sweep_settings.csv"))
+    summary = d.summary["archs"]
+    for a in d.archs:
+        key = {"mlp": "Mlp", "cnn": "Cnn", "transformer": "Transformer"}[a]
+        s.add(f"{key}Overhead", f"{100 * summary[a]['healthy']['overhead']:.1f}\\%",
+              f"training time LHD added, {long.PROSE[a]}", SUMMARY)
+    s.add("ComputeSaved", f"{100 * d.pooled['proposal']['mean_compute_saved']:.0f}\\%",
+          "mean training saved by stopping each broken run at LHD's alarm", SUMMARY)
+    s.add("TrainingHours", f"{float(d.compute['all']['training_hours']):.0f}", "CPU hours for all runs",
+          table("compute.csv"))
+    extra_facts(s, d)
+
+
+def extra_facts(s: Sheet, d: long.Data) -> None:
+    import math
+
+    s.add("LateOnset", LATE_ONSET, "epoch the late faults and learning rate jumps start", CODE["grid"])
+    for fam, key in EXTRA_KEYS.items():
+        info = d.extra(fam)
+        s.add(f"{key}Runs", info["detected"][1], f"runs, {fam}", SUMMARY)
+        s.add(f"{key}Caught", info["detected"][0], f"LHD caught, {fam}", SUMMARY)
+        s.add(f"{key}Both", info["both"][0], f"LHD named layer and cause, {fam}", table("runs.csv"))
+        s.add(f"{key}Acc", info["acc"], f"accuracy curve caught, {fam}", SUMMARY)
+        named = [f"{long.CAUSE_PHRASE.get(c, c.replace('_', ' '))} ({n})" for c, n in info["causes"].most_common()
+                 if c != "not detected"]
+        s.add(f"{key}Causes", "; ".join(named), f"causes LHD named, {fam}", SUMMARY)
+    short = min(int(d.networks[a]["epochs"]) for a in d.archs)
+    normal = 0.001 * (1 + math.cos(math.pi * (LATE_ONSET - 1) / short)) / 2
+    s.add("LrNormal", f"{normal:.4g}", f"learning rate at epoch {LATE_ONSET} in the {short} epoch networks",
+          CODE["train"])
+    s.add("LrTimesTen", f"{10 * normal:.4g}", "the same after a tenfold jump", CODE["train"])
+    s.add("LrTimesHundred", f"{100 * normal:.4g}", "the same after a hundredfold jump", CODE["train"])
+    zero1, zero3 = d.family_row("Zero update check", "latefrozen"), d.family_row("Zero update check, 3 epochs",
+                                                                                 "latefrozen")
+    s.add("LateZeroEpoch", f"{float(zero1['median_epoch']):.0f}", "zero update check epoch on late frozen layers",
+          table("detectors.csv"))
+    s.add("LateZeroTies", f"{zero3['ties']} of {zero3['broken_runs']}",
+          "late frozen runs where the three epoch check fired with LHD", table("detectors.csv"))
+    cut = d.family_row("Zero update check, 3 epochs", "detach")
+    s.add("CutZero", f"{cut['caught_right_layer']} of {cut['broken_runs']}",
+          "gradient cuts the zero update check caught before the cut", table("detectors.csv"))
+    sage = d.family_row(long.SAGEMAKER + ", 3 epochs", "latedead50")
+    s.add("LateDeadSage", f"{sage['caught_right_layer']} of {sage['broken_runs']}",
+          "late half dead runs the 50% rule caught at the planted layer", table("detectors.csv"))
+
+
 def sheet(d: long.Data) -> Sheet:
     s = Sheet()
-    for part in (headline, harm, detectors, false_alarms):
+    for part in (headline, harm, detectors, false_alarms, method_facts, setup_facts, limitation_facts,
+                 appendix_facts):
         part(s, d)
     return s
 
