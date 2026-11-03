@@ -14,6 +14,7 @@ file it comes from.
 from __future__ import annotations
 
 import inspect
+import os
 import re
 import subprocess
 from collections import Counter, defaultdict
@@ -449,6 +450,79 @@ def extra_facts(s: Sheet, d: long.Data) -> None:
           "late half dead runs the 50% rule caught at the planted layer", table("detectors.csv"))
 
 
+LONG_TABLES = {"tab:rules": "rules", "tab:headline": "headline", "tab:detectors": "detectors",
+               "tab:ablation": "ablation", "tab:extra": "extra"}
+
+
+def tabular(block: str) -> str:
+    """The tabular of a long paper table, without its float or caption."""
+    start = block.index("\\begin{tabular}")
+    end = block.index("\\end{tabular}") + len("\\end{tabular}")
+    return block[start:end] + "\n"
+
+
+def networks_table(d: long.Data) -> str:
+    """Table 2 in one header row, with a total that adds up to every run."""
+    rows, totals = [], [0, 0, 0, 0]
+    for a in d.archs:
+        n = d.networks[a]
+        runs = [d.role_count(a, "calibration"), d.role_count(a, "fresh"), d.main_count(a), d.other_count(a)]
+        totals = [t + r for t, r in zip(totals, runs)]
+        rows.append(f"{long.NAMES[a]} & {long.DATASETS[a]} & {int(n['parameters']):,} & {n['epochs']} & "
+                    + " & ".join(str(r) for r in runs) + " \\\\")
+    if sum(totals) != d.total_runs():
+        raise SystemExit(f"Table 2 adds up to {sum(totals)} runs, not {d.total_runs()}")
+    rows += ["\\midrule", "Total & & & & " + " & ".join(str(t) for t in totals) + " \\\\"]
+    return ("\\begin{tabular}{@{}llrrrrrr@{}}\n\\toprule\n"
+            "Network & Dataset & Parameters & Epochs & Calibration & Fresh healthy & Frozen or dead & Other faults \\\\\n"
+            "\\midrule\n" + "\n".join(rows) + "\n\\bottomrule\n\\end{tabular}\n")
+
+
+def write_tables(d: long.Data) -> None:
+    found = long.tables("\n".join([long.method(d), long.setup(d), long.results(d)]))
+    missing = [label for label in LONG_TABLES if label not in found]
+    if missing:
+        raise SystemExit(f"long paper tables not found: {missing}")
+    folder = SHORT / "tables"
+    folder.mkdir(parents=True, exist_ok=True)
+    for label, name in LONG_TABLES.items():
+        (folder / f"{name}.tex").write_text(tabular(found[label]))
+    (folder / "networks.tex").write_text(networks_table(d))
+    print(f"wrote {len(LONG_TABLES) + 1} tables to {folder}", flush=True)
+
+
+def write_figures() -> dict:
+    """The long paper's four figures, drawn by the same code into paper/short/figures."""
+    from experiments import paper_figures as figs
+
+    os.environ.setdefault("SOURCE_DATE_EPOCH", "0")
+    figs.PAPER_FIGURES = SHORT / "figures"
+    figs.setup()
+    rows = figs.read_csv("runs.csv")
+    return {"how_lhd_works": figs.how_lhd_works(rows), "detection_over_time": figs.detection_over_time(rows),
+            "detectors_tradeoff": figs.detectors_tradeoff(), "per_layer": figs.per_layer(rows)}
+
+
+def figure_facts(s: Sheet, drawn: dict) -> None:
+    one = drawn["how_lhd_works"]
+    source = "experiments/paper_figures.py"
+    s.add("FigRun", one["run_id"], "run in Figure 1", source)
+    s.add("FigLayer", one["layer"], "frozen layer in Figure 1", source)
+    s.add("FigAlarm", one["alarm"], "epoch LHD stops that run", source)
+    s.add("FigAccuracy", f"{one['accuracy']:.1f}\\%", "its validation accuracy when LHD stops it", source)
+    s.add("FigAccuracyRange", f"{one['range'][0]:.1f} to {one['range'][1]:.1f}\\%",
+          "calibration accuracy range at that epoch", source)
+    s.add("FigFinal", f"{one['final']:.1f}\\%", "its final accuracy", source)
+    s.add("FigFinalRange", f"{one['final_range'][0]:.1f} to {one['final_range'][1]:.1f}\\%",
+          "calibration accuracy range at the last epoch", source)
+    for a, shares in drawn["detection_over_time"].items():
+        key = {"mlp": "Mlp", "cnn": "Cnn", "transformer": "Transformer"}[a]
+        s.add(f"Time{key}Lhd", f"{shares['LHD'][-1]:.0f}\\%", f"broken runs LHD flagged by the end, {long.PROSE[a]}",
+              source)
+        s.add(f"Time{key}Acc", f"{shares['Accuracy curve'][-1]:.0f}\\%",
+              f"broken runs the accuracy curve flagged by the end, {long.PROSE[a]}", source)
+
+
 def sheet(d: long.Data) -> Sheet:
     s = Sheet()
     for part in (headline, harm, detectors, false_alarms, method_facts, setup_facts, limitation_facts,
@@ -463,7 +537,10 @@ def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--facts", action="store_true", help="print every number with its source and stop")
     args = parser.parse_args(argv)
-    s = sheet(long.Data())
+    d = long.Data()
+    drawn = write_figures()
+    s = sheet(d)
+    figure_facts(s, drawn)
     if args.facts:
         for f in s.facts.values():
             print(f"{f.macro:24} {f.shown():34} {f.what}  [{f.source}]")
@@ -471,6 +548,7 @@ def main(argv=None) -> None:
     SHORT.mkdir(parents=True, exist_ok=True)
     (SHORT / "numbers.tex").write_text(s.tex())
     print(f"wrote {SHORT / 'numbers.tex'} with {len(s.facts)} numbers", flush=True)
+    write_tables(d)
 
 
 if __name__ == "__main__":
