@@ -1,15 +1,15 @@
-"""Builds the short LHD paper's numbers, tables, and figures, and compiles it.
+"""Builds the short LHD paper's numbers, tables, figures, and references, and compiles
+the paper and its extended results.
 
 Usage:
-    python -m experiments.paper_short             numbers, tables, figures, and the PDF
+    python -m experiments.paper_short             numbers, tables, figures, and both PDFs
     python -m experiments.paper_short --facts     print every number with its source and stop
-    python -m experiments.paper_short --outline   also write the outline, only if lhd_short.tex is missing
 
 Every number comes from the saved runs through the Data reader that
 experiments.paper uses, so the short paper and the long one read the same
 tables. paper/short/numbers.tex defines one macro per number, such as
-\\lhdRuns for the total run count, and the outline lists each one with the
-file it comes from.
+\\lhdRuns for the total run count, with the file it comes from beside it.
+The prose of lhd_short.tex and lhd_extended.tex is written by hand.
 """
 
 from __future__ import annotations
@@ -78,7 +78,7 @@ class Sheet:
 
     def tex(self) -> str:
         lines = ["% Written by experiments/paper_short.py from the saved runs. Rebuild it, never edit it."]
-        lines += [f"\\newcommand{{\\lhd{f.macro}}}{{{f.value}}}" for f in self.facts.values()]
+        lines += [f"\\newcommand{{\\lhd{f.macro}}}{{{f.value}}}% {f.what} [{f.source}]" for f in self.facts.values()]
         return "\n".join(lines) + "\n"
 
 
@@ -291,9 +291,9 @@ def setup_facts(s: Sheet, d: long.Data) -> None:
         s.add(f"{key}Broken", d.main_count(a), f"broken runs in the main study, {long.PROSE[a]}", SUMMARY)
         s.add(f"{key}Other", d.other_count(a), f"runs with extra faults, {long.PROSE[a]}", SUMMARY)
     mlp, cnn = build("mlp"), build("cnn")
-    s.add("MlpWidths", ", ".join(str(mlp.lhd_layers()[n][0].out_features) for n in ("fc1", "fc2", "fc3")),
+    s.add("MlpWidths", long.listing([str(mlp.lhd_layers()[n][0].out_features) for n in ("fc1", "fc2", "fc3")]),
           "hidden widths of the fully connected network", CODE["models"])
-    s.add("CnnFilters", ", ".join(str(cnn.lhd_layers()[n][0].out_channels) for n in ("conv1", "conv2", "conv3")),
+    s.add("CnnFilters", long.listing([str(cnn.lhd_layers()[n][0].out_channels) for n in ("conv1", "conv2", "conv3")]),
           "filters in the CNN's three convolutions", CODE["models"])
     s.add("CnnDense", cnn.fc1.out_features, "units in the CNN's dense layer", CODE["models"])
     defaults = inspect.signature(models.TinyTransformer).parameters
@@ -370,20 +370,21 @@ def appendix_facts(s: Sheet, d: long.Data) -> None:
         s.add(f"Dose{LETTERS[i]}Acc", long.pct(acc["k"], acc["n"]), f"accuracy curve catches with {f[4:]}% dead units",
               table("detectors.csv"))
     misses = [r for r in d.per_layer if r["family"] in long.DEAD and int(r["detected"]) < int(r["runs"])]
-    s.add("DoseMisses", "; ".join(f"{long.PROSE[r['arch']]} {r['layer']} at {r['family'][4:]}\\% "
-                                  f"({r['detected']} of {r['runs']})" for r in misses),
+    s.add("DoseMisses", long.listing([f"the {long.PROSE[r['arch']]}'s {r['layer']} at {r['family'][4:]}\\% "
+                                      f"({r['detected']} of {r['runs']} caught)" for r in misses]),
           "every layer and share where LHD missed some dead unit runs", table("per_layer.csv"))
     groups = Counter((r["arch"], r["family"], r["fault_layer"], r["lhd_layer"]) for r in d.wrong)
     s.add("WrongLayerRuns", len(d.wrong), "caught runs where LHD named another layer", table("wrong_layers.csv"))
-    s.add("WrongLayerList", "; ".join(f"{long.fault_name(f, layer)} in the {long.PROSE[a]} named {named} ({n})"
-                                      for (a, f, layer, named), n in sorted(groups.items())),
+    s.add("WrongLayerList", long.listing([f"{long.fault_name(f, layer)} in the {long.PROSE[a]} reported as {named} "
+                                          f"({n})" for (a, f, layer, named), n in sorted(groups.items())]),
           "those runs", table("wrong_layers.csv"))
     causes = Counter((r["arch"], r["family"], r["fault_layer"], r["lhd_cause"]) for r in d.runs
                      if r["role"] == "fault" and r["family"] in fam and r["detected"] == "True"
                      and r["layer_ok"] == "True" and r["cause_ok"] == "False")
     s.add("WrongCauseRuns", sum(causes.values()), "right layer but wrong cause", table("runs.csv"))
-    s.add("WrongCauseList", "; ".join(f"{long.fault_name(f, layer)} in the {long.PROSE[a]} called "
-                                      f"{cause.replace('_', ' ')} ({n})" for (a, f, layer, cause), n in sorted(causes.items())),
+    s.add("WrongCauseList", long.listing([f"{long.fault_name(f, layer)} in the {long.PROSE[a]} called a "
+                                          f"{cause.replace('_', ' ')} ({n})"
+                                          for (a, f, layer, cause), n in sorted(causes.items())]),
           "those runs", table("runs.csv"))
     rows = {name: (caught, both) for name, caught, both in long.pooled_ablation(d)}
     for name, key in (("all four", "AllFour"), ("without dead_unit_fraction", "NoDead"),
@@ -429,9 +430,9 @@ def extra_facts(s: Sheet, d: long.Data) -> None:
         s.add(f"{key}Caught", info["detected"][0], f"LHD caught, {fam}", SUMMARY)
         s.add(f"{key}Both", info["both"][0], f"LHD named layer and cause, {fam}", table("runs.csv"))
         s.add(f"{key}Acc", info["acc"], f"accuracy curve caught, {fam}", SUMMARY)
-        named = [f"{long.CAUSE_PHRASE.get(c, c.replace('_', ' '))} ({n})" for c, n in info["causes"].most_common()
-                 if c != "not detected"]
-        s.add(f"{key}Causes", "; ".join(named), f"causes LHD named, {fam}", SUMMARY)
+        named = [f"{long.CAUSE_PHRASE.get(c, c.replace('_', ' '))} in {n} run{'s' if n != 1 else ''}"
+                 for c, n in info["causes"].most_common() if c != "not detected"]
+        s.add(f"{key}Causes", long.listing(named), f"causes LHD named, {fam}", SUMMARY)
     short = min(int(d.networks[a]["epochs"]) for a in d.archs)
     normal = 0.001 * (1 + math.cos(math.pi * (LATE_ONSET - 1) / short)) / 2
     s.add("LrNormal", f"{normal:.4g}", f"learning rate at epoch {LATE_ONSET} in the {short} epoch networks",
@@ -526,331 +527,6 @@ def figure_facts(s: Sheet, drawn: dict) -> None:
               f"broken runs the accuracy curve flagged by the end, {long.PROSE[a]}", source)
 
 
-PLACEHOLDER = "SOHAN WRITES THIS"
-
-
-def block(s: Sheet, budget: str, macros: list[str], notes: list[str]) -> str:
-    """A section's budget, the numbers it needs with their files, other facts, and the placeholder."""
-    lines = [f"% BUDGET {budget}"]
-    if macros:
-        lines.append("% NUMBERS. Each \\lhd macro prints the value next to it, and typing the value works too.")
-        pad = min(22, max(len(s[m].shown()) for m in macros))
-        name = max(len(m) for m in macros) + 4
-        for m in macros:
-            tag = "\\lhd" + m
-            lines.append(f"%   {s[m].shown():<{pad}}  {tag:<{name}}  {s[m].what}  [{s[m].source}]")
-    if notes:
-        lines.append("% FACTS")
-        lines += [f"%   {n}" for n in notes]
-    lines.append(PLACEHOLDER)
-    return "\n".join(lines) + "\n"
-
-
-def figure_float(name: str, shows: str) -> str:
-    return (f"% FIGURE shows {shows}\n\\begin{{figure}}[t]\n\\centering\n"
-            f"\\includegraphics[width=\\linewidth]{{figures/{name}.pdf}}\n\\caption{{{PLACEHOLDER}}}\n"
-            f"\\label{{fig:{name}}}\n\\end{{figure}}\n")
-
-
-def table_float(name: str, label: str, shows: str) -> str:
-    return (f"% TABLE shows {shows}. The tabular is rebuilt from the data, so edit only the caption.\n"
-            f"\\begin{{table}}[t]\n\\centering\n\\small\n\\caption{{{PLACEHOLDER}}}\n\\label{{tab:{label}}}\n"
-            f"\\input{{tables/{name}}}\n\\end{{table}}\n")
-
-
-def story(tex: str) -> tuple[str, str]:
-    before = re.search(r"plateaued at (\d+)\\%", tex).group(1)
-    after = re.search(r"raised the accuracy to (\d+)\\%", tex).group(1)
-    return before, after
-
-
-def related_notes() -> list[str]:
-    text = (long.PAPER / "related_work.tex").read_text()
-    notes = []
-    for name, body in re.findall(r"\\paragraph\{([^}]*)\}(.*?)(?=\\paragraph|\\medskip)", text, re.S):
-        keys = sorted({k.strip() for group in re.findall(r"\\cite[pt]?\{([^}]*)\}", body) for k in group.split(",")})
-        quoted = [(n + w).replace("\\%", "%") for n, w in
-                  re.findall(r"(?<![\w-])(\d+(?:\.\d+)?(?:\\%)?(?: of (?:the )?\d+)?)((?: [A-Za-z0-9-]+){0,2})", body)
-                  if not re.fullmatch(r"(19|20)\d\d", n)]
-        notes.append(f"{name.rstrip('.')}  cites {', '.join(keys)}"
-                     + (f"  numbers it quotes: {'; '.join(quoted)}" if quoted else ""))
-    refs = re.findall(r"\\bibitem\[([^\]]*)\]\{([^}]*)\}", (long.PAPER / "references.tex").read_text())
-    notes.append("All citation keys in paper/references.tex: " + "; ".join(f"{k} {label}" for label, k in refs))
-    return [n + "  [paper/related_work.tex]" if not n.startswith("All") else n for n in notes]
-
-
-def layer_notes() -> list[str]:
-    notes = []
-    for arch in long.ARCH_ORDER:
-        model = build(arch)
-        notes.append(f"{long.PROSE[arch]}: watched layers {', '.join(model.lhd_layers())}; ReLU layers where units "
-                     f"can die {', '.join(models.relu_layers(model))}  [experiments/models.py]")
-    return notes
-
-
-def ai_statement(tex: str) -> str:
-    found = re.search(r"\\section\*\{Use of generative AI\}\n\n(.*?)\n\n\\section\*", tex, re.S)
-    return found.group(1).strip() if found else ""
-
-def limitation_items(s: Sheet) -> list[str]:
-    """The nine limitations that must stay in, with the numbers behind each."""
-    def v(m: str) -> str:
-        return s[m].shown()
-
-    return [
-        f"1. The zero update check catches frozen layers {v('ZeroLead')} epochs sooner ({v('ZeroFrozenOneEpoch')} at "
-        f"epoch {v('ZeroEpoch')}); LHD's advantage is dead units",
-        "2. Faults were planted to show up in the signals LHD measures; they are not real bugs",
-        "3. Calibration needs 10 to 20 healthy runs of the same network and assumes they are healthy; this costs more "
-        f"than LHD saves for a model trained once. The study used {v('CalibrationPerNet')} per network, and the Cal "
-        "numbers above show the false alarms at each size",
-        "4. LHD misses dead units where healthy runs already lose many units (the CNN's dense layer, "
-        f"{v('CnnDenseLow')} to {v('CnnDenseHigh')} dead in healthy runs)",
-        f"5. {v('HarmSmall')} of {v('BrokenRuns')} planted faults cost less than half a point of accuracy",
-        "6. Only the frozen layer and dead unit rules were tested in the main study; the divergence rule never fired "
-        f"({v('DivergenceFired')} runs). In the main study the vanishing gradient rule fired only as a wrong cause, "
-        f"{v('WrongCauseList')}",
-        f"7. The {v('Floor')} floor is too low for small layers; one dead unit of {v('SmallLayerUnits')} is "
-        f"{v('OneUnitShare')}",
-        f"8. Small networks, laptop CPU, {v('EpochRange')} epochs; the transformer reaches about {v('TransformerAcc')} "
-        "accuracy; no GPU, large models, or other optimizers",
-        f"9. The third set of runs ({v('FreshThirdSet')} healthy runs and the extra faults) was trained after the main "
-        "results",
-    ]
-
-
-def preamble() -> str:
-    return long.preamble().replace("\\begin{document}", "\\usepackage{placeins}\n\\input{numbers}\n\n\\begin{document}")
-
-
-def outline(s: Sheet, d: long.Data) -> str:
-    tex = long_tex()
-    before, after = story(tex)
-    hdr = ["Runs", "BrokenRuns", "Caught", "CaughtRate", "CaughtInterval", "AccCaught", "LayerRight", "FalseAlarms",
-           "HealthyRuns", "FalseAlarmInterval", "BothCaught", "BothGap", "HarmBig", "HarmBigLHD", "HarmBigAcc",
-           "ZeroLead", "LhdDeadRight"]
-    nets = "fully connected network on Fashion-MNIST, CNN on GTSRB, small transformer on Tiny Shakespeare  [experiments/paper.py]"
-    abstract = ("\\begin{abstract}\n"
-                + block(s, "120 words at most", hdr,
-                        ["LHD stands for Layer Health Diagnostics", nets,
-                         "Faults planted in the main study: frozen layers and dead units"])
-                + "\\end{abstract}\n")
-    intro = ("\\section{Introduction}\n\\label{sec:intro}\n\n"
-             + block(s, "0.75 page",
-                     ["Runs", "BrokenRuns", "Caught", "AccCaught", "MedianEpoch", "BothCaught", "BothGap",
-                      "SeedGroups", "SeedGroupsLHD", "FalseAlarms", "HealthyRuns", "AccFalseAlarms", "HarmBig",
-                      "HarmBigLHD", "HarmBigAcc", "HarmSmall", "ZeroLead", "LhdDeadRight", "SageDead", "SageFlagged"],
-                     [f"Your GTSRB model plateaued at {before}% with one convolution left out of the optimizer, and "
-                      f"fixing it gave {after}%. This is your own account, not from the runs  [paper/lhd.tex Section 1]",
-                      "Cite \\citep{stallkamp2012} for GTSRB and \\citep{chwilczynski2024} for errors in deep learning "
-                      "code that raise no exception",
-                      "When it fires, LHD reports the layer, the signals out of range, a likely cause, and a suggested "
-                      "check, then stops the run  [src/lhd/monitor.py]"]))
-    related = ("\\section{Related Work}\n\\label{sec:related}\n\n"
-               + block(s, "0.5 page", [], related_notes()
-                       + ["Thresholds the fixed rules use: SageMaker DeadRelu 50%, DeepDiagnosis 70%, wandb-callbacks "
-                          "80%. LHD instead measures a range for every layer, signal, and epoch from healthy runs of "
-                          "the same network  [experiments/paper.py, src/lhd/baseline.py]"]))
-    method = ("\\section{Method}\n\\label{sec:method}\n\n"
-              + block(s, "1 page, including Equation 1, Table 1, and Figure 1",
-                      ["ProbeSize", "Margin", "Floor", "Patience", "CalibrationPerNet", "SettingsCommit", "SettingsDate",
-                       "DivergenceFired", "VanishingFired", "RunawayFired"],
-                      ["Four signals per layer at the end of every epoch  [src/lhd/signals.py]",
-                       "  weight change ||W_e - W_(e-1)|| / ||W_(e-1)||, weights and bias flattened, exactly 0 for a frozen layer",
-                       "  gradient norm, mean of ||dL/dW|| over the epoch's batches, after backward and before the optimizer step",
-                       "  weight norm ||W_e||",
-                       "  dead unit fraction, share of units whose ReLU output is exactly 0 for every probe input; a filter "
-                       "counts only when 0 at every position; probe batch fixed, evaluation mode, no gradients",
-                       "Range from calibration runs only, lowest a and highest b per layer, signal, and epoch; a value "
-                       "that is not finite is always out of range; broken runs never set the range  [src/lhd/baseline.py]",
-                       "The floor keeps a signal that is 0 in every healthy run from flagging one unusual unit",
-                       "Alarm when one signal of one layer is out of range p epochs in a row; ties go to the first layer "
-                       "in data flow order  [src/lhd/detector.py]",
-                       "m, f, and p come from the library tests written 12 October 2026 and were committed before any "
-                       "study run; an earlier draft used a multiple of the largest healthy value  [paper/lhd.tex Section 3.3]",
-                       "Cause rules in Table 1, checked top to bottom  [src/lhd/diagnosis.py]; the main study tested only "
-                       "the frozen layer and dead unit rules"])
-              + "\n\\begin{equation}\nx < a_{\\ell s e}(1 - m) \\quad \\text{or} \\quad x > b_{\\ell s e}(1 + m) + f\n"
-                "\\label{eq:range}\n\\end{equation}\n\n"
-              + table_float("rules", "rules", "the cause LHD names for each pattern of the alarmed layer's signals")
-              + "\n% NUMBERS for Figure 1\n"
-              + "\n".join(f"%   {s[m].shown():<22}  \\lhd{m:<20}  {s[m].what}" for m in
-                          ("FigRun", "FigLayer", "FigAlarm", "FigAccuracy", "FigAccuracyRange", "FigFinal",
-                           "FigFinalRange", "CalibrationPerNet")) + "\n"
-              + figure_float("how_lhd_works", "(a) the frozen layer's weight change against the calibration range and "
-                                              "(b) the same run's validation accuracy"))
-    setup = ("\\section{Experimental Setup}\n\\label{sec:setup}\n\n"
-             + block(s, "0.5 page, including Table 2",
-                     ["Runs", "CalibrationRuns", "FreshRuns", "BrokenRuns", "OtherRuns", "MlpWidths", "CnnFilters",
-                      "CnnDense", "TransformerWidth", "TransformerHeads", "TransformerBlocks", "TransformerHidden",
-                      "LearningRate", "Threads", "CalibrationSeeds", "ScoredSeedStart", "SeedsPerFault", "DeadFractions",
-                      "DeadBias", "DeadChecks", "Patience", "PlanCommit", "PlanDate"],
-                     ["Adam with a cosine schedule, one CPU thread  [experiments/train.py]",
-                      "A broken run and the fresh healthy run with the same seed differ only by the fault; that run "
-                      "is its twin, and the twin's final accuracy gives the fault's cost",
-                      "Frozen layer: weights and bias put back after every optimizer step, the same failure as a layer "
-                      "left out of the optimizer; planted in every watched layer  [src/lhd/faults.py]",
-                      "Dead units: incoming weights 0 and bias as above, so the ReLU output is 0 for every input; "
-                      "planted in every layer followed by a ReLU  [experiments/train.py]",
-                      "Every run trained to the end, and LHD's alarm comes from replaying the saved signals  "
-                      "[src/lhd/replay.py]",
-                      "Accuracy curve: fires when validation accuracy is below the lowest calibration value p epochs "
-                      "in a row, with no margin  [experiments/evaluate.py]",
-                      "Zero update check: a layer's weights do not move in an epoch, like SageMaker's UnchangedTensor",
-                      "Dead unit checks at the thresholds above: SageMaker DeadRelu 50%, DeepDiagnosis 70%, "
-                      "wandb-callbacks 80%, plus a 25% rule and any dead unit; all held to p epochs and counted only "
-                      "at the planted layer",
-                      "Caught means the detector fired at or after the fault's onset; a false alarm is any alarm on a "
-                      "fresh healthy run; the gap is the accuracy curve's epoch minus LHD's, never counted as one "
-                      "past the end"])
-             + table_float("networks", "networks", "each network's dataset, size, epochs, and runs, with a total row"))
-    results = ("\\section{Results}\n\\label{sec:results}\n% BUDGET 2 pages for the four parts below, "
-               "split as suggested under each heading\n\n") + "\n".join([
-        "\\subsection{LHD and the accuracy curve}\n\\label{sec:detection}\n\n"
-        + block(s, "about 0.6 page, including Table 3",
-                ["Caught", "BrokenRuns", "CaughtRate", "CaughtInterval", "AccCaught", "AccCaughtRate", "MedianEpoch",
-                 "AccMedianEpoch", "AccNever", "SilentShare", "BothCaught", "BothGap", "BothMedian", "BothAccEarlier",
-                 "BothTies", "SeedGroups", "SeedGroupsLHD", "LayerRight", "LayerRightRuns", "CauseRight",
-                 "CauseRightRuns"],
-                ["Per network values are in Table 3  [tables/headline.tex]",
-                 "Epoch 3 is the earliest alarm possible for a fault planted at epoch 1 when p is 3",
-                 "Figure A1 in the appendix shows the share flagged by each epoch"])
-        + table_float("headline", "headline", "LHD next to the accuracy curve in each network"),
-        "\\subsection{Faults that cost accuracy}\n\\label{sec:harm}\n\n"
-        + block(s, "about 0.3 page",
-                ["HarmSmall", "HarmSmallLHD", "HarmSmallAcc", "HarmMid", "HarmMidLHD", "HarmMidAcc", "HarmBig",
-                 "HarmBigLHD", "HarmBigAcc", "CnnFrozenDrop", "CnnHalfDeadDrop", "OtherMaxDrop"],
-                ["Cost is the final accuracy below the healthy twin with the same seed",
-                 f"Compare with your GTSRB model, where the frozen convolution cost {int(after) - int(before)} points"]),
-        "\\subsection{Dead units and fixed thresholds}\n\\label{sec:fixed}\n\n"
-        + block(s, "about 0.8 page, including Figure 2",
-                ["ZeroFrozenRuns", "ZeroFrozenOneEpoch", "ZeroEpoch", "LhdFrozenEpoch", "ZeroLead", "ZeroFlagged",
-                 "LhdFrozenRight", "LhdDeadRight", "LhdDeadAny", "FalseAlarms", "QuarterDead", "QuarterFlagged",
-                 "SageDead", "SageFlagged", "DeepDead", "DeepFlagged", "WandbDead", "WandbFlagged", "AnyDeadDead",
-                 "AnyDeadFlagged", "CnnDenseLow", "CnnDenseHigh", "TransformerDeadMax"],
-                ["Every fixed rule is held to p epochs and counted only when it names the planted layer; the full "
-                 "table is Table A1 in the appendix",
-                 "A frozen layer's weight change is exactly 0, so a check for an exact 0 needs no range and no patience"])
-        + figure_float("detectors_tradeoff", "dead unit faults caught at the planted layer against healthy runs "
-                                             "flagged, for LHD and each fixed rule"),
-        "\\subsection{False alarms}\n\\label{sec:alarms}\n\n"
-        + block(s, "about 0.3 page",
-                ["FalseAlarms", "HealthyRuns", "FalseAlarmRate", "FalseAlarmInterval", "AccFalseAlarms",
-                 "AccFalseAlarmInterval"]
-                + [m for m in s.facts if m.startswith("Alarm")]
-                + ["Floor", "SmallLayerUnits", "OneUnitShare", "DraftCommit", "DraftFresh", "DraftAlarms", "LaterFresh",
-                   "LaterAlarms"],
-                ["When no calibration run has a dead unit in a layer, the top of its range is the floor, so one dead "
-                 "unit can cross it",
-                 "An alarm for too few dead units points to no fault; checking only the top of the range would "
-                 "remove it"]),
-    ])
-    limitations = ("\\section{Limitations}\n\\label{sec:limits}\n\n"
-                   + block(s, "0.5 page. Every item below must stay in.",
-                           ["ZeroFrozenOneEpoch", "ZeroEpoch", "ZeroLead", "LhdDeadRight", "CalibrationPerNet"]
-                           + [m for m in s.facts if m.startswith("Cal") and m[3] in LETTERS and m[4:] in
-                              ("Runs", "Worst", "Net")]
-                           + ["CnnDenseLow", "CnnDenseHigh", "CnnDenseACaught", "CnnDenseBCaught", "CnnDenseCCaught",
-                              "HarmSmall", "BrokenRuns", "VanishingFired", "RunawayFired", "DivergenceFired", "Floor",
-                              "SmallLayerUnits", "OneUnitShare", "EpochRange", "TransformerAcc", "MlpParams",
-                              "CnnParams", "TransformerParams", "Threads", "FreshThirdSet", "OtherRuns",
-                              "WrongCauseRuns", "WrongCauseList"],
-                           limitation_items(s)))
-    conclusion = ("\\section{Conclusion}\n\\label{sec:conclusion}\n\n"
-                  + block(s, "3 sentences", ["Runs", "CaughtRate", "LayerRight", "FalseAlarms", "HealthyRuns",
-                                             "LhdDeadRight"], []))
-    statement = ai_statement(tex)
-    back = ("% MAIN TEXT ENDS HERE. Everything above must fit in 6 pages.\n\\FloatBarrier\n\n"
-            "\\section*{Use of generative AI}\n\\label{sec:ai}\n\n"
-            + block(s, "not counted", [], ["The long paper's statement, for reference  [paper/lhd.tex]",
-                                           statement])
-            + "\n\\section*{Code and data}\n\\label{sec:code}\n\n"
-            + block(s, "not counted", ["PlanCommit", "DraftCommit", "SettingsCommit"],
-                    [f"Repository {long.REPO}", "The long version is tagged v0-long"])
-            + "\n\\input{../references}\n")
-    end = "\n\\end{document}\n"
-    return "\n".join([preamble(), abstract, intro, related, method, setup, results, limitations, conclusion, back,
-                      appendix(s), end])
-
-
-def appendix(s: Sheet) -> str:
-    from experiments.evaluate import clustered_tests
-
-    draws = inspect.signature(clustered_tests).parameters["draws"].default
-    parts = [
-        "\\section{Networks and runs in detail}\n\\label{app:runs}\n\n"
-        + block(s, "not counted",
-                ["MlpWidths", "CnnFilters", "CnnDense", "TransformerWidth", "TransformerHeads", "TransformerBlocks",
-                 "TransformerHidden", "CnnValImages", "TextWindows", "TextContext", "TextHeldOut", "CalibrationSeeds",
-                 "ScoredSeedStart", "SeedsPerFault", "UnitSeedOffset", "DeadBias", "FreshFirstSet", "FreshThirdSet",
-                 "PlanCommit", "PlanDate"],
-                layer_notes()
-                + ["Killed units are drawn without replacement, their number is the share times the layer's width "
-                   "rounded with at least one unit, and Adam's running averages for them are cleared  [experiments/train.py]",
-                   f"Statistics: one sided Wilcoxon signed rank test on the gap averaged within each seed and within "
-                   f"each fault condition, a bootstrap with {draws:,} draws that resamples whole seeds, and Wilson "
-                   f"score intervals for rates  [experiments/evaluate.py]"]),
-        "\\section{Detection over time}\n\\label{app:time}\n\n"
-        + block(s, "not counted", [m for m in s.facts if m.startswith("Time")], [])
-        + figure_float("detection_over_time", "the share of broken runs flagged by each epoch, LHD against the "
-                                              "accuracy curve, one panel per network"),
-        "\\section{Every detector}\n\\label{app:detectors}\n\n"
-        + block(s, "not counted",
-                ["PatienceAlarmChange", "PatienceDeadChange", "SageAnyTen", "SageRightTen", "SageAnyTwentyFive",
-                 "SageRightTwentyFive", "AccOneCaught", "AccOneFlagged", "LossCaught", "LossFlagged"],
-                ["Requiring three epochs instead of one changed little, since a layer's dead unit fraction rarely "
-                 "drops back once it crosses a threshold",
-                 "Counted at any layer, the 50% rule caught more runs with 10% dead units than with 25%, because it "
-                 "fired on units that died on their own in other layers"])
-        + table_float("detectors", "detectors", "every detector held to three epochs, frozen layers and dead units "
-                                                "caught at the planted layer, and healthy runs flagged"),
-        "\\section{Each layer and how many units must die}\n\\label{app:layers}\n\n"
-        + block(s, "not counted",
-                [m for m in s.facts if m.startswith("Dose")]
-                + ["WrongLayerRuns", "WrongLayerList", "WrongCauseRuns", "WrongCauseList"],
-                ["In each wrong layer run, the layer LHD named had its own signal out of range",
-                 "A frozen attention projection also lowers the gradient that reaches it, so its pattern can match "
-                 "a vanishing gradient"])
-        + figure_float("per_layer", "for every layer and fault, the share of broken runs where LHD caught the fault "
-                                    "and named both the planted layer and the right cause"),
-        "\\section{What each signal adds}\n\\label{app:ablation}\n\n"
-        + block(s, "not counted", [m for m in s.facts if m.startswith("Ablation")],
-                ["None of the planted faults was designed to move the weight norm or the gradient norm"])
-        + table_float("ablation", "ablation", "the same runs replayed with each signal removed or used alone"),
-        "\\section{Margin and calibration size}\n\\label{app:settings}\n\n"
-        + block(s, "not counted",
-                ["Margin", "EdgeFlagged", "EdgeCaught", "MarginFlagged", "MarginCaught"]
-                + [m for m in s.facts if m.startswith("Cal") and m[3] in LETTERS],
-                ["These checks replay the same saved runs after the main results; the settings were fixed before "
-                 "them  [experiments/sweep.py]"]),
-        "\\section{Cost}\n\\label{app:cost}\n\n"
-        + block(s, "not counted", ["MlpOverhead", "TransformerOverhead", "CnnOverhead", "ComputeSaved", "TrainingHours"],
-                ["Measured on fresh healthy runs on one CPU thread; most of the overhead is the gradient norm, read "
-                 "after every batch, and the probe batch, run once per epoch"]),
-        "\\section{Faults beyond frozen layers and dead units}\n\\label{app:extra}\n\n"
-        + block(s, "not counted",
-                ["LateOnset"] + [m for m in s.facts if any(m.startswith(k) for k in EXTRA_KEYS.values())]
-                + ["LrNormal", "LrTimesTen", "LrTimesHundred", "LateZeroEpoch", "LateZeroTies", "CutZero",
-                   "LateDeadSage", "SageFlagged", "DivergenceFired"],
-                ["Late faults are the main faults started at the epoch above instead of epoch 1",
-                 "A gradient cut detaches one layer's input from the first epoch, so no gradient reaches the layers "
-                 "before it  [experiments/grid.py DETACH_CUTS]",
-                 "A learning rate jump multiplies Adam's rate at the start of that epoch, and the cosine schedule "
-                 "keeps shrinking it from the raised value",
-                 "This third set was trained after the main results were in"])
-        + table_float("extra", "extra", "each extra fault, caught by LHD, the accuracy curve, the zero update check, "
-                                        "and the 50% rule, with healthy runs flagged"),
-        "\\section{Statistics for each seed and condition}\n\\label{app:stats}\n\n"
-        + block(s, "not counted",
-                ["SeedGroups", "SeedGroupsLHD", "SeedP", "Conditions", "ConditionsLHD", "ConditionsAcc",
-                 "ConditionsSame", "ConditionsNeither", "ConditionP", "MeanGapAll", "MeanGapInterval"],
-                ["The mean gap over all runs leans on the runs the accuracy curve missed, so the gap on runs both "
-                 "caught is the fairer measure"]),
-    ]
-    return ("\\clearpage\n\\appendix\n\\setcounter{figure}{0}\n\\setcounter{table}{0}\n"
-            "\\renewcommand{\\thefigure}{A\\arabic{figure}}\n\\renewcommand{\\thetable}{A\\arabic{table}}\n\n"
-            + "\n".join(parts))
-
 
 MAIN_END = "% MAIN TEXT ENDS HERE"
 MAIN_PAGES = 6
@@ -901,7 +577,6 @@ def measure(tex: str, folder: Path) -> list[tuple[str, float, float | None]]:
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp) / "short"
         shutil.copytree(folder, work)
-        shutil.copy(long.PAPER / "references.tex", Path(tmp) / "references.tex")
         (work / "measure.tex").write_text(marked + MAIN_END + rest)
         log = compile_pdf(work, "measure", work)
         aux = (work / "measure.aux").read_text()
@@ -942,20 +617,73 @@ def report(tex: str) -> None:
         print(f"{title:44} {used:6.2f} {'' if budget is None else f'{budget:7.2f}'}")
 
 
-def build_pdf() -> None:
+def build_pdf(name: str) -> None:
     import shutil
     import tempfile
 
     with tempfile.TemporaryDirectory() as tmp:
-        compile_pdf(SHORT, "lhd_short", Path(tmp))
-        shutil.copy(Path(tmp) / "lhd_short.pdf", SHORT / "lhd_short.pdf")
-    print(f"wrote {SHORT / 'lhd_short.pdf'} with no undefined references", flush=True)
+        compile_pdf(SHORT, name, Path(tmp))
+        shutil.copy(Path(tmp) / f"{name}.pdf", SHORT / f"{name}.pdf")
+    print(f"wrote {SHORT / name}.pdf with no undefined references", flush=True)
+
+
+def short_facts(s: Sheet, d: long.Data) -> None:
+    """Numbers the short paper's prose needs beyond the long paper's results."""
+    tex = long_tex()
+    before = re.search(r"plateaued at (\d+)\\%", tex).group(1)
+    after = re.search(r"raised the accuracy to (\d+)\\%", tex).group(1)
+    story = "paper/lhd.tex, your SignNet account"
+    s.add("StoryBefore", f"{before}\\%", "SignNet accuracy with the layer left out", story)
+    s.add("StoryAfter", f"{after}\\%", "SignNet accuracy after the fix", story)
+    s.add("StoryCost", int(after) - int(before), "points the left out layer cost SignNet", story)
+    s.add("LibraryDate", re.search(r"tests of the LHD library, written on (\d+ \w+ \d{4})", tex).group(1),
+          "date the library tests set m, f, and p", "paper/lhd.tex")
+    related = (long.PAPER / "related_work.tex").read_text()
+    s.add("LitDeadNodes", re.search(r"dead nodes in (\d+ of the \d+) CIFAR-10", related).group(1),
+          "CIFAR-10 models with no known bugs where DeepDiagnosis reported dead nodes", "paper/related_work.tex")
+    for key, threshold in zip(("Quarter", "Sage", "Deep", "Wandb"), DEAD_CHECKS):
+        s.add(f"{key}Threshold", f"{100 * threshold:g}\\%", f"dead unit share the {key} rule needs", CODE["evaluate"])
+    m, f = SETTINGS["margin"], SETTINGS["floor"]
+    for letter, r in zip(LETTERS, d.alarms):
+        low, high = d.dead_range(r["arch"], r["lhd_layer"])
+        above = d.alarm_value(r["run_id"], r["lhd_layer"], r["lhd_epoch"]) > high
+        edge = high * (1 + m) + f if above else low * (1 - m)
+        s.add(f"Alarm{letter}Bound", f"{100 * edge:.1f}\\%",
+              "edge of Equation 1 it crossed, " + ("b(1 + m) + f" if above else "a(1 - m)"), table("signals.csv.gz"))
+        s.add(f"Alarm{letter}Cause", r["lhd_cause"].replace("_", " "), "cause LHD named", table("false_alarms.csv"))
+    from experiments.evaluate import clustered_tests
+
+    draws = inspect.signature(clustered_tests).parameters["draws"].default
+    s.add("BootstrapDraws", f"{draws:,}", "bootstrap draws over seeds", CODE["evaluate"])
+    cond = d.conditions()
+    missed = all(fam in long.DEAD and d.lhd_rate(a, fam, layer) < 0.5 for a, fam, layer in cond["acc"])
+    s.add("ConditionsAccWhere", "all in layers where LHD missed most of the planted dead units" if missed else
+          long.listing([f"{long.fault_name(fam, layer)} in the {long.PROSE[a]}" for a, fam, layer in cond["acc"]]),
+          "where the accuracy curve was earlier", table("runs.csv"))
+
+
+def write_references() -> list[str]:
+    """The long paper's references, cut to the keys the short paper and extended results cite."""
+    cited = set()
+    for name in ("lhd_short.tex", "lhd_extended.tex"):
+        path = SHORT / name
+        if path.exists():
+            text = "\n".join(line.split("%")[0] for line in path.read_text().splitlines())
+            cited |= {k.strip() for group in re.findall(r"\\cite[pt]?\{([^}]*)\}", text) for k in group.split(",")}
+    source = (long.PAPER / "references.tex").read_text()
+    head, body = source.split("\\bibitem", 1)
+    entries = ["\\bibitem" + e for e in ("\\bibitem" + body).split("\\bibitem")[1:]]
+    kept = [e.replace("\\end{thebibliography}", "").rstrip() for e in entries
+            if re.match(r"\\bibitem\[[^\]]*\]\{([^}]*)\}", e).group(1) in cited]
+    text = head + "\n\n".join(kept) + "\n\n\\end{thebibliography}\n"
+    (SHORT / "references.tex").write_text(text.replace("--", "-"))
+    return sorted(cited)
 
 
 def sheet(d: long.Data) -> Sheet:
     s = Sheet()
     for part in (headline, harm, detectors, false_alarms, method_facts, setup_facts, limitation_facts,
-                 appendix_facts):
+                 appendix_facts, short_facts):
         part(s, d)
     return s
 
@@ -965,7 +693,6 @@ def main(argv=None) -> None:
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--facts", action="store_true", help="print every number with its source and stop")
-    parser.add_argument("--outline", action="store_true", help="write paper/short/lhd_short.tex if it is missing")
     args = parser.parse_args(argv)
     d = long.Data()
     drawn = write_figures()
@@ -979,15 +706,10 @@ def main(argv=None) -> None:
     (SHORT / "numbers.tex").write_text(s.tex())
     print(f"wrote {SHORT / 'numbers.tex'} with {len(s.facts)} numbers", flush=True)
     write_tables(d)
-    if args.outline:
-        target = SHORT / "lhd_short.tex"
-        if target.exists():
-            raise SystemExit(f"{target} exists and holds your prose, so it is left alone")
-        target.write_text(outline(s, d))
-        print(f"wrote {target}", flush=True)
-    if not (SHORT / "lhd_short.tex").exists():
-        raise SystemExit("no paper/short/lhd_short.tex yet; run with --outline to write it")
-    build_pdf()
+    print(f"wrote {SHORT / 'references.tex'} citing {', '.join(write_references())}", flush=True)
+    for name in ("lhd_short", "lhd_extended"):
+        if (SHORT / f"{name}.tex").exists():
+            build_pdf(name)
     report((SHORT / "lhd_short.tex").read_text())
 
 
