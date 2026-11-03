@@ -13,713 +13,169 @@
 \usepackage{amsmath}
 \usepackage[font=small,labelfont=bf]{caption}
 \usepackage[hidelinks]{hyperref}
+\usepackage{placeins}
+
+% Every \lhd macro prints a number computed from the saved runs. numbers.tex lists each one with its source.
+\input{numbers}
+\newcommand{\commitref}[1]{\href{https://github.com/sohan-bhat/lhd/commit/#1}{\texttt{#1}}}
 
 \title{Early Detection of Silent Training Failures in Neural Networks}
 \author{Sohan Bhat\\ \small \texttt{sohanrambhat@gmail.com}}
 \date{November 2026}
-
-\usepackage{placeins}
-\input{numbers}
 
 \begin{document}
 
 \maketitle
 
 \begin{abstract}
-% BUDGET 120 words at most
-% NUMBERS. Each \lhd macro prints the value next to it, and typing the value works too.
-%   885          \lhdRuns                runs in total  [results/tables/run_counts.csv]
-%   470          \lhdBrokenRuns          broken runs with a frozen layer or dead units  [results/summary.json]
-%   411          \lhdCaught              broken runs LHD caught  [results/summary.json]
-%   87%          \lhdCaughtRate          share of broken runs LHD caught  [results/summary.json]
-%   84 to 90%    \lhdCaughtInterval      95% Wilson interval of that share  [results/summary.json]
-%   166          \lhdAccCaught           broken runs the accuracy curve caught  [results/summary.json]
-%   98.1%        \lhdLayerRight          caught runs where LHD named the planted layer  [results/summary.json]
-%   3            \lhdFalseAlarms         fresh healthy runs LHD flagged  [results/summary.json]
-%   150          \lhdHealthyRuns         fresh healthy runs scored  [results/summary.json]
-%   0.7 to 5.7%  \lhdFalseAlarmInterval  95% Wilson interval of that rate  [results/summary.json]
-%   162          \lhdBothCaught          broken runs both LHD and the accuracy curve caught  [results/tables/runs.csv]
-%   4.6          \lhdBothGap             mean epochs LHD was earlier on those runs  [results/tables/runs.csv]
-%   105          \lhdHarmBig             broken runs whose fault cost 2 pts or more  [results/tables/harm.csv]
-%   94           \lhdHarmBigLHD          of those, LHD caught  [results/tables/harm.csv]
-%   60           \lhdHarmBigAcc          of those, the accuracy curve caught  [results/tables/harm.csv]
-%   2            \lhdZeroLead            epochs the zero update check fires before LHD  [results/tables/detectors.csv]
-%   78%          \lhdLhdDeadRight        dead unit faults LHD caught at the planted layer  [results/tables/detectors.csv]
-% FACTS
-%   LHD stands for Layer Health Diagnostics
-%   fully connected network on Fashion-MNIST, CNN on GTSRB, small transformer on Tiny Shakespeare  [experiments/paper.py]
-%   Faults planted in the main study: frozen layers and dead units
-SOHAN WRITES THIS
+% BUDGET about 120 words
+Neural networks can fail during training without raising an error. The run finishes and returns a weaker model that is easy to mistake for a hard problem. LHD (Layer Health Diagnostics) records four signals for every layer after each epoch and compares each one with the range it stays within during healthy runs of the same network. When a signal stays out of range for three epochs, LHD names the layer and a likely cause and stops the run. I tested LHD on \lhdRuns{} training runs of three small networks with frozen layers and dead units planted in known layers. LHD caught \lhdCaughtRate{} of \lhdBrokenRuns{} broken runs, fired \lhdBothGap{} epochs before the accuracy curve on the runs both caught, and flagged \lhdFalseAlarms{} of \lhdHealthyRuns{} healthy runs.
 \end{abstract}
 
 \section{Introduction}
 \label{sec:intro}
-
 % BUDGET 0.75 page
-% NUMBERS. Each \lhd macro prints the value next to it, and typing the value works too.
-%   885  \lhdRuns            runs in total  [results/tables/run_counts.csv]
-%   470  \lhdBrokenRuns      broken runs with a frozen layer or dead units  [results/summary.json]
-%   411  \lhdCaught          broken runs LHD caught  [results/summary.json]
-%   166  \lhdAccCaught       broken runs the accuracy curve caught  [results/summary.json]
-%   3    \lhdMedianEpoch     median epoch of LHD's alarm  [results/summary.json]
-%   162  \lhdBothCaught      broken runs both LHD and the accuracy curve caught  [results/tables/runs.csv]
-%   4.6  \lhdBothGap         mean epochs LHD was earlier on those runs  [results/tables/runs.csv]
-%   30   \lhdSeedGroups      seed groups (network and seed)  [results/summary.json]
-%   30   \lhdSeedGroupsLHD   seed groups whose mean gap favored LHD  [results/summary.json]
-%   3    \lhdFalseAlarms     fresh healthy runs LHD flagged  [results/summary.json]
-%   150  \lhdHealthyRuns     fresh healthy runs scored  [results/summary.json]
-%   7    \lhdAccFalseAlarms  fresh healthy runs the accuracy curve flagged  [results/summary.json]
-%   105  \lhdHarmBig         broken runs whose fault cost 2 pts or more  [results/tables/harm.csv]
-%   94   \lhdHarmBigLHD      of those, LHD caught  [results/tables/harm.csv]
-%   60   \lhdHarmBigAcc      of those, the accuracy curve caught  [results/tables/harm.csv]
-%   223  \lhdHarmSmall       broken runs whose fault cost under 0.5 pts  [results/tables/harm.csv]
-%   2    \lhdZeroLead        epochs the zero update check fires before LHD  [results/tables/detectors.csv]
-%   78%  \lhdLhdDeadRight    dead unit faults LHD caught at the planted layer  [results/tables/detectors.csv]
-%   40%  \lhdSageDead        SageMaker Debugger (50%), dead unit faults caught at the planted layer  [results/tables/detectors.csv]
-%   22   \lhdSageFlagged     SageMaker Debugger (50%), healthy runs flagged (of 150)  [results/tables/detectors.csv]
-% FACTS
-%   Your GTSRB model plateaued at 76% with one convolution left out of the optimizer, and fixing it gave 87%. This is your own account, not from the runs  [paper/lhd.tex Section 1]
-%   Cite \citep{stallkamp2012} for GTSRB and \citep{chwilczynski2024} for errors in deep learning code that raise no exception
-%   When it fires, LHD reports the layer, the signals out of range, a likely cause, and a suggested check, then stops the run  [src/lhd/monitor.py]
-SOHAN WRITES THIS
+
+A neural network can break during training without any error. The run finishes, the loss goes down, and the model is simply worse than it should be. Errors in deep learning code rarely raise an exception and usually show up only as lower accuracy \citep{chwilczynski2024}. Because nothing crashes, a failure like this is easy to read as a hard problem, and the compute spent on the run is wasted.
+
+I ran into this while training SignNet, a small CNN for the German Traffic Sign Recognition Benchmark (GTSRB) \citep{stallkamp2012}. It stopped improving at \lhdStoryBefore{} accuracy, and I spent weeks tuning it. The cause was one convolutional layer that I had left out of the optimizer, so its weights never trained. Once I fixed that, accuracy rose to \lhdStoryAfter{}. The evidence was in the weights the whole time, since that layer never changed, but nothing in a normal training loop looks at it.
+
+LHD (Layer Health Diagnostics) is a monitor that reads this evidence. After every epoch, it records four signals for each layer and compares them with the range they stay within during healthy runs of the same network. When one signal stays out of range for three epochs in a row, LHD stops the run and reports the layer, the signal, and a likely cause, such as a frozen layer or dead units.
+
+I tested LHD on \lhdRuns{} training runs of a fully connected network, a CNN, and a small transformer, with frozen layers and dead units planted in known layers. LHD caught most broken runs, usually at the third epoch and often several epochs before the accuracy curve showed anything. It also caught more of the faults that did real damage. For frozen layers, a simple check for weights that never change did just as well and sooner. The clearest gain is on dead units. Healthy networks lose some units on their own, and the share differs a lot between networks, so the fixed thresholds that existing tools use either miss these faults or flag healthy runs. A healthy range measured for each layer caught more of them than any fixed threshold I tested, with only a few false alarms.
 
 \section{Related Work}
 \label{sec:related}
-
 % BUDGET 0.5 page
-% FACTS
-%   Karpathy's Recipe  cites cs231n, karpathy2019  numbers it quotes: 0.1%  [paper/related_work.tex]
-%   wandb.ai  cites biewald2020  [paper/related_work.tex]
-%   wandb-callbacks  cites groeger_wandbcallbacks  numbers it quotes: 80% of a  [paper/related_work.tex]
-%   DeepLocalize  cites wardat2021, wardat2022  [paper/related_work.tex]
-%   UMLAUT  cites schoop2021, wardat2022  numbers it quotes: 15 participants; 68 of 78 such MNIST  [paper/related_work.tex]
-%   SageMaker Debugger  cites aws_actions, aws_rules  numbers it quotes: 50% of a; 1% of the  [paper/related_work.tex]
-%   AutoTrainer  cites kim2023, wardat2022, zhang2021  numbers it quotes: 9 real and; 21 artificial faulty  [paper/related_work.tex]
-%   DeepDiagnosis  cites wardat2022  numbers it quotes: 70% of its; 188 models from; 21 of the 35 CIFAR-10 models  [paper/related_work.tex]
-%   ART  cites chwilczynski2024  [paper/related_work.tex]
-%   All citation keys in paper/references.tex: aws_rules Amazon Web Services(n.d.a); aws_actions Amazon Web Services(n.d.b); biewald2020 Biewald(2020); chwilczynski2024 Chwilczy\'nski et~al.(2024); cs231n CS231n(n.d.); groeger_wandbcallbacks Groeger(n.d.); karpathy2019 Karpathy(2019); kim2023 Kim et~al.(2023); schoop2021 Schoop et~al.(2021); stallkamp2012 Stallkamp et~al.(2012); wardat2021 Wardat et~al.(2021); wardat2022 Wardat et~al.(2022); zhang2021 Zhang et~al.(2021)
-%   Thresholds the fixed rules use: SageMaker DeadRelu 50%, DeepDiagnosis 70%, wandb-callbacks 80%. LHD instead measures a range for every layer, signal, and epoch from healthy runs of the same network  [experiments/paper.py, src/lhd/baseline.py]
-SOHAN WRITES THIS
+
+Several tools already check training signals automatically. SageMaker Debugger has built-in rules such as DeadRelu, VanishingGradient, and UnchangedTensor \citep{aws_rules}, and a rule can stop the training job when it fires \citep{aws_actions}. DeepDiagnosis checks a model after every epoch for eight symptoms, reports the layer, and suggests a fix, which is close to what LHD reports \citep{wardat2022}. AutoTrainer checks gradients, weights, and the training curves for five problems and retrains the model with built-in fixes \citep{zhang2021}. The wandb-callbacks package adds a warning for dead ReLU units \citep{groeger_wandbcallbacks}.
+
+All four compare each signal with a threshold chosen in advance. DeadRelu fires when more than \lhdSageThreshold{} of a layer's units are inactive, DeepDiagnosis counts a layer as having dead nodes above \lhdDeepThreshold{}, and wandb-callbacks warns at \lhdWandbThreshold{} by default. The share of units that die in healthy training differs between networks and between layers, so one threshold can miss faults in one network and flag healthy runs in another. DeepDiagnosis reported dead nodes in \lhdLitDeadNodes{} CIFAR-10 models from the AutoTrainer benchmark that had no known bugs \citep{wardat2022}. LHD instead learns a range for each layer, signal, and epoch from healthy runs of the same network.
+
+Other work is further from LHD. Karpathy's recipe lists manual habits for catching silent failures \citep{karpathy2019}, and wandb shows gradient and weight histograms that a person still has to read \citep{biewald2020}. ART adds validation checks to a training pipeline at development time \citep{chwilczynski2024}. UMLAUT checks a program against expert heuristics and shows readable error messages \citep{schoop2021}, and DeepLocalize traces numerical errors back to the layer that caused them \citep{wardat2021}. A study of model repair found that a random search did as well as or better than AutoTrainer \citep{kim2023}.
 
 \section{Method}
 \label{sec:method}
-
 % BUDGET 1 page, including Equation 1, Table 1, and Figure 1
-% NUMBERS. Each \lhd macro prints the value next to it, and typing the value works too.
-%   256              \lhdProbeSize          validation examples in the probe batch  [experiments/data.py]
-%   0.5              \lhdMargin             margin m  [experiments/evaluate.py]
-%   0.05             \lhdFloor              floor f  [experiments/evaluate.py]
-%   3                \lhdPatience           patience p, epochs in a row  [experiments/evaluate.py]
-%   20               \lhdCalibrationPerNet  calibration runs per network  [experiments/grid.py]
-%   e83806f          \lhdSettingsCommit     commit that fixed m, f, and p  [experiments/paper.py]
-%   31 October 2026  \lhdSettingsDate       date of that commit  [git log]
-%   0                \lhdDivergenceFired    runs where the divergence rule fired, all faults  [results/summary.json]
-%   35               \lhdVanishingFired     runs named vanishing gradient, extra faults only  [results/summary.json]
-%   5                \lhdRunawayFired       runs named runaway weights, extra faults only  [results/summary.json]
-% FACTS
-%   Four signals per layer at the end of every epoch  [src/lhd/signals.py]
-%     weight change ||W_e - W_(e-1)|| / ||W_(e-1)||, weights and bias flattened, exactly 0 for a frozen layer
-%     gradient norm, mean of ||dL/dW|| over the epoch's batches, after backward and before the optimizer step
-%     weight norm ||W_e||
-%     dead unit fraction, share of units whose ReLU output is exactly 0 for every probe input; a filter counts only when 0 at every position; probe batch fixed, evaluation mode, no gradients
-%   Range from calibration runs only, lowest a and highest b per layer, signal, and epoch; a value that is not finite is always out of range; broken runs never set the range  [src/lhd/baseline.py]
-%   The floor keeps a signal that is 0 in every healthy run from flagging one unusual unit
-%   Alarm when one signal of one layer is out of range p epochs in a row; ties go to the first layer in data flow order  [src/lhd/detector.py]
-%   m, f, and p come from the library tests written 12 October 2026 and were committed before any study run; an earlier draft used a multiple of the largest healthy value  [paper/lhd.tex Section 3.3]
-%   Cause rules in Table 1, checked top to bottom  [src/lhd/diagnosis.py]; the main study tested only the frozen layer and dead unit rules
-SOHAN WRITES THIS
 
+At the end of every epoch, LHD records four signals for each layer. Let $W_e$ be the layer's weights and bias after epoch $e$. The weight change $\lVert W_e - W_{e-1} \rVert / \lVert W_{e-1} \rVert$ shows how far the weights moved, so a frozen layer reads exactly 0. The gradient norm is the mean of $\lVert \partial L / \partial W \rVert$ over the epoch's batches, and the weight norm is $\lVert W_e \rVert$. The dead unit fraction is the share of units whose ReLU output is 0 for every input in a fixed probe batch of \lhdProbeSize{} validation examples.
+
+The healthy range comes only from calibration runs, which are trained with no fault from different seeds. For layer $\ell$, signal $s$, and epoch $e$, let $a_{\ell s e}$ and $b_{\ell s e}$ be the lowest and highest calibration values. A value $x$ is out of range when
 \begin{equation}
-x < a_{\ell s e}(1 - m) \quad \text{or} \quad x > b_{\ell s e}(1 + m) + f
+x < a_{\ell s e}(1 - m) \quad \text{or} \quad x > b_{\ell s e}(1 + m) + f,
 \label{eq:range}
 \end{equation}
+with margin $m = \lhdMargin$ and floor $f = \lhdFloor$. The floor keeps a signal that is 0 in every healthy run from flagging one unusual unit. A value that is not a finite number is always out of range.
 
-% TABLE shows the cause LHD names for each pattern of the alarmed layer's signals. The tabular is rebuilt from the data, so edit only the caption.
+LHD raises an alarm when one signal of one layer stays out of range for $p = \lhdPatience$ epochs in a row. It names a likely cause from the pattern of that layer's four signals (Table~\ref{tab:rules}), stops the run, and reports the layer and the cause. Figure~\ref{fig:how_lhd_works} shows LHD stopping a CNN run with a frozen layer. The settings $m$, $f$, and $p$ were fixed in commit \commitref{\lhdSettingsCommit} before any training run started.
+
 \begin{table}[t]
 \centering
 \small
-\caption{SOHAN WRITES THIS}
+\caption{How LHD names a cause. The rules are checked from top to bottom on the layer that raised the alarm.}
 \label{tab:rules}
 \input{tables/rules}
 \end{table}
 
-% NUMBERS for Figure 1
-%   cnn-fault-frozen-conv2-s1005  \lhdFigRun                run in Figure 1
-%   conv2                   \lhdFigLayer              frozen layer in Figure 1
-%   3                       \lhdFigAlarm              epoch LHD stops that run
-%   56.1%                   \lhdFigAccuracy           its validation accuracy when LHD stops it
-%   45.0 to 70.6%           \lhdFigAccuracyRange      calibration accuracy range at that epoch
-%   74.4%                   \lhdFigFinal              its final accuracy
-%   72.4 to 82.9%           \lhdFigFinalRange         calibration accuracy range at the last epoch
-%   20                      \lhdCalibrationPerNet     calibration runs per network
-% FIGURE shows (a) the frozen layer's weight change against the calibration range and (b) the same run's validation accuracy
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figures/how_lhd_works.pdf}
-\caption{SOHAN WRITES THIS}
+\caption{One CNN run with \lhdFigLayer{} frozen. (a) The layer's weight change stays at 0, below the range of the \lhdCalibrationPerNet{} calibration runs, and LHD stops the run at epoch \lhdFigAlarm{}. (b) The run's validation accuracy is still inside the healthy range when LHD stops it.}
 \label{fig:how_lhd_works}
 \end{figure}
 
 \section{Experimental Setup}
 \label{sec:setup}
-
 % BUDGET 0.5 page, including Table 2
-% NUMBERS. Each \lhd macro prints the value next to it, and typing the value works too.
-%   885                     \lhdRuns               runs in total  [results/tables/run_counts.csv]
-%   60                      \lhdCalibrationRuns    calibration runs, all networks  [results/summary.json]
-%   150                     \lhdFreshRuns          fresh healthy runs, all networks  [results/summary.json]
-%   470                     \lhdBrokenRuns         broken runs with a frozen layer or dead units  [results/summary.json]
-%   205                     \lhdOtherRuns          runs with the extra faults (third set)  [results/summary.json]
-%   256, 128, 64            \lhdMlpWidths          hidden widths of the fully connected network  [experiments/models.py]
-%   8, 16, 32               \lhdCnnFilters         filters in the CNN's three convolutions  [experiments/models.py]
-%   64                      \lhdCnnDense           units in the CNN's dense layer  [experiments/models.py]
-%   64                      \lhdTransformerWidth   transformer width  [experiments/models.py]
-%   4                       \lhdTransformerHeads   transformer heads  [experiments/models.py]
-%   2                       \lhdTransformerBlocks  transformer depth  [experiments/models.py]
-%   256                     \lhdTransformerHidden  transformer hidden  [experiments/models.py]
-%   0.001                   \lhdLearningRate       Adam learning rate  [experiments/train.py]
-%   1                       \lhdThreads            CPU threads per run  [experiments/train.py]
-%   0 to 19                 \lhdCalibrationSeeds   calibration seeds  [experiments/grid.py]
-%   1000                    \lhdScoredSeedStart    first seed of scored runs  [experiments/grid.py]
-%   10                      \lhdSeedsPerFault      seeds per fault condition  [experiments/grid.py]
-%   10%, 25%, and 50%       \lhdDeadFractions      dead unit shares planted  [experiments/grid.py]
-%   -1                      \lhdDeadBias           bias given to killed units  [experiments/train.py]
-%   25%, 50%, 70%, and 80%  \lhdDeadChecks         fixed dead unit thresholds scored  [experiments/evaluate.py]
-%   3                       \lhdPatience           patience p, epochs in a row  [experiments/evaluate.py]
-%   b6bfb6a                 \lhdPlanCommit         commit with the run plan  [experiments/paper.py]
-%   31 October 2026         \lhdPlanDate           date of that commit  [git log]
-% FACTS
-%   Adam with a cosine schedule, one CPU thread  [experiments/train.py]
-%   A broken run and the fresh healthy run with the same seed differ only by the fault; that run is its twin, and the twin's final accuracy gives the fault's cost
-%   Frozen layer: weights and bias put back after every optimizer step, the same failure as a layer left out of the optimizer; planted in every watched layer  [src/lhd/faults.py]
-%   Dead units: incoming weights 0 and bias as above, so the ReLU output is 0 for every input; planted in every layer followed by a ReLU  [experiments/train.py]
-%   Every run trained to the end, and LHD's alarm comes from replaying the saved signals  [src/lhd/replay.py]
-%   Accuracy curve: fires when validation accuracy is below the lowest calibration value p epochs in a row, with no margin  [experiments/evaluate.py]
-%   Zero update check: a layer's weights do not move in an epoch, like SageMaker's UnchangedTensor
-%   Dead unit checks at the thresholds above: SageMaker DeadRelu 50%, DeepDiagnosis 70%, wandb-callbacks 80%, plus a 25% rule and any dead unit; all held to p epochs and counted only at the planted layer
-%   Caught means the detector fired at or after the fault's onset; a false alarm is any alarm on a fresh healthy run; the gap is the accuracy curve's epoch minus LHD's, never counted as one past the end
-SOHAN WRITES THIS
-% TABLE shows each network's dataset, size, epochs, and runs, with a total row. The tabular is rebuilt from the data, so edit only the caption.
+
+I trained three networks (Table~\ref{tab:networks}). The fully connected network classifies Fashion-MNIST, the CNN classifies GTSRB, and the transformer predicts the next character of Tiny Shakespeare. Every run used Adam with a cosine schedule on one CPU thread. A broken run has one fault planted in one layer at the start of training. A frozen layer has its weights put back after every optimizer step, which is the same failure as a layer left out of the optimizer. A dead unit fault switches off \lhdDeadFractions{} of a layer's units in separate runs, so their ReLU output is 0 for every input. Frozen layers went into every layer and dead units into every layer followed by a ReLU. Calibration runs set the healthy ranges, and fresh healthy runs with other seeds measure false alarms. The run plan in commit \commitref{\lhdPlanCommit} listed every run before training started.
+
+The accuracy curve fires when validation accuracy stays below the lowest calibration value for $p$ epochs in a row, with no margin. The zero update check fires when a layer's weights do not move at all in an epoch. The dead unit rules fire when a ReLU layer has at least \lhdQuarterThreshold{}, \lhdSageThreshold{} (SageMaker Debugger), \lhdDeepThreshold{} (DeepDiagnosis), or \lhdWandbThreshold{} (wandb-callbacks) of its units dead. Each rule must hold for $p$ epochs, like LHD, and a broken run counts only when the rule names the planted layer.
+
 \begin{table}[t]
 \centering
 \small
-\caption{SOHAN WRITES THIS}
+\caption{The three networks and their runs. Calibration runs set the ranges, fresh healthy runs measure false alarms, and the results use the runs with a frozen layer or dead units. The other faults are in the extended results.}
 \label{tab:networks}
 \input{tables/networks}
 \end{table}
 
 \section{Results}
 \label{sec:results}
-% BUDGET 2 pages for the four parts below, split as suggested under each heading
+% BUDGET 2 pages for the four parts below
+
+The per epoch curves, per layer results, signal ablation, settings checks, cost, extra faults, and per condition statistics are in the extended results file in the repository (\href{https://github.com/sohan-bhat/lhd/blob/main/paper/short/lhd_extended.pdf}{\texttt{paper/short/lhd\_extended.pdf}}).
 
 \subsection{LHD and the accuracy curve}
 \label{sec:detection}
-
 % BUDGET about 0.6 page, including Table 3
-% NUMBERS. Each \lhd macro prints the value next to it, and typing the value works too.
-%   411         \lhdCaught          broken runs LHD caught  [results/summary.json]
-%   470         \lhdBrokenRuns      broken runs with a frozen layer or dead units  [results/summary.json]
-%   87%         \lhdCaughtRate      share of broken runs LHD caught  [results/summary.json]
-%   84 to 90%   \lhdCaughtInterval  95% Wilson interval of that share  [results/summary.json]
-%   166         \lhdAccCaught       broken runs the accuracy curve caught  [results/summary.json]
-%   35%         \lhdAccCaughtRate   share the accuracy curve caught  [results/summary.json]
-%   3           \lhdMedianEpoch     median epoch of LHD's alarm  [results/summary.json]
-%   6           \lhdAccMedianEpoch  median epoch of the accuracy curve's alarm  [results/summary.json]
-%   61%         \lhdAccNever        runs LHD caught that the accuracy curve never caught  [results/summary.json]
-%   66%         \lhdSilentShare     broken runs whose final accuracy ended inside the healthy range  [results/summary.json]
-%   162         \lhdBothCaught      broken runs both LHD and the accuracy curve caught  [results/tables/runs.csv]
-%   4.6         \lhdBothGap         mean epochs LHD was earlier on those runs  [results/tables/runs.csv]
-%   3           \lhdBothMedian      median epochs LHD was earlier on those runs  [results/tables/runs.csv]
-%   1           \lhdBothAccEarlier  of those runs, accuracy curve earlier  [results/tables/runs.csv]
-%   26          \lhdBothTies        of those runs, same epoch  [results/tables/runs.csv]
-%   30          \lhdSeedGroups      seed groups (network and seed)  [results/summary.json]
-%   30          \lhdSeedGroupsLHD   seed groups whose mean gap favored LHD  [results/summary.json]
-%   98.1%       \lhdLayerRight      caught runs where LHD named the planted layer  [results/summary.json]
-%   403 of 411  \lhdLayerRightRuns  the same as runs  [results/summary.json]
-%   96.8%       \lhdCauseRight      caught runs where LHD named the planted cause  [results/summary.json]
-%   398 of 411  \lhdCauseRightRuns  the same as runs  [results/summary.json]
-% FACTS
-%   Per network values are in Table 3  [tables/headline.tex]
-%   Epoch 3 is the earliest alarm possible for a fault planted at epoch 1 when p is 3
-%   Figure A1 in the appendix shows the share flagged by each epoch
-SOHAN WRITES THIS
-% TABLE shows LHD next to the accuracy curve in each network. The tabular is rebuilt from the data, so edit only the caption.
+
+LHD caught \lhdCaught{} of the \lhdBrokenRuns{} broken runs (\lhdCaughtRate{}, 95\% Wilson interval \lhdCaughtInterval{}), and the accuracy curve caught \lhdAccCaught{} (Table~\ref{tab:headline}). LHD's median alarm came at epoch \lhdMedianEpoch{}, the earliest possible for a fault planted at epoch 1 when $p = \lhdPatience$. On the \lhdBothCaught{} runs that both detectors caught, LHD fired \lhdBothGap{} epochs earlier on average. The accuracy curve was earlier in \lhdBothAccEarlier{} of those runs, and \lhdBothTies{} were ties. The accuracy curve never noticed \lhdAccNever{} of the runs LHD caught. Of all broken runs, \lhdSilentShare{} ended with a final accuracy inside the healthy range, so a person watching accuracy would have seen nothing wrong.
+
+When LHD caught a run, it named the planted layer \lhdLayerRight{} of the time and the planted cause \lhdCauseRight{} of the time. Part of that is built in, since the planted faults produce the patterns the rules look for.
+
 \begin{table}[t]
 \centering
 \small
-\caption{SOHAN WRITES THIS}
+\caption{LHD next to the accuracy curve on the planted frozen layers and dead units. The median epoch is over the runs each detector caught. Bold marks the better of the two where they differ.}
 \label{tab:headline}
 \input{tables/headline}
 \end{table}
 
 \subsection{Faults that cost accuracy}
 \label{sec:harm}
-
 % BUDGET about 0.3 page
-% NUMBERS. Each \lhd macro prints the value next to it, and typing the value works too.
-%   223   \lhdHarmSmall        broken runs whose fault cost under 0.5 pts  [results/tables/harm.csv]
-%   186   \lhdHarmSmallLHD     of those, LHD caught  [results/tables/harm.csv]
-%   33    \lhdHarmSmallAcc     of those, the accuracy curve caught  [results/tables/harm.csv]
-%   142   \lhdHarmMid          broken runs whose fault cost 0.5 to 2 pts  [results/tables/harm.csv]
-%   131   \lhdHarmMidLHD       of those, LHD caught  [results/tables/harm.csv]
-%   73    \lhdHarmMidAcc       of those, the accuracy curve caught  [results/tables/harm.csv]
-%   105   \lhdHarmBig          broken runs whose fault cost 2 pts or more  [results/tables/harm.csv]
-%   94    \lhdHarmBigLHD       of those, LHD caught  [results/tables/harm.csv]
-%   60    \lhdHarmBigAcc       of those, the accuracy curve caught  [results/tables/harm.csv]
-%   11.1  \lhdCnnFrozenDrop    mean accuracy points a frozen CNN layer cost against the twin  [results/tables/runs.csv]
-%   3.1   \lhdCnnHalfDeadDrop  mean points half a CNN layer's units dead cost  [results/tables/runs.csv]
-%   0.8   \lhdOtherMaxDrop     largest mean cost of any fault in the other two networks  [results/tables/runs.csv]
-% FACTS
-%   Cost is the final accuracy below the healthy twin with the same seed
-%   Compare with your GTSRB model, where the frozen convolution cost 11 points
-SOHAN WRITES THIS
+
+A broken run and the fresh healthy run with the same seed start from the same weights and see the same batches, so they differ only by the fault. The healthy twin's final accuracy shows what the fault cost. Of the \lhdHarmBig{} broken runs whose fault cost 2 or more points of final accuracy, LHD caught \lhdHarmBigLHD{} and the accuracy curve caught \lhdHarmBigAcc{}. A frozen CNN layer cost the most, \lhdCnnFrozenDrop{} points on average, close to the \lhdStoryCost{} points that the untrained layer cost SignNet. Half of a CNN layer's units dead cost \lhdCnnHalfDeadDrop{} points, and no fault in the other two networks cost more than \lhdOtherMaxDrop{} points on average.
 
 \subsection{Dead units and fixed thresholds}
 \label{sec:fixed}
-
 % BUDGET about 0.8 page, including Figure 2
-% NUMBERS. Each \lhd macro prints the value next to it, and typing the value works too.
-%   200 of 200  \lhdZeroFrozenRuns      frozen layers the zero update check caught at the planted layer  [results/tables/detectors.csv]
-%   200 of 200  \lhdZeroFrozenOneEpoch  the same check when one epoch is enough  [results/tables/detectors.csv]
-%   1           \lhdZeroEpoch           median epoch of that one epoch check  [results/tables/detectors.csv]
-%   3           \lhdLhdFrozenEpoch      median epoch of LHD's alarm on frozen layers  [results/tables/detectors.csv]
-%   2           \lhdZeroLead            epochs the zero update check fires before LHD  [results/tables/detectors.csv]
-%   0           \lhdZeroFlagged         Zero update check, healthy runs flagged (of 150)  [results/tables/detectors.csv]
-%   97%         \lhdLhdFrozenRight      frozen layers LHD caught at the planted layer  [results/tables/detectors.csv]
-%   78%         \lhdLhdDeadRight        dead unit faults LHD caught at the planted layer  [results/tables/detectors.csv]
-%   78%         \lhdLhdDeadAny          dead unit faults LHD caught at any layer  [results/tables/detectors.csv]
-%   3           \lhdFalseAlarms         fresh healthy runs LHD flagged  [results/summary.json]
-%   71%         \lhdQuarterDead         25% dead rule, dead unit faults caught at the planted layer  [results/tables/detectors.csv]
-%   51          \lhdQuarterFlagged      25% dead rule, healthy runs flagged (of 150)  [results/tables/detectors.csv]
-%   40%         \lhdSageDead            SageMaker Debugger (50%), dead unit faults caught at the planted layer  [results/tables/detectors.csv]
-%   22          \lhdSageFlagged         SageMaker Debugger (50%), healthy runs flagged (of 150)  [results/tables/detectors.csv]
-%   4%          \lhdDeepDead            DeepDiagnosis (70%), dead unit faults caught at the planted layer  [results/tables/detectors.csv]
-%   0           \lhdDeepFlagged         DeepDiagnosis (70%), healthy runs flagged (of 150)  [results/tables/detectors.csv]
-%   0%          \lhdWandbDead           wandb-callbacks (80%), dead unit faults caught at the planted layer  [results/tables/detectors.csv]
-%   0           \lhdWandbFlagged        wandb-callbacks (80%), healthy runs flagged (of 150)  [results/tables/detectors.csv]
-%   74%         \lhdAnyDeadDead         Any dead unit (wandb-callbacks verbose), dead unit faults caught at the planted layer  [results/tables/detectors.csv]
-%   100         \lhdAnyDeadFlagged      Any dead unit (wandb-callbacks verbose), healthy runs flagged (of 150)  [results/tables/detectors.csv]
-%   36%         \lhdCnnDenseLow         fewest dead units in the CNN's fc1, calibration runs  [results/tables/signals.csv.gz]
-%   70%         \lhdCnnDenseHigh        most dead units in the CNN's fc1, calibration runs  [results/tables/signals.csv.gz]
-%   0%          \lhdTransformerDeadMax  most dead units in any transformer ReLU layer, calibration  [results/tables/signals.csv.gz]
-% FACTS
-%   Every fixed rule is held to p epochs and counted only when it names the planted layer; the full table is Table A1 in the appendix
-%   A frozen layer's weight change is exactly 0, so a check for an exact 0 needs no range and no patience
-SOHAN WRITES THIS
-% FIGURE shows dead unit faults caught at the planted layer against healthy runs flagged, for LHD and each fixed rule
+
+For frozen layers, the zero update check did better than LHD. It caught \lhdZeroFrozenRuns{} frozen layers, each at the planted layer, and flagged no healthy runs. When one epoch is enough, it fires at epoch \lhdZeroEpoch{}, \lhdZeroLead{} epochs before LHD. A frozen layer's weight change is exactly 0, so this check needs no healthy range at all.
+
+Dead units are harder, because healthy networks lose units on their own and the amount varies widely. In calibration runs of the CNN, between \lhdCnnDenseLow{} and \lhdCnnDenseHigh{} of the dense layer's units were dead, while no transformer calibration run had a single dead unit in its ReLU layers. A fixed threshold that suits one network will miss faults or flag healthy runs in another (Figure~\ref{fig:detectors_tradeoff}). Every rule here was held to the same $p = \lhdPatience$ epochs and scored only at the planted layer. LHD caught \lhdLhdDeadRight{} of dead unit faults with \lhdFalseAlarms{} false alarms in \lhdHealthyRuns{} healthy runs. The \lhdQuarterThreshold{} rule caught \lhdQuarterDead{} but flagged \lhdQuarterFlagged{} healthy runs. The \lhdSageThreshold{} rule, the SageMaker Debugger default, caught \lhdSageDead{} and flagged \lhdSageFlagged{}. The \lhdDeepThreshold{} and \lhdWandbThreshold{} rules of DeepDiagnosis and wandb-callbacks flagged no healthy runs but caught only \lhdDeepDead{} and \lhdWandbDead{}. A rule that fires on any dead unit caught \lhdAnyDeadDead{} while flagging \lhdAnyDeadFlagged{}. A range measured for each layer of each network was the only detector that caught most dead unit faults without flagging many healthy runs.
+
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figures/detectors_tradeoff.pdf}
-\caption{SOHAN WRITES THIS}
+\caption{Dead unit faults caught at the planted layer against fresh healthy runs flagged, for LHD and the fixed dead unit rules, all held to three epochs and pooled over the three networks. Detectors toward the upper left catch more faults while flagging fewer healthy runs.}
 \label{fig:detectors_tradeoff}
 \end{figure}
 
 \subsection{False alarms}
 \label{sec:alarms}
-
 % BUDGET about 0.3 page
-% NUMBERS. Each \lhd macro prints the value next to it, and typing the value works too.
-%   3                     \lhdFalseAlarms            fresh healthy runs LHD flagged  [results/summary.json]
-%   150                   \lhdHealthyRuns            fresh healthy runs scored  [results/summary.json]
-%   2.0%                  \lhdFalseAlarmRate         LHD false alarm rate  [results/summary.json]
-%   0.7 to 5.7%           \lhdFalseAlarmInterval     95% Wilson interval of that rate  [results/summary.json]
-%   7                     \lhdAccFalseAlarms         fresh healthy runs the accuracy curve flagged  [results/summary.json]
-%   2.3 to 9.3%           \lhdAccFalseAlarmInterval  95% Wilson interval of that rate  [results/summary.json]
-%   mlp-fresh-none-s1046  \lhdAlarmARun              false alarm run  [results/tables/false_alarms.csv]
-%   fc2                   \lhdAlarmALayer            layer it named  [results/tables/false_alarms.csv]
-%   16                    \lhdAlarmAEpoch            epoch it fired  [results/tables/false_alarms.csv]
-%   dead unit fraction    \lhdAlarmASignal           signal out of range  [results/tables/false_alarms.csv]
-%   1.6%                  \lhdAlarmAValue            dead units in that layer at the alarm  [results/tables/signals.csv.gz]
-%   3.9%                  \lhdAlarmAEdge             calibration lowest for that layer, so the alarm is below  [results/tables/signals.csv.gz]
-%   cnn-fresh-none-s1015  \lhdAlarmBRun              false alarm run  [results/tables/false_alarms.csv]
-%   conv2                 \lhdAlarmBLayer            layer it named  [results/tables/false_alarms.csv]
-%   4                     \lhdAlarmBEpoch            epoch it fired  [results/tables/false_alarms.csv]
-%   dead unit fraction    \lhdAlarmBSignal           signal out of range  [results/tables/false_alarms.csv]
-%   6.2%                  \lhdAlarmBValue            dead units in that layer at the alarm  [results/tables/signals.csv.gz]
-%   0.0%                  \lhdAlarmBEdge             calibration highest for that layer, so the alarm is above  [results/tables/signals.csv.gz]
-%   cnn-fresh-none-s1028  \lhdAlarmCRun              false alarm run  [results/tables/false_alarms.csv]
-%   conv2                 \lhdAlarmCLayer            layer it named  [results/tables/false_alarms.csv]
-%   3                     \lhdAlarmCEpoch            epoch it fired  [results/tables/false_alarms.csv]
-%   dead unit fraction    \lhdAlarmCSignal           signal out of range  [results/tables/false_alarms.csv]
-%   6.2%                  \lhdAlarmCValue            dead units in that layer at the alarm  [results/tables/signals.csv.gz]
-%   0.0%                  \lhdAlarmCEdge             calibration highest for that layer, so the alarm is above  [results/tables/signals.csv.gz]
-%   0.05                  \lhdFloor                  floor f  [experiments/evaluate.py]
-%   16                    \lhdSmallLayerUnits        units in the CNN's conv2  [experiments/models.py]
-%   6.25%                 \lhdOneUnitShare           one dead unit in that layer  [experiments/models.py]
-%   d3f5275               \lhdDraftCommit            commit of the earlier draft  [experiments/paper.py]
-%   110                   \lhdDraftFresh             fresh healthy runs done at that draft  [experiments/paper.py]
-%   3                     \lhdDraftAlarms            false alarms that draft reported  [experiments/paper.py]
-%   40                    \lhdLaterFresh             fresh healthy runs finished after that draft  [results/tables/runs.csv]
-%   0                     \lhdLaterAlarms            false alarms those later runs added  [results/summary.json]
-% FACTS
-%   When no calibration run has a dead unit in a layer, the top of its range is the floor, so one dead unit can cross it
-%   An alarm for too few dead units points to no fault; checking only the top of the range would remove it
-SOHAN WRITES THIS
+
+LHD flagged \lhdFalseAlarms{} of \lhdHealthyRuns{} fresh healthy runs (\lhdFalseAlarmRate{}, 95\% interval \lhdFalseAlarmInterval{}), against \lhdAccFalseAlarms{} for the accuracy curve. All of them came from the dead unit fraction. Two were CNN runs in which one of the \lhdSmallLayerUnits{} filters of conv2 died, at epochs \lhdAlarmCEpoch{} and \lhdAlarmBEpoch{}. No calibration run had a dead filter in conv2, so the top of that layer's range was the floor alone, \lhdAlarmBBound{}, and one dead filter is \lhdOneUnitShare{}. The third was in fc2 of the fully connected network at epoch \lhdAlarmAEpoch{}. That layer had fewer dead units than any calibration run, \lhdAlarmAValue{} against a lowest healthy value of \lhdAlarmAEdge{}, which put it under the lower edge of \lhdAlarmABound{}. LHD called this pattern \lhdAlarmACause{}. Too few dead units points to no fault, so checking the dead unit fraction against only the top of its range would remove this alarm. An earlier draft of this work, at commit \commitref{\lhdDraftCommit}, reported the same \lhdDraftAlarms{} alarms when \lhdDraftFresh{} healthy runs had finished, and the \lhdLaterFresh{} runs trained after it added none.
 
 \section{Limitations}
 \label{sec:limits}
+% BUDGET 0.5 page
 
-% BUDGET 0.5 page. Every item below must stay in.
-% NUMBERS. Each \lhd macro prints the value next to it, and typing the value works too.
-%   200 of 200              \lhdZeroFrozenOneEpoch  the same check when one epoch is enough  [results/tables/detectors.csv]
-%   1                       \lhdZeroEpoch           median epoch of that one epoch check  [results/tables/detectors.csv]
-%   2                       \lhdZeroLead            epochs the zero update check fires before LHD  [results/tables/detectors.csv]
-%   78%                     \lhdLhdDeadRight        dead unit faults LHD caught at the planted layer  [results/tables/detectors.csv]
-%   20                      \lhdCalibrationPerNet   calibration runs per network  [experiments/grid.py]
-%   2                       \lhdCalARuns            calibration runs used to build the range  [results/tables/sweep_calibration.csv]
-%   22%                     \lhdCalAWorst           highest mean false alarm rate over networks at that size  [results/tables/sweep_calibration.csv]
-%   CNN                     \lhdCalANet             network with that rate  [results/tables/sweep_calibration.csv]
-%   3                       \lhdCalBRuns            calibration runs used to build the range  [results/tables/sweep_calibration.csv]
-%   15%                     \lhdCalBWorst           highest mean false alarm rate over networks at that size  [results/tables/sweep_calibration.csv]
-%   CNN                     \lhdCalBNet             network with that rate  [results/tables/sweep_calibration.csv]
-%   5                       \lhdCalCRuns            calibration runs used to build the range  [results/tables/sweep_calibration.csv]
-%   11%                     \lhdCalCWorst           highest mean false alarm rate over networks at that size  [results/tables/sweep_calibration.csv]
-%   fully connected network  \lhdCalCNet             network with that rate  [results/tables/sweep_calibration.csv]
-%   10                      \lhdCalDRuns            calibration runs used to build the range  [results/tables/sweep_calibration.csv]
-%   5%                      \lhdCalDWorst           highest mean false alarm rate over networks at that size  [results/tables/sweep_calibration.csv]
-%   fully connected network  \lhdCalDNet             network with that rate  [results/tables/sweep_calibration.csv]
-%   15                      \lhdCalERuns            calibration runs used to build the range  [results/tables/sweep_calibration.csv]
-%   4%                      \lhdCalEWorst           highest mean false alarm rate over networks at that size  [results/tables/sweep_calibration.csv]
-%   CNN                     \lhdCalENet             network with that rate  [results/tables/sweep_calibration.csv]
-%   20                      \lhdCalFRuns            calibration runs used to build the range  [results/tables/sweep_calibration.csv]
-%   4%                      \lhdCalFWorst           highest mean false alarm rate over networks at that size  [results/tables/sweep_calibration.csv]
-%   CNN                     \lhdCalFNet             network with that rate  [results/tables/sweep_calibration.csv]
-%   36%                     \lhdCnnDenseLow         fewest dead units in the CNN's fc1, calibration runs  [results/tables/signals.csv.gz]
-%   70%                     \lhdCnnDenseHigh        most dead units in the CNN's fc1, calibration runs  [results/tables/signals.csv.gz]
-%   0 of 10                 \lhdCnnDenseACaught     CNN fc1 runs with 10% dead units that LHD caught  [results/tables/per_layer.csv]
-%   0 of 10                 \lhdCnnDenseBCaught     CNN fc1 runs with 25% dead units that LHD caught  [results/tables/per_layer.csv]
-%   1 of 10                 \lhdCnnDenseCCaught     CNN fc1 runs with 50% dead units that LHD caught  [results/tables/per_layer.csv]
-%   223                     \lhdHarmSmall           broken runs whose fault cost under 0.5 pts  [results/tables/harm.csv]
-%   470                     \lhdBrokenRuns          broken runs with a frozen layer or dead units  [results/summary.json]
-%   35                      \lhdVanishingFired      runs named vanishing gradient, extra faults only  [results/summary.json]
-%   5                       \lhdRunawayFired        runs named runaway weights, extra faults only  [results/summary.json]
-%   0                       \lhdDivergenceFired     runs where the divergence rule fired, all faults  [results/summary.json]
-%   0.05                    \lhdFloor               floor f  [experiments/evaluate.py]
-%   16                      \lhdSmallLayerUnits     units in the CNN's conv2  [experiments/models.py]
-%   6.25%                   \lhdOneUnitShare        one dead unit in that layer  [experiments/models.py]
-%   15 to 20                \lhdEpochRange          epochs per run  [experiments/train.py]
-%   37%                     \lhdTransformerAcc      mean final next character accuracy of fresh transformer runs  [results/tables/runs.csv]
-%   242,762                 \lhdMlpParams           parameters, fully connected network  [results/tables/networks.csv]
-%   41,659                  \lhdCnnParams           parameters, CNN  [results/tables/networks.csv]
-%   112,577                 \lhdTransformerParams   parameters, transformer  [results/tables/networks.csv]
-%   1                       \lhdThreads             CPU threads per run  [experiments/train.py]
-%   60                      \lhdFreshThirdSet       fresh healthy runs in the third set  [results/tables/runs.csv]
-%   205                     \lhdOtherRuns           runs with the extra faults (third set)  [results/summary.json]
-%   5                       \lhdWrongCauseRuns      right layer but wrong cause  [results/tables/runs.csv]
-%   a frozen b1.qkv in the transformer called vanishing gradient (5)  \lhdWrongCauseList      those runs  [results/tables/runs.csv]
-% FACTS
-%   1. The zero update check catches frozen layers 2 epochs sooner (200 of 200 at epoch 1); LHD's advantage is dead units
-%   2. Faults were planted to show up in the signals LHD measures; they are not real bugs
-%   3. Calibration needs 10 to 20 healthy runs of the same network and assumes they are healthy; this costs more than LHD saves for a model trained once. The study used 20 per network, and the Cal numbers above show the false alarms at each size
-%   4. LHD misses dead units where healthy runs already lose many units (the CNN's dense layer, 36% to 70% dead in healthy runs)
-%   5. 223 of 470 planted faults cost less than half a point of accuracy
-%   6. Only the frozen layer and dead unit rules were tested in the main study; the divergence rule never fired (0 runs). In the main study the vanishing gradient rule fired only as a wrong cause, a frozen b1.qkv in the transformer called vanishing gradient (5)
-%   7. The 0.05 floor is too low for small layers; one dead unit of 16 is 6.25%
-%   8. Small networks, laptop CPU, 15 to 20 epochs; the transformer reaches about 37% accuracy; no GPU, large models, or other optimizers
-%   9. The third set of runs (60 healthy runs and the extra faults) was trained after the main results
-SOHAN WRITES THIS
+For frozen layers, the zero update check catches the fault two epochs sooner than LHD, so LHD's advantage is on dead units. The faults were planted to show up in the signals LHD measures, so they are not real bugs, and the rates above describe how well LHD separates these faults from normal variation. Calibration needs about \lhdCalDRuns{} to \lhdCalFRuns{} healthy runs of the same network, and it assumes those runs are healthy. For a model trained only once, that costs more than LHD can save.
+
+LHD misses dead units in layers where healthy runs already lose many units. The CNN's dense layer is the clearest case, where LHD caught \lhdCnnDenseCCaught{} runs even with half of its units dead. Many planted faults were also mild, since \lhdHarmSmall{} of \lhdBrokenRuns{} cost less than half a point of accuracy. Only the frozen layer and dead unit rules were tested in the main study, and the divergence rule never fired in any run. The floor of \lhdFloor{} is too low for small layers, because one dead filter out of \lhdSmallLayerUnits{} is already \lhdOneUnitShare{}, and a later version should scale the floor to the layer's width.
+
+The networks are small and were trained for \lhdEpochRange{} epochs on a laptop CPU. The transformer reaches only about \lhdTransformerAcc{} next character accuracy, and GPU training and large models were not tested. Finally, the third set of runs, with \lhdFreshThirdSet{} healthy runs and the extra faults, was trained after the main results were in.
 
 \section{Conclusion}
 \label{sec:conclusion}
-
 % BUDGET 3 sentences
-% NUMBERS. Each \lhd macro prints the value next to it, and typing the value works too.
-%   885    \lhdRuns          runs in total  [results/tables/run_counts.csv]
-%   87%    \lhdCaughtRate    share of broken runs LHD caught  [results/summary.json]
-%   98.1%  \lhdLayerRight    caught runs where LHD named the planted layer  [results/summary.json]
-%   3      \lhdFalseAlarms   fresh healthy runs LHD flagged  [results/summary.json]
-%   150    \lhdHealthyRuns   fresh healthy runs scored  [results/summary.json]
-%   78%    \lhdLhdDeadRight  dead unit faults LHD caught at the planted layer  [results/tables/detectors.csv]
-SOHAN WRITES THIS
+
+LHD compares four signals of every layer with ranges measured on healthy runs of the same network and stops a run when one signal stays out of range. On planted faults, it caught most broken runs within three epochs, usually long before the accuracy curve, and it rarely flagged healthy runs. Its clearest gain is on dead units, where a healthy range for each layer caught more faults than any fixed threshold while flagging few healthy runs, and the next step is to test it on real bugs from training code.
 
 % MAIN TEXT ENDS HERE. Everything above must fit in 6 pages.
 \FloatBarrier
 
 \section*{Use of generative AI}
-\label{sec:ai}
 
-% BUDGET not counted
-% FACTS
-%   The long paper's statement, for reference  [paper/lhd.tex]
-%   The author came up with the idea, designed the study in an earlier proposal, and wrote the core LHD library (signals, detector, and diagnosis), with Claude, made by Anthropic, providing function outlines and docstrings. Claude wrote the experiment scripts that trained and scored the networks, ran the training runs, wrote the analysis and figure code, and drafted parts of this paper, including the results and related work. The author directed the study, decided what to test and change, and is responsible for all of its content.
-SOHAN WRITES THIS
+The author came up with the idea, designed the study in an earlier proposal, and wrote the core LHD library (signals, detector, and diagnosis), with Claude, made by Anthropic, providing function outlines and docstrings. Claude wrote the experiment scripts that trained and scored the networks, ran the training runs, wrote the analysis and figure code, and drafted parts of this paper, including the results and related work. The author directed the study, decided what to test and change, and is responsible for all of its content.
 
 \section*{Code and data}
-\label{sec:code}
 
-% BUDGET not counted
-% NUMBERS. Each \lhd macro prints the value next to it, and typing the value works too.
-%   b6bfb6a  \lhdPlanCommit      commit with the run plan  [experiments/paper.py]
-%   d3f5275  \lhdDraftCommit     commit of the earlier draft  [experiments/paper.py]
-%   e83806f  \lhdSettingsCommit  commit that fixed m, f, and p  [experiments/paper.py]
-% FACTS
-%   Repository https://github.com/sohan-bhat/lhd
-%   The long version is tagged v0-long
-SOHAN WRITES THIS
+The code, every saved run, and the tables behind each number are at \url{https://github.com/sohan-bhat/lhd}.
 
-\input{../references}
-
-\clearpage
-\appendix
-\setcounter{figure}{0}
-\setcounter{table}{0}
-\renewcommand{\thefigure}{A\arabic{figure}}
-\renewcommand{\thetable}{A\arabic{table}}
-
-\section{Networks and runs in detail}
-\label{app:runs}
-
-% BUDGET not counted
-% NUMBERS. Each \lhd macro prints the value next to it, and typing the value works too.
-%   256, 128, 64     \lhdMlpWidths          hidden widths of the fully connected network  [experiments/models.py]
-%   8, 16, 32        \lhdCnnFilters         filters in the CNN's three convolutions  [experiments/models.py]
-%   64               \lhdCnnDense           units in the CNN's dense layer  [experiments/models.py]
-%   64               \lhdTransformerWidth   transformer width  [experiments/models.py]
-%   4                \lhdTransformerHeads   transformer heads  [experiments/models.py]
-%   2                \lhdTransformerBlocks  transformer depth  [experiments/models.py]
-%   256              \lhdTransformerHidden  transformer hidden  [experiments/models.py]
-%   4,000            \lhdCnnValImages       CNN validation images  [experiments/train.py]
-%   512              \lhdTextWindows        transformer validation windows  [experiments/data.py]
-%   64               \lhdTextContext        characters per window  [experiments/train.py]
-%   10%              \lhdTextHeldOut        share of the text held out for validation  [experiments/data.py]
-%   0 to 19          \lhdCalibrationSeeds   calibration seeds  [experiments/grid.py]
-%   1000             \lhdScoredSeedStart    first seed of scored runs  [experiments/grid.py]
-%   10               \lhdSeedsPerFault      seeds per fault condition  [experiments/grid.py]
-%   7919             \lhdUnitSeedOffset     added to the run's seed to pick the killed units  [experiments/train.py]
-%   -1               \lhdDeadBias           bias given to killed units  [experiments/train.py]
-%   90               \lhdFreshFirstSet      fresh healthy runs in the first set  [results/tables/runs.csv]
-%   60               \lhdFreshThirdSet      fresh healthy runs in the third set  [results/tables/runs.csv]
-%   b6bfb6a          \lhdPlanCommit         commit with the run plan  [experiments/paper.py]
-%   31 October 2026  \lhdPlanDate           date of that commit  [git log]
-% FACTS
-%   fully connected network: watched layers fc1, fc2, fc3, fc4; ReLU layers where units can die fc1, fc2, fc3  [experiments/models.py]
-%   transformer: watched layers tok, pos, b0.qkv, b0.proj, b0.ff1, b0.ff2, b1.qkv, b1.proj, b1.ff1, b1.ff2, head; ReLU layers where units can die b0.ff1, b1.ff1  [experiments/models.py]
-%   CNN: watched layers conv1, conv2, conv3, fc1, fc2; ReLU layers where units can die conv1, conv2, conv3, fc1  [experiments/models.py]
-%   Killed units are drawn without replacement, their number is the share times the layer's width rounded with at least one unit, and Adam's running averages for them are cleared  [experiments/train.py]
-%   Statistics: one sided Wilcoxon signed rank test on the gap averaged within each seed and within each fault condition, a bootstrap with 10,000 draws that resamples whole seeds, and Wilson score intervals for rates  [experiments/evaluate.py]
-SOHAN WRITES THIS
-
-\section{Detection over time}
-\label{app:time}
-
-% BUDGET not counted
-% NUMBERS. Each \lhd macro prints the value next to it, and typing the value works too.
-%   84%   \lhdTimeMlpLhd          broken runs LHD flagged by the end, fully connected network  [experiments/paper_figures.py]
-%   26%   \lhdTimeMlpAcc          broken runs the accuracy curve flagged by the end, fully connected network  [experiments/paper_figures.py]
-%   100%  \lhdTimeTransformerLhd  broken runs LHD flagged by the end, transformer  [experiments/paper_figures.py]
-%   48%   \lhdTimeTransformerAcc  broken runs the accuracy curve flagged by the end, transformer  [experiments/paper_figures.py]
-%   78%   \lhdTimeCnnLhd          broken runs LHD flagged by the end, CNN  [experiments/paper_figures.py]
-%   29%   \lhdTimeCnnAcc          broken runs the accuracy curve flagged by the end, CNN  [experiments/paper_figures.py]
-SOHAN WRITES THIS
-% FIGURE shows the share of broken runs flagged by each epoch, LHD against the accuracy curve, one panel per network
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figures/detection_over_time.pdf}
-\caption{SOHAN WRITES THIS}
-\label{fig:detection_over_time}
-\end{figure}
-
-\section{Every detector}
-\label{app:detectors}
-
-% BUDGET not counted
-% NUMBERS. Each \lhd macro prints the value next to it, and typing the value works too.
-%   0           \lhdPatienceAlarmChange  largest change in false alarms between one and three epochs, fixed rules  [results/tables/detectors.csv]
-%   2           \lhdPatienceDeadChange   largest drop in dead unit catches between one and three epochs  [results/tables/detectors.csv]
-%   26          \lhdSageAnyTen           50% rule catches of 10% dead units at any layer  [results/tables/detectors.csv]
-%   8           \lhdSageRightTen         50% rule catches of 10% dead units at the planted layer  [results/tables/detectors.csv]
-%   25          \lhdSageAnyTwentyFive    50% rule catches of 25% dead units at any layer  [results/tables/detectors.csv]
-%   10          \lhdSageRightTwentyFive  50% rule catches of 25% dead units at the planted layer  [results/tables/detectors.csv]
-%   291 of 470  \lhdAccOneCaught         Accuracy curve, 1 epoch below healthy, broken runs caught  [results/tables/detectors.csv]
-%   44 of 150   \lhdAccOneFlagged        Accuracy curve, 1 epoch below healthy, healthy runs flagged  [results/tables/detectors.csv]
-%   143 of 470  \lhdLossCaught           Loss curve, 3 epochs above healthy, broken runs caught  [results/tables/detectors.csv]
-%   9 of 150    \lhdLossFlagged          Loss curve, 3 epochs above healthy, healthy runs flagged  [results/tables/detectors.csv]
-% FACTS
-%   Requiring three epochs instead of one changed little, since a layer's dead unit fraction rarely drops back once it crosses a threshold
-%   Counted at any layer, the 50% rule caught more runs with 10% dead units than with 25%, because it fired on units that died on their own in other layers
-SOHAN WRITES THIS
-% TABLE shows every detector held to three epochs, frozen layers and dead units caught at the planted layer, and healthy runs flagged. The tabular is rebuilt from the data, so edit only the caption.
-\begin{table}[t]
-\centering
-\small
-\caption{SOHAN WRITES THIS}
-\label{tab:detectors}
-\input{tables/detectors}
-\end{table}
-
-\section{Each layer and how many units must die}
-\label{app:layers}
-
-% BUDGET not counted
-% NUMBERS. Each \lhd macro prints the value next to it, and typing the value works too.
-%   57%                     \lhdDoseALhd        LHD catches with 10% dead units  [results/tables/detectors.csv]
-%   7%                      \lhdDoseAAcc        accuracy curve catches with 10% dead units  [results/tables/detectors.csv]
-%   88%                     \lhdDoseBLhd        LHD catches with 25% dead units  [results/tables/detectors.csv]
-%   9%                      \lhdDoseBAcc        accuracy curve catches with 25% dead units  [results/tables/detectors.csv]
-%   90%                     \lhdDoseCLhd        LHD catches with 50% dead units  [results/tables/detectors.csv]
-%   29%                     \lhdDoseCAcc        accuracy curve catches with 50% dead units  [results/tables/detectors.csv]
-%   CNN conv3 at 10% (1 of 10); CNN fc1 at 10% (0 of 10); CNN fc1 at 25% (0 of 10); CNN fc1 at 50% (1 of 10); fully connected network fc2 at 10% (0 of 10); fully connected network fc3 at 10% (0 of 10); fully connected network fc3 at 25% (9 of 10)  \lhdDoseMisses      every layer and share where LHD missed some dead unit runs  [results/tables/per_layer.csv]
-%   8                       \lhdWrongLayerRuns  caught runs where LHD named another layer  [results/tables/wrong_layers.csv]
-%   50% dead units in fc1 in the CNN named fc2 (1); a frozen conv2 in the CNN named conv1 (1); a frozen conv3 in the CNN named conv2 (1); a frozen fc1 in the CNN named conv1 (1); a frozen fc1 in the CNN named conv2 (1); a frozen fc1 in the CNN named conv3 (3)  \lhdWrongLayerList  those runs  [results/tables/wrong_layers.csv]
-%   5                       \lhdWrongCauseRuns  right layer but wrong cause  [results/tables/runs.csv]
-%   a frozen b1.qkv in the transformer called vanishing gradient (5)  \lhdWrongCauseList  those runs  [results/tables/runs.csv]
-% FACTS
-%   In each wrong layer run, the layer LHD named had its own signal out of range
-%   A frozen attention projection also lowers the gradient that reaches it, so its pattern can match a vanishing gradient
-SOHAN WRITES THIS
-% FIGURE shows for every layer and fault, the share of broken runs where LHD caught the fault and named both the planted layer and the right cause
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figures/per_layer.pdf}
-\caption{SOHAN WRITES THIS}
-\label{fig:per_layer}
-\end{figure}
-
-\section{What each signal adds}
-\label{app:ablation}
-
-% BUDGET not counted
-% NUMBERS. Each \lhd macro prints the value next to it, and typing the value works too.
-%   87%  \lhdAblationAllFourCaught   broken runs caught, all four  [results/tables/ablation.csv]
-%   85%  \lhdAblationAllFourBoth     right layer and cause, all four  [results/tables/ablation.csv]
-%   43%  \lhdAblationNoDeadCaught    broken runs caught, without dead unit fraction  [results/tables/ablation.csv]
-%   41%  \lhdAblationNoDeadBoth      right layer and cause, without dead unit fraction  [results/tables/ablation.csv]
-%   70%  \lhdAblationNoChangeCaught  broken runs caught, without weight change  [results/tables/ablation.csv]
-%   45%  \lhdAblationNoChangeBoth    right layer and cause, without weight change  [results/tables/ablation.csv]
-% FACTS
-%   None of the planted faults was designed to move the weight norm or the gradient norm
-SOHAN WRITES THIS
-% TABLE shows the same runs replayed with each signal removed or used alone. The tabular is rebuilt from the data, so edit only the caption.
-\begin{table}[t]
-\centering
-\small
-\caption{SOHAN WRITES THIS}
-\label{tab:ablation}
-\input{tables/ablation}
-\end{table}
-
-\section{Margin and calibration size}
-\label{app:settings}
-
-% BUDGET not counted
-% NUMBERS. Each \lhd macro prints the value next to it, and typing the value works too.
-%   0.5                     \lhdMargin         margin m  [experiments/evaluate.py]
-%   71%                     \lhdEdgeFlagged    healthy runs flagged with no margin  [results/tables/sweep_settings.csv]
-%   98%                     \lhdEdgeCaught     broken runs caught with no margin  [results/tables/sweep_settings.csv]
-%   2%                      \lhdMarginFlagged  healthy runs flagged with the margin used  [results/tables/sweep_settings.csv]
-%   87%                     \lhdMarginCaught   broken runs caught with the margin used  [results/tables/sweep_settings.csv]
-%   2                       \lhdCalARuns       calibration runs used to build the range  [results/tables/sweep_calibration.csv]
-%   22%                     \lhdCalAWorst      highest mean false alarm rate over networks at that size  [results/tables/sweep_calibration.csv]
-%   CNN                     \lhdCalANet        network with that rate  [results/tables/sweep_calibration.csv]
-%   3                       \lhdCalBRuns       calibration runs used to build the range  [results/tables/sweep_calibration.csv]
-%   15%                     \lhdCalBWorst      highest mean false alarm rate over networks at that size  [results/tables/sweep_calibration.csv]
-%   CNN                     \lhdCalBNet        network with that rate  [results/tables/sweep_calibration.csv]
-%   5                       \lhdCalCRuns       calibration runs used to build the range  [results/tables/sweep_calibration.csv]
-%   11%                     \lhdCalCWorst      highest mean false alarm rate over networks at that size  [results/tables/sweep_calibration.csv]
-%   fully connected network  \lhdCalCNet        network with that rate  [results/tables/sweep_calibration.csv]
-%   10                      \lhdCalDRuns       calibration runs used to build the range  [results/tables/sweep_calibration.csv]
-%   5%                      \lhdCalDWorst      highest mean false alarm rate over networks at that size  [results/tables/sweep_calibration.csv]
-%   fully connected network  \lhdCalDNet        network with that rate  [results/tables/sweep_calibration.csv]
-%   15                      \lhdCalERuns       calibration runs used to build the range  [results/tables/sweep_calibration.csv]
-%   4%                      \lhdCalEWorst      highest mean false alarm rate over networks at that size  [results/tables/sweep_calibration.csv]
-%   CNN                     \lhdCalENet        network with that rate  [results/tables/sweep_calibration.csv]
-%   20                      \lhdCalFRuns       calibration runs used to build the range  [results/tables/sweep_calibration.csv]
-%   4%                      \lhdCalFWorst      highest mean false alarm rate over networks at that size  [results/tables/sweep_calibration.csv]
-%   CNN                     \lhdCalFNet        network with that rate  [results/tables/sweep_calibration.csv]
-% FACTS
-%   These checks replay the same saved runs after the main results; the settings were fixed before them  [experiments/sweep.py]
-SOHAN WRITES THIS
-
-\section{Cost}
-\label{app:cost}
-
-% BUDGET not counted
-% NUMBERS. Each \lhd macro prints the value next to it, and typing the value works too.
-%   11.6%  \lhdMlpOverhead          training time LHD added, fully connected network  [results/summary.json]
-%   5.9%   \lhdTransformerOverhead  training time LHD added, transformer  [results/summary.json]
-%   2.2%   \lhdCnnOverhead          training time LHD added, CNN  [results/summary.json]
-%   70%    \lhdComputeSaved         mean training saved by stopping each broken run at LHD's alarm  [results/summary.json]
-%   107    \lhdTrainingHours        CPU hours for all runs  [results/tables/compute.csv]
-% FACTS
-%   Measured on fresh healthy runs on one CPU thread; most of the overhead is the gradient norm, read after every batch, and the probe batch, run once per epoch
-SOHAN WRITES THIS
-
-\section{Faults beyond frozen layers and dead units}
-\label{app:extra}
-
-% BUDGET not counted
-% NUMBERS. Each \lhd macro prints the value next to it, and typing the value works too.
-%   6                       \lhdLateOnset         epoch the late faults and learning rate jumps start  [experiments/grid.py]
-%   100                     \lhdLateFrozenRuns    runs, latefrozen  [results/summary.json]
-%   100                     \lhdLateFrozenCaught  LHD caught, latefrozen  [results/summary.json]
-%   100                     \lhdLateFrozenBoth    LHD named layer and cause, latefrozen  [results/tables/runs.csv]
-%   20                      \lhdLateFrozenAcc     accuracy curve caught, latefrozen  [results/summary.json]
-%   a frozen layer (100)    \lhdLateFrozenCauses  causes LHD named, latefrozen  [results/summary.json]
-%   45                      \lhdLateDeadRuns      runs, latedead50  [results/summary.json]
-%   40                      \lhdLateDeadCaught    LHD caught, latedead50  [results/summary.json]
-%   40                      \lhdLateDeadBoth      LHD named layer and cause, latedead50  [results/tables/runs.csv]
-%   7                       \lhdLateDeadAcc       accuracy curve caught, latedead50  [results/summary.json]
-%   dead units (40)         \lhdLateDeadCauses    causes LHD named, latedead50  [results/summary.json]
-%   30                      \lhdCutRuns           runs, detach  [results/summary.json]
-%   30                      \lhdCutCaught         LHD caught, detach  [results/summary.json]
-%   30                      \lhdCutBoth           LHD named layer and cause, detach  [results/tables/runs.csv]
-%   30                      \lhdCutAcc            accuracy curve caught, detach  [results/summary.json]
-%   a vanishing gradient (30)  \lhdCutCauses         causes LHD named, detach  [results/summary.json]
-%   15                      \lhdLrTenRuns         runs, lr10  [results/summary.json]
-%   15                      \lhdLrTenCaught       LHD caught, lr10  [results/summary.json]
-%   0                       \lhdLrTenBoth         LHD named layer and cause, lr10  [results/tables/runs.csv]
-%   5                       \lhdLrTenAcc          accuracy curve caught, lr10  [results/summary.json]
-%   an unrecognized pattern (9); dead units (6)  \lhdLrTenCauses       causes LHD named, lr10  [results/summary.json]
-%   15                      \lhdLrHundredRuns     runs, lr100  [results/summary.json]
-%   15                      \lhdLrHundredCaught   LHD caught, lr100  [results/summary.json]
-%   0                       \lhdLrHundredBoth     LHD named layer and cause, lr100  [results/tables/runs.csv]
-%   15                      \lhdLrHundredAcc      accuracy curve caught, lr100  [results/summary.json]
-%   dead units (5); runaway weights (5); a vanishing gradient (5)  \lhdLrHundredCauses   causes LHD named, lr100  [results/summary.json]
-%   30 of 30                \lhdCutZero           gradient cuts the zero update check caught before the cut  [results/tables/detectors.csv]
-%   37 of 45                \lhdLateDeadSage      late half dead runs the 50% rule caught at the planted layer  [results/tables/detectors.csv]
-%   0.00075                 \lhdLrNormal          learning rate at epoch 6 in the 15 epoch networks  [experiments/train.py]
-%   0.0075                  \lhdLrTimesTen        the same after a tenfold jump  [experiments/train.py]
-%   0.075                   \lhdLrTimesHundred    the same after a hundredfold jump  [experiments/train.py]
-%   6                       \lhdLateZeroEpoch     zero update check epoch on late frozen layers  [results/tables/detectors.csv]
-%   100 of 100              \lhdLateZeroTies      late frozen runs where the three epoch check fired with LHD  [results/tables/detectors.csv]
-%   30 of 30                \lhdCutZero           gradient cuts the zero update check caught before the cut  [results/tables/detectors.csv]
-%   37 of 45                \lhdLateDeadSage      late half dead runs the 50% rule caught at the planted layer  [results/tables/detectors.csv]
-%   22                      \lhdSageFlagged       SageMaker Debugger (50%), healthy runs flagged (of 150)  [results/tables/detectors.csv]
-%   0                       \lhdDivergenceFired   runs where the divergence rule fired, all faults  [results/summary.json]
-% FACTS
-%   Late faults are the main faults started at the epoch above instead of epoch 1
-%   A gradient cut detaches one layer's input from the first epoch, so no gradient reaches the layers before it  [experiments/grid.py DETACH_CUTS]
-%   A learning rate jump multiplies Adam's rate at the start of that epoch, and the cosine schedule keeps shrinking it from the raised value
-%   This third set was trained after the main results were in
-SOHAN WRITES THIS
-% TABLE shows each extra fault, caught by LHD, the accuracy curve, the zero update check, and the 50% rule, with healthy runs flagged. The tabular is rebuilt from the data, so edit only the caption.
-\begin{table}[t]
-\centering
-\small
-\caption{SOHAN WRITES THIS}
-\label{tab:extra}
-\input{tables/extra}
-\end{table}
-
-\section{Statistics for each seed and condition}
-\label{app:stats}
-
-% BUDGET not counted
-% NUMBERS. Each \lhd macro prints the value next to it, and typing the value works too.
-%   30                \lhdSeedGroups         seed groups (network and seed)  [results/summary.json]
-%   30                \lhdSeedGroupsLHD      seed groups whose mean gap favored LHD  [results/summary.json]
-%   p = 9.3 x 10^-10  \lhdSeedP              one sided Wilcoxon over seed groups  [results/summary.json]
-%   47                \lhdConditions         fault conditions (network, fault, layer)  [results/tables/runs.csv]
-%   41                \lhdConditionsLHD      conditions whose mean gap favored LHD  [results/tables/runs.csv]
-%   3                 \lhdConditionsAcc      conditions where the accuracy curve was earlier  [results/tables/runs.csv]
-%   1                 \lhdConditionsSame     conditions where both fired at the same epoch  [results/tables/runs.csv]
-%   2                 \lhdConditionsNeither  conditions where neither fired  [results/tables/runs.csv]
-%   p < 1e-10         \lhdConditionP         one sided Wilcoxon over conditions  [results/summary.json]
-%   9.1               \lhdMeanGapAll         mean gap over all broken runs, never as one past the end  [results/summary.json]
-%   8.4 to 9.7        \lhdMeanGapInterval    95% bootstrap interval over seeds  [results/summary.json]
-% FACTS
-%   The mean gap over all runs leans on the runs the accuracy curve missed, so the gap on runs both caught is the fairer measure
-SOHAN WRITES THIS
-
+\input{references}
 
 \end{document}
