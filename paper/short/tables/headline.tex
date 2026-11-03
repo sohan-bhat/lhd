@@ -1,0 +1,11 @@
+\begin{tabular}{@{}lrrrrrr@{}}
+\toprule
+ & \multicolumn{2}{c}{Fully connected} & \multicolumn{2}{c}{Transformer} & \multicolumn{2}{c}{CNN} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
+ & LHD & Accuracy & LHD & Accuracy & LHD & Accuracy \\
+\midrule
+Broken runs caught & \textbf{84\%} & 26\% & \textbf{100\%} & 48\% & \textbf{78\%} & 29\% \\
+Median epoch of the alarm & \textbf{3} & 17 & \textbf{3} & 5 & \textbf{3} & 7 \\
+Healthy runs flagged & 1 of 50 & 1 of 50 & \textbf{0 of 50} & 6 of 50 & 2 of 50 & \textbf{0 of 50} \\
+\bottomrule
+\end{tabular}

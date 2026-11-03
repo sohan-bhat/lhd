@@ -1,0 +1,14 @@
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+ & & & Accuracy & Zero update & 50\% dead \\
+Fault & Runs & LHD & curve & check & rule \\
+\midrule
+Frozen layer at epoch 6 & 100 & 100\% & 20\% & 100\% & 0\% \\
+50\% dead units at epoch 6 & 45 & \textbf{89\%} & 16\% & 0\% & 82\% \\
+Gradient cut & 30 & 100\% & 100\% & 100\% & 0\% \\
+Learning rate $\times 10$ at epoch 6 & 15 & \textbf{100\%} & 33\% & 0\% & 0\% \\
+Learning rate $\times 100$ at epoch 6 & 15 & 100\% & 100\% & 67\% & 60\% \\
+\midrule
+Healthy runs flagged & 150 & 3 & 7 & \textbf{0} & 22 \\
+\bottomrule
+\end{tabular}

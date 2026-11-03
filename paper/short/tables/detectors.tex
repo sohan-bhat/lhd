@@ -1,0 +1,15 @@
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+ & \multicolumn{2}{c}{Caught at the planted layer} & \\
+\cmidrule(lr){2-3}
+Detector & Frozen layers & Dead units & Healthy runs flagged \\
+\midrule
+LHD & 97\% & \textbf{78\%} & 3 of 150 \\
+Zero update check & \textbf{100\%} & 0\% & 0 of 150 \\
+25\% dead rule & 0\% & 71\% & 51 of 150 \\
+SageMaker Debugger (50\%) & 0\% & 40\% & 22 of 150 \\
+DeepDiagnosis (70\%) & 0\% & 4\% & 0 of 150 \\
+wandb-callbacks (80\%) & 0\% & 0\% & 0 of 150 \\
+Any dead unit (wandb-callbacks verbose) & 2\% & 74\% & 100 of 150 \\
+\bottomrule
+\end{tabular}

@@ -1,0 +1,19 @@
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Signals used & \multicolumn{2}{c}{Broken runs caught} & \multicolumn{2}{c}{Right layer and cause} \\
+\cmidrule(lr){2-3} \cmidrule(l){4-5}
+ & Rate & Change & Rate & Change \\
+\midrule
+All four & 87\% & & 85\% & \\
+\midrule
+Without weight change & 70\% & $-$18 & 45\% & $-$40 \\
+Without weight norm & 87\% & same & 85\% & same \\
+Without grad norm & 87\% & same & 86\% & +1 \\
+Without dead unit fraction & 43\% & $-$45 & 41\% & $-$44 \\
+\midrule
+Only weight change & 43\% & $-$45 & 43\% & $-$42 \\
+Only weight norm & 10\% & $-$77 & 0\% & $-$85 \\
+Only grad norm & 25\% & $-$63 & 0\% & $-$85 \\
+Only dead unit fraction & 52\% & $-$36 & 45\% & $-$40 \\
+\bottomrule
+\end{tabular}
