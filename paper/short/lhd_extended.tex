@@ -1,0 +1,145 @@
+\documentclass[11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{mathptmx}
+\usepackage[margin=1in]{geometry}
+\usepackage{url}
+\urlstyle{same}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{amsmath}
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage[hidelinks]{hyperref}
+
+% Every \lhd macro prints a number computed from the saved runs. numbers.tex lists each one with its source.
+\input{numbers}
+\renewcommand{\thefigure}{E\arabic{figure}}
+\renewcommand{\thetable}{E\arabic{table}}
+
+\title{Extended Results for\\ Early Detection of Silent Training Failures in Neural Networks}
+\author{Sohan Bhat\\ \small \texttt{sohanrambhat@gmail.com}}
+\date{November 2026}
+
+\begin{document}
+
+\maketitle
+
+This file holds the results that did not fit in the paper. It uses the same \lhdRuns{} runs and the same settings ($m = \lhdMargin$, $f = \lhdFloor$, $p = \lhdPatience$), and every number comes from the saved runs through the scripts in the repository.
+
+\section{Networks and runs}
+\label{sec:networks}
+
+The fully connected network has hidden layers of \lhdMlpWidths{} units. The CNN has three convolutions with \lhdCnnFilters{} filters, each followed by a ReLU and max pooling, then a dense layer of \lhdCnnDense{} units and the output layer. The transformer has a width of \lhdTransformerWidth{}, \lhdTransformerHeads{} attention heads, \lhdTransformerBlocks{} blocks, and feed forward layers of \lhdTransformerHidden{} units with a ReLU, so dead units can be counted the same way in all three networks. LHD watches every layer with weights. Units can die in fc1 to fc3 of the fully connected network, in conv1 to conv3 and fc1 of the CNN, and in b0.ff1 and b1.ff1 of the transformer. The CNN is scored on a fixed subset of \lhdCnnValImages{} test images and the transformer on \lhdTextWindows{} fixed windows of \lhdTextContext{} characters from the last \lhdTextHeldOut{} of the text.
+
+Calibration runs used seeds \lhdCalibrationSeeds{}. Fresh healthy runs and broken runs used seeds from \lhdScoredSeedStart{} up, with \lhdSeedsPerFault{} seeds for each fault and layer, so no scored run touched a range. A dead unit has its incoming weights set to 0 and its bias set to \lhdDeadBias{}. The units are drawn without replacement by a generator seeded with the run's seed plus \lhdUnitSeedOffset{}, and Adam's running averages for them are cleared. Every run trained to the end, and each detector's alarm was found by replaying the saved signals, which gives the same answer as running LHD live.
+
+Runs that share a seed share their starting weights and batch order, and runs that share a fault and layer share the same break, so single runs are not independent. The tests in Section~\ref{sec:stats} therefore average the gap within each seed and within each fault condition and apply a one sided Wilcoxon signed rank test to those averages. The interval for the mean gap comes from a bootstrap with \lhdBootstrapDraws{} draws that resamples whole seeds, and rates come with 95\% Wilson score intervals.
+
+\section{Detection over time}
+\label{sec:time}
+
+Figure~\ref{fig:detection_over_time} shows the share of broken runs each detector had flagged by each epoch. By the last epoch, LHD had flagged \lhdTimeMlpLhd{} of broken runs in the fully connected network, \lhdTimeTransformerLhd{} in the transformer, and \lhdTimeCnnLhd{} in the CNN. The accuracy curve had flagged \lhdTimeMlpAcc{}, \lhdTimeTransformerAcc{}, and \lhdTimeCnnAcc{}.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\linewidth]{figures/detection_over_time.pdf}
+\caption{Share of broken runs flagged by each epoch, for LHD and the accuracy curve, in each network.}
+\label{fig:detection_over_time}
+\end{figure}
+
+\section{Every detector}
+\label{sec:detectors}
+
+Table~\ref{tab:detectors} lists every detector held to three epochs in a row, with a broken run counted only when the detector named the planted layer. Requiring three epochs instead of one changed little. False alarms did not change, and dead unit catches fell by at most \lhdPatienceDeadChange{}, since a layer's dead unit fraction rarely drops back once it crosses a threshold. Counting only the planted layer mattered more. Counted at any layer, the \lhdSageThreshold{} rule caught more runs with 10\% dead units (\lhdSageAnyTen{}) than with 25\% (\lhdSageAnyTwentyFive{}), because it fired on units that died on their own in other layers. At the planted layer it caught \lhdSageRightTen{} and \lhdSageRightTwentyFive{}.
+
+Two other curve checks did no better than the accuracy curve in the paper. Requiring only one epoch below the healthy range, the accuracy curve caught \lhdAccOneCaught{} broken runs but flagged \lhdAccOneFlagged{} healthy runs. The loss curve, held to three epochs above its range, caught \lhdLossCaught{} and flagged \lhdLossFlagged{}.
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Each detector held to three epochs in a row, with a broken run counted only when the detector named the planted layer. Bold marks the best value in a column when no other detector matches it.}
+\label{tab:detectors}
+\input{tables/detectors}
+\end{table}
+
+\section{Each layer and how many units must die}
+\label{sec:layers}
+
+Figure~\ref{fig:per_layer} shows, for every layer and fault, the share of broken runs in which LHD caught the fault and named both the planted layer and the right cause. With 10\%, 25\%, and 50\% of a layer's units dead, LHD caught \lhdDoseALhd{}, \lhdDoseBLhd{}, and \lhdDoseCLhd{} of runs, against \lhdDoseAAcc{}, \lhdDoseBAcc{}, and \lhdDoseCAcc{} for the accuracy curve. It missed some dead unit runs in \lhdDoseMisses{}. In each of these layers, healthy runs already lose a share of units on their own, so the planted fault stayed inside the healthy range. The CNN's dense layer is the clearest case and shows up as the pale row of the figure.
+
+LHD named a layer other than the planted one in \lhdWrongLayerRuns{} caught runs, namely \lhdWrongLayerList{}. In each of them, the layer LHD named had its own signal out of range, so LHD found a real effect of the fault in a different layer. It found the right layer but named the wrong cause in \lhdWrongCauseRuns{} runs, all \lhdWrongCauseList{}. A frozen attention projection also lowers the gradient that reaches it, so its pattern matches a vanishing gradient.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\linewidth]{figures/per_layer.pdf}
+\caption{Share of broken runs in which LHD caught the fault and named both the planted layer and the right cause, for every layer and fault. Each cell is \lhdSeedsPerFault{} broken runs. Blank cells are faults that were not planted, since dead units only go into layers followed by a ReLU.}
+\label{fig:per_layer}
+\end{figure}
+
+\section{What each signal adds}
+\label{sec:ablation}
+
+Table~\ref{tab:ablation} replays the same runs with each signal removed or used alone. Without the dead unit fraction, LHD caught \lhdAblationNoDeadCaught{} of broken runs instead of \lhdAblationAllFourCaught{}, so that signal carries most of the detection. Without the weight change, it named the right layer and cause in \lhdAblationNoChangeBoth{} of broken runs instead of \lhdAblationAllFourBoth{}, since the weight change is what separates a frozen layer from other faults. Removing the weight norm or the gradient norm changed little, because none of the planted faults was designed to move them.
+
+\begin{table}[ht]
+\centering
+\small
+\caption{What happens when signals are removed or used alone, pooled over the three networks. Changes are in percentage points against all four signals.}
+\label{tab:ablation}
+\input{tables/ablation}
+\end{table}
+
+\section{Margin and calibration size}
+\label{sec:settings}
+
+These checks replay the same saved runs and were run after the main results. The settings were fixed before them and were not picked from them. With thresholds right at the edge of the healthy range ($m = 0$), LHD flagged \lhdEdgeFlagged{} of healthy runs and caught \lhdEdgeCaught{} of broken runs. With the margin of \lhdMargin{}, it flagged \lhdMarginFlagged{} and caught \lhdMarginCaught{}. The range also needs enough calibration runs. Table~\ref{tab:calibration} gives the false alarm rate of the worst network when the range is built from fewer runs, averaged over random draws of those runs.
+
+\begin{table}[ht]
+\centering
+\small
+\caption{False alarms when the healthy range is built from fewer calibration runs. Each row shows the network with the highest mean false alarm rate at that size.}
+\label{tab:calibration}
+\begin{tabular}{@{}rrl@{}}
+\toprule
+Calibration runs & Healthy runs flagged & Network \\
+\midrule
+\lhdCalARuns & \lhdCalAWorst & \lhdCalANet \\
+\lhdCalBRuns & \lhdCalBWorst & \lhdCalBNet \\
+\lhdCalCRuns & \lhdCalCWorst & \lhdCalCNet \\
+\lhdCalDRuns & \lhdCalDWorst & \lhdCalDNet \\
+\lhdCalERuns & \lhdCalEWorst & \lhdCalENet \\
+\lhdCalFRuns & \lhdCalFWorst & \lhdCalFNet \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Cost}
+\label{sec:cost}
+
+Monitoring added \lhdMlpOverhead{} to the training time of the fully connected network, \lhdTransformerOverhead{} for the transformer, and \lhdCnnOverhead{} for the CNN, measured on fresh healthy runs on one CPU thread. Most of that time goes to the gradient norm, read after every batch, and to the probe batch, run once per epoch, so the overhead is largest for the network with the cheapest epochs. Stopping each broken run at LHD's alarm would have saved \lhdComputeSaved{} of its training on average. All runs together took \lhdTrainingHours{} hours of CPU time on one laptop.
+
+\section{Faults beyond frozen layers and dead units}
+\label{sec:extra}
+
+A third set of runs tested faults the rules were not built around (Table~\ref{tab:extra}). It was planned with the rest and trained after the main results were in. Two of these faults are the main ones started at epoch \lhdLateOnset{} instead of epoch 1, a frozen layer and half of a layer's units killed. A gradient cut detaches the input of one layer from the first epoch, so that layer and the ones after it keep learning while no gradient reaches the layers before it. A learning rate jump multiplies Adam's learning rate by 10 or 100 at the start of epoch \lhdLateOnset{}. The cosine schedule keeps shrinking the rate from the raised value, so in the \lhdCnnEpochs{} epoch networks, epoch \lhdLateOnset{} trains at \lhdLrTimesTen{} or \lhdLrTimesHundred{} instead of \lhdLrNormal{}.
+
+LHD caught \lhdLateFrozenCaught{} of \lhdLateFrozenRuns{} late frozen layers and named the layer and cause in \lhdLateFrozenBoth{}, while the accuracy curve caught \lhdLateFrozenAcc{}. It caught \lhdLateDeadCaught{} of \lhdLateDeadRuns{} runs with half a layer's units killed late and named the layer and cause in \lhdLateDeadBoth{}. It caught \lhdCutCaught{} of \lhdCutRuns{} gradient cuts, named a layer before the cut in \lhdCutBoth{}, and called the cause a vanishing gradient, which is the only test of that rule. LHD also fired on every learning rate jump, but the causes it named were mixed. For a tenfold jump it named \lhdLrTenCauses{}, and for a hundredfold jump it named \lhdLrHundredCauses{}. No run produced a value that was not a finite number, so the divergence rule never fired.
+
+The zero update check caught every late frozen layer. Held to three epochs it fired in the same epoch as LHD in \lhdLateZeroTies{} runs, and when one epoch is enough it fires at epoch \lhdLateZeroEpoch{}. It also caught \lhdCutZero{} gradient cuts, since the layers before a cut never move. The \lhdSageThreshold{} rule caught \lhdLateDeadSage{} late half dead runs at the planted layer, while flagging \lhdSageFlagged{} of \lhdHealthyRuns{} healthy runs.
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Faults beyond the main study, pooled over the three networks. Every detector is held to three epochs in a row. The zero update check and the \lhdSageThreshold{} dead rule count a run only when they name the planted layer, or a layer before a gradient cut, and any alarm counts for a learning rate jump, which has no planted layer. Bold marks the best value in a row when no other detector matches it.}
+\label{tab:extra}
+\input{tables/extra}
+\end{table}
+
+\section{Statistics for each seed and condition}
+\label{sec:stats}
+
+Averaged within each seed, all \lhdSeedGroups{} seed groups favored LHD (\lhdSeedP{}), which is the most extreme result a one sided Wilcoxon test can give with that many groups. Averaged within each fault condition, \lhdConditionsLHD{} of \lhdConditions{} conditions favored LHD (\lhdConditionP{}). Of the others, neither detector fired in \lhdConditionsNeither{}, both fired at the same epoch in \lhdConditionsSame{}, and the accuracy curve was earlier in \lhdConditionsAcc{}, \lhdConditionsAccWhere{}. Counting a run the accuracy curve never caught as one epoch past its end, the mean gap over all broken runs was \lhdMeanGapAll{} epochs (95\% interval \lhdMeanGapInterval{} from the bootstrap over seeds). That figure leans on the runs the accuracy curve missed, so the gap on runs both caught, reported in the paper, is the fairer measure.
+
+\end{document}
