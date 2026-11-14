@@ -300,6 +300,7 @@ def preamble() -> str:
 \usepackage{amsmath}
 \usepackage[font=small,labelfont=bf]{caption}
 \usepackage[hidelinks]{hyperref}
+\hypersetup{pdftitle={Early Detection of Silent Training Failures in Neural Networks},pdfauthor={Sohan Bhat}}
 
 \title{Early Detection of Silent Training Failures in Neural Networks}
 \author{Sohan Bhat\\ \small \texttt{sohanrambhat@gmail.com}}
