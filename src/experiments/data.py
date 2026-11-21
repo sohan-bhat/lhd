@@ -16,7 +16,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 SHAKESPEARE_URL = ("https://raw.githubusercontent.com/karpathy/char-rnn/"
                    "master/data/tinyshakespeare/input.txt")
 GTSRB_URL = ("https://huggingface.co/datasets/tanganke/gtsrb/resolve/main/"

@@ -25,7 +25,7 @@ Experiments begin after science fair review approval.
       replay.py          runs a saved history through LHD after the fact
       faults.py          plants a frozen layer or dead units
       torch_adapter.py   lets LHD watch any PyTorch model
-    experiments/       the study from the proposal
+    src/experiments/   the study from the proposal
       models.py          CNN, fully connected network, small transformer
       data.py            GTSRB, Fashion-MNIST, Tiny Shakespeare
       train.py           one run with one planted fault
@@ -37,12 +37,16 @@ Experiments begin after science fair review approval.
       figures.py         writes results/figures
       report.py          writes results/REPORT.md
       demo.py            trains live and stops when LHD fires
+    src/tests/         the tests for the library and the scoring
     results/           every saved run, the tables, figures, and report
+    paper/             the long paper and the short paper
+    blog/              the blog post
 
 ## Where everything is
 
 Every LHD file lives in this folder.
 
+    blog/lhd.md                      the blog post, the short version of the project
     paper/lhd.pdf                    the long paper, tagged v0-long
     paper/short/lhd_short.pdf        the short paper, six pages of main text
     paper/short/lhd_extended.pdf     the extended results the short paper points to

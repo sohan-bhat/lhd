@@ -34,8 +34,8 @@ from experiments.train import ARCHS, DEAD_BIAS, train_run
 
 SHORT = long.PAPER / "short"
 SUMMARY = "results/summary.json"
-CODE = {"grid": "experiments/grid.py", "train": "experiments/train.py", "models": "experiments/models.py",
-        "data": "experiments/data.py", "evaluate": "experiments/evaluate.py", "paper": "experiments/paper.py"}
+CODE = {"grid": "src/experiments/grid.py", "train": "src/experiments/train.py", "models": "src/experiments/models.py",
+        "data": "src/experiments/data.py", "evaluate": "src/experiments/evaluate.py", "paper": "src/experiments/paper.py"}
 LETTERS = "ABCDEFGHIJ"
 FIXED_KEYS = {"Zero update check": "Zero", "Dead units check, 25%": "Quarter", long.SAGEMAKER: "Sage",
               long.DEEPDIAGNOSIS: "Deep", long.WANDB: "Wandb", long.ANY_DEAD: "AnyDead"}
@@ -77,7 +77,7 @@ class Sheet:
         return self.facts[macro]
 
     def tex(self) -> str:
-        lines = ["% Written by experiments/paper_short.py from the saved runs. Rebuild it, never edit it."]
+        lines = ["% Written by src/experiments/paper_short.py from the saved runs. Rebuild it, never edit it."]
         lines += [f"\\newcommand{{\\lhd{f.macro}}}{{{f.value}}}% {f.what} [{f.source}]" for f in self.facts.values()]
         return "\n".join(lines) + "\n"
 
@@ -509,7 +509,7 @@ def write_figures() -> dict:
 
 def figure_facts(s: Sheet, drawn: dict) -> None:
     one = drawn["how_lhd_works"]
-    source = "experiments/paper_figures.py"
+    source = "src/experiments/paper_figures.py"
     s.add("FigRun", one["run_id"], "run in Figure 1", source)
     s.add("FigLayer", one["layer"], "frozen layer in Figure 1", source)
     s.add("FigAlarm", one["alarm"], "epoch LHD stops that run", source)

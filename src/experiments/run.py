@@ -16,7 +16,7 @@ from pathlib import Path
 
 from experiments.grid import ARCH_ORDER, build_grid
 
-RESULTS = Path(__file__).resolve().parent.parent / "results"
+RESULTS = Path(__file__).resolve().parents[2] / "results"
 
 
 def run_path(spec: dict) -> Path:

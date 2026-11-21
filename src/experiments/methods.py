@@ -177,7 +177,7 @@ def main() -> None:
         "9. Save the run as JSON with every epoch's signals, accuracy, loss, and timing.",
         "",
         "Each run uses 1 CPU thread and 5 runs train at once. Replaying a saved run through LHD gives "
-        "the same result as running LHD live, which a test in `tests/test_replay.py` checks.",
+        "the same result as running LHD live, which a test in `src/tests/test_replay.py` checks.",
         "",
         "## 4. What LHD measures",
         "",
@@ -368,7 +368,7 @@ def main() -> None:
             ["LHD stops the run once a fault is confirmed",
              "every run trains to the end and LHD's alarm is found by replaying the saved run",
              "so every detector can be scored on the same full runs. Replay matches live LHD, which "
-             "`tests/test_replay.py` checks, and `experiments/demo.py` shows a live run being stopped"],
+             "`src/tests/test_replay.py` checks, and `src/experiments/demo.py` shows a live run being stopped"],
             ["thresholds are set just outside the healthy range",
              f"the range is widened by a margin of {m} and a floor of {f} before a value counts as out",
              "thresholds right at the range's edge flag many healthy runs, which section 11's sweep shows"],

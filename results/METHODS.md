@@ -66,7 +66,7 @@ The validation set is each dataset's official test split. Nothing is tuned on it
 8. Every run trains for all its epochs even when LHD would have stopped it, so each saved run can be replayed through any detector afterward.
 9. Save the run as JSON with every epoch's signals, accuracy, loss, and timing.
 
-Each run uses 1 CPU thread and 5 runs train at once. Replaying a saved run through LHD gives the same result as running LHD live, which a test in `tests/test_replay.py` checks.
+Each run uses 1 CPU thread and 5 runs train at once. Replaying a saved run through LHD gives the same result as running LHD live, which a test in `src/tests/test_replay.py` checks.
 
 ## 4. What LHD measures
 
@@ -224,7 +224,7 @@ Python 3.10.16, PyTorch 2.2.2, NumPy 1.26.4, SciPy 1.13.1, Matplotlib 3.10.0. Al
 | Proposal says | The study does | Why |
 |---|---|---|
 | the zero activation fraction is how much of a layer's outputs are exactly zero | the share of a layer's units that output exactly zero for every probe input, so a unit counts only when it is dead for all inputs | this is how the LHD library's signal was written. The proposal's sentence that dead units read near one fits both versions. The paper should describe the one in the code |
-| LHD stops the run once a fault is confirmed | every run trains to the end and LHD's alarm is found by replaying the saved run | so every detector can be scored on the same full runs. Replay matches live LHD, which `tests/test_replay.py` checks, and `experiments/demo.py` shows a live run being stopped |
+| LHD stops the run once a fault is confirmed | every run trains to the end and LHD's alarm is found by replaying the saved run | so every detector can be scored on the same full runs. Replay matches live LHD, which `src/tests/test_replay.py` checks, and `src/experiments/demo.py` shows a live run being stopped |
 | thresholds are set just outside the healthy range | the range is widened by a margin of 0.5 and a floor of 0.05 before a value counts as out | thresholds right at the range's edge flag many healthy runs, which section 11's sweep shows |
 | a layer is flagged after numerous consecutive epochs | 3 consecutive epochs | taken from the LHD library's tests |
 | the CNN is trained first, then the fully connected network and the transformer | the fully connected network ran first, then the transformer, then the CNN | to fit the laptop's schedule. The rules were fixed before any of them ran |

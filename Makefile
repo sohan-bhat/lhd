@@ -1,4 +1,5 @@
 PY := .venv-exp/bin/python
+export PYTHONPATH := src
 
 .PHONY: setup test runs unpack results paper paper-short table1 table2 table3 table4 table5
 

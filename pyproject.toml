@@ -13,5 +13,10 @@ dependencies = ["numpy"]
 dev = ["pytest"]
 experiments = ["torch>=2.0", "torchvision", "pyarrow", "scipy", "matplotlib"]
 
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["lhd*"]
+
 [tool.pytest.ini_options]
-pythonpath = ["."]
+pythonpath = ["src"]
+testpaths = ["src/tests"]

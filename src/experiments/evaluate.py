@@ -21,7 +21,7 @@ from experiments.grid import cut_affects, dead_layers
 from lhd.baseline import healthy_band
 from lhd.replay import replay
 
-RESULTS = Path(__file__).resolve().parent.parent / "results"
+RESULTS = Path(__file__).resolve().parents[2] / "results"
 SETTINGS = {"margin": 0.5, "floor": 0.05, "patience": 3}
 EXPECTED_CAUSE = {
     "frozen": "frozen_layer",
