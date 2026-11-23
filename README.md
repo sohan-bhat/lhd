@@ -37,6 +37,7 @@ Experiments begin after science fair review approval.
       figures.py         writes results/figures
       report.py          writes results/REPORT.md
       demo.py            trains live and stops when LHD fires
+      blog_demo.py       writes blog/demo.json, the four runs in the blog post's figure
     src/tests/         the tests for the library and the scoring
     results/           every saved run, the tables, figures, and report
     paper/             the long paper and the short paper
