@@ -1,4 +1,4 @@
-# Early Detection of Silent Training Failures in Neural Networks
+# LHD: Early Detection of Silent Training Failures in Neural Networks
 
 ### Author
 
