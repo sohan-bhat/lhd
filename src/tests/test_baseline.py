@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from tiny_net import TinyAdapter, TinyNet
 
-from lhd.baseline import healthy_band, load_history
+from lhd.baseline import SIGNALS, SIGNALS_V2, healthy_band, load_history
 from lhd.recorder import Recorder
 
 
@@ -44,3 +44,11 @@ def test_healthy_band_rejects_unequal_lengths():
 def test_healthy_band_ignores_bias_change():
     band = healthy_band([make_history([0.10, 0.05])])
     assert "bias_change" not in band["dense1"]
+
+
+def test_healthy_band_has_four_signals_unless_asked():
+    histories = [[{"layers": {"dense1": {s: float(i) for s in SIGNALS_V2}}}] for i in range(3)]
+    assert tuple(healthy_band(histories)["dense1"]) == SIGNALS
+    band = healthy_band(histories, SIGNALS_V2)
+    assert tuple(band["dense1"]) == SIGNALS_V2
+    assert band["dense1"]["never_fired_fraction"]["high"].tolist() == [2.0]

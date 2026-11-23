@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 
-from lhd.signals import dead_unit_fraction, grad_norm, weight_change, weight_norm
+from lhd.signals import (dead_unit_fraction, dead_units, grad_norm, never_fired_fraction,
+                         weight_change, weight_norm)
 
 
 def test_weight_norm_matches_3_4_5_triangle():
@@ -66,3 +67,18 @@ def test_dead_unit_fraction_4d_array():
     activations = np.ones((2, 3, 2, 2))
     activations[:, 1, :, :] = 0.0
     assert dead_unit_fraction(activations, unit_axis=1) == pytest.approx(1/3)
+
+
+def test_dead_units_marks_the_zero_column():
+    activations = np.array([[0.0, 1.0, 2.0], [0.0, 0.0, 3.0]])
+    assert dead_units(activations).tolist() == [True, False, False]
+
+
+def test_never_fired_fraction_needs_every_row():
+    dead_each_time = np.array([[True, True, False, False],
+                               [True, False, True, False]])
+    assert never_fired_fraction(dead_each_time) == 0.25
+
+
+def test_never_fired_fraction_one_row_is_the_dead_fraction():
+    assert never_fired_fraction(np.array([[True, False, True, True]])) == 0.75

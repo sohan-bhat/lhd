@@ -5,6 +5,8 @@ import json
 import numpy as np
 
 SIGNALS = ("weight_change", "weight_norm", "grad_norm", "dead_unit_fraction")
+NEVER_FIRED = "never_fired_fraction"
+SIGNALS_V2 = SIGNALS + (NEVER_FIRED,)
 
 
 def load_history(path: str) -> list[dict]:
@@ -14,7 +16,7 @@ def load_history(path: str) -> list[dict]:
     return data["history"]
 
 
-def healthy_band(histories: list[list[dict]]) -> dict:
+def healthy_band(histories: list[list[dict]], signals: tuple[str, ...] = SIGNALS) -> dict:
     """Lowest and highest value of each signal, per layer, per epoch.
 
     Built only from healthy runs. Broken runs must never be passed in.
@@ -24,6 +26,9 @@ def healthy_band(histories: list[list[dict]]) -> dict:
     histories : list[list[dict]]
         One history per healthy run. All runs must have the same
         number of epochs and the same layers.
+    signals : tuple[str, ...], default SIGNALS
+        Which signals get a range. SIGNALS is the four the study
+        used; SIGNALS_V2 adds never_fired_fraction.
 
     Returns
     -------
@@ -44,7 +49,7 @@ def healthy_band(histories: list[list[dict]]) -> dict:
     band = {}
     for layer in layer_names:
         band[layer] = {}
-        for signal in SIGNALS:
+        for signal in signals:
             values = np.array([
                 [entry["layers"][layer][signal] for entry in history]
                 for history in histories

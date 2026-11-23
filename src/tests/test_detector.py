@@ -1,7 +1,7 @@
 import numpy as np
 
-from lhd.baseline import SIGNALS
-from lhd.detector import Detector, band_position, out_of_band
+from lhd.baseline import NEVER_FIRED, SIGNALS, SIGNALS_V2
+from lhd.detector import Detector, band_position, out_of_band, signal_margin
 
 
 def make_band(low, high, epochs=5):
@@ -86,3 +86,48 @@ def test_band_position_invalid_for_nan():
 
 def test_band_position_invalid_for_inf():
     assert band_position(float("inf"), 0.01, 0.05, 0.5, 0.0) == "invalid"
+
+
+def make_band_v2(low, high, epochs=5):
+    """make_band with never_fired_fraction added."""
+    return {"dense1": {s: {"low": np.full(epochs, low), "high": np.full(epochs, high)}
+                       for s in SIGNALS_V2}}
+
+
+def test_signal_margin_is_zero_only_for_never_fired():
+    assert signal_margin(NEVER_FIRED, 0.5) == 0.0
+    assert all(signal_margin(s, 0.5) == 0.5 for s in SIGNALS)
+
+
+def test_detector_ignores_signals_the_band_does_not_have():
+    detector = Detector(make_band(0.1, 0.2), margin=0.5, floor=0.05, patience=3)
+    for epoch in (1, 2, 3):
+        entry = make_entry(epoch, 0.15)
+        entry["layers"]["dense1"][NEVER_FIRED] = 0.9
+        assert detector.check(entry) is None
+
+
+def test_never_fired_fires_past_the_floor_with_no_margin():
+    detector = Detector(make_band_v2(0.1, 0.2), margin=0.5, floor=0.05, patience=3)
+    fired = None
+    for epoch in (1, 2, 3):
+        entry = make_entry(epoch, 0.15)
+        entry["layers"]["dense1"][NEVER_FIRED] = 0.28
+        fired = detector.check(entry)
+    assert fired == {"epoch": 3, "layer": "dense1", "signals": [NEVER_FIRED]}
+
+
+def test_never_fired_inside_the_floor_stays_quiet():
+    detector = Detector(make_band_v2(0.1, 0.2), margin=0.5, floor=0.05, patience=3)
+    for epoch in (1, 2, 3):
+        entry = make_entry(epoch, 0.15)
+        entry["layers"]["dense1"][NEVER_FIRED] = 0.24
+        assert detector.check(entry) is None
+
+
+def test_other_signals_keep_their_margin_beside_never_fired():
+    detector = Detector(make_band_v2(0.1, 0.2), margin=0.5, floor=0.05, patience=3)
+    for epoch in (1, 2, 3):
+        entry = make_entry(epoch, 0.28)
+        entry["layers"]["dense1"][NEVER_FIRED] = 0.15
+        assert detector.check(entry) is None

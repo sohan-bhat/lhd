@@ -5,7 +5,7 @@ import json
 import numpy as np
 
 from lhd.adapter import NetworkAdapter
-from lhd.signals import dead_unit_fraction, grad_norm, weight_change, weight_norm
+from lhd.signals import dead_units, grad_norm, never_fired_fraction, weight_change, weight_norm
 
 
 def flatten_parameters(arrays: dict[str, np.ndarray]) -> np.ndarray:
@@ -52,9 +52,22 @@ class Recorder:
         self._before = {}
         self._grad_norms = {}
         self._bias_before = {}
+        self._never_fired = {}
+
+    def _dead_now(self) -> dict[str, np.ndarray]:
+        """Which units of each layer are dead on the probe batch right now."""
+        outs = self.adapter.probe_outputs(self.probe_batch)
+        return {name: dead_units(outs[name], self.adapter.unit_axis(name))
+                for name in self.adapter.layer_names()}
 
     def start_epoch(self) -> None:
-        """Save each layer's starting parameters and clear its gradient list."""
+        """Save each layer's starting parameters and clear its gradient list.
+
+        The first call also measures dead units before any training,
+        which is where never_fired_fraction starts counting.
+        """
+        if not self._never_fired:
+            self._never_fired = self._dead_now()
         for name in self.adapter.layer_names():
             params = self.adapter.parameters(name)
             self._before[name] = flatten_parameters(params)
@@ -77,7 +90,9 @@ class Recorder:
 
         Per layer: weight_change, weight_norm, grad_norm (the average
         over this epoch's batches), dead_unit_fraction (on the probe
-        batch), and bias_change (the size of the bias change alone, not
+        batch), never_fired_fraction (units dead on the probe batch
+        before training and at the end of every epoch so far), and
+        bias_change (the size of the bias change alone, not
         divided by anything; logged for analysis only).
 
         Returns
@@ -86,7 +101,7 @@ class Recorder:
             {"epoch", "train_accuracy", "val_accuracy", "seconds",
                 "layers": {layer name: {signal name: value}}}
         """
-        probe_outs = self.adapter.probe_outputs(self.probe_batch)
+        dead_now = self._dead_now()
         layer_signals = {}
 
         for name in self.adapter.layer_names():
@@ -99,7 +114,10 @@ class Recorder:
             if not norms:
                 raise ValueError(f"no gradients recorded for {name}: after_batch was never called")
             g_norm = float(np.mean(norms))
-            dead_units = dead_unit_fraction(probe_outs[name], self.adapter.unit_axis(name))
+            dead_fraction = float(np.mean(dead_now[name]))
+            dead_each_time = np.stack([self._never_fired.get(name, dead_now[name]), dead_now[name]])
+            never_fired = never_fired_fraction(dead_each_time)
+            self._never_fired[name] = dead_each_time.all(axis=0)
             b_change = None
             if "bias" in params and name in self._bias_before:
                 b_change = weight_norm(params["bias"] - self._bias_before[name])
@@ -107,7 +125,8 @@ class Recorder:
                 "weight_change": w_change,
                 "weight_norm": w_norm,
                 "grad_norm": g_norm,
-                "dead_unit_fraction": dead_units,
+                "dead_unit_fraction": dead_fraction,
+                "never_fired_fraction": never_fired,
                 "bias_change": b_change
             }
         entry = {

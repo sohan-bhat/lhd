@@ -1,7 +1,7 @@
 """Turns the pattern across a layer's signals into a likely cause."""
 
-from lhd.baseline import SIGNALS
-from lhd.detector import band_position
+from lhd.baseline import NEVER_FIRED
+from lhd.detector import band_position, signal_margin
 
 CHECKS = {
     "diverged": "A signal became nan or infinite, so training blew up. "
@@ -30,11 +30,11 @@ def positions(entry: dict, band: dict, layer: str,
     """
     i = entry["epoch"] - 1
     result = {}
-    for signal in SIGNALS:
+    for signal in band[layer]:
         value = entry["layers"][layer][signal]
         low = band[layer][signal]["low"][i]
         high = band[layer][signal]["high"][i]
-        result[signal] = band_position(value, low, high, margin, floor)
+        result[signal] = band_position(value, low, high, signal_margin(signal, margin), floor)
     return result
 
 
@@ -43,7 +43,7 @@ def diagnose(pos: dict[str, str]) -> dict:
 
     Rules, checked in this order:
     1. any signal invalid -> diverged
-    2. dead_unit_fraction above -> dead_units
+    2. dead_unit_fraction or never_fired_fraction above -> dead_units
     3. weight_change below, grad_norm inside or above -> frozen_layer
     4. weight_change below, grad_norm below -> vanishing_gradient
     5. weight_norm above -> runaway_weights
@@ -56,7 +56,7 @@ def diagnose(pos: dict[str, str]) -> dict:
     """
     if "invalid" in pos.values():
         cause = "diverged"
-    elif pos["dead_unit_fraction"] == "above":
+    elif pos["dead_unit_fraction"] == "above" or pos.get(NEVER_FIRED) == "above":
         cause = "dead_units"
     elif pos["weight_change"] == "below" and pos["grad_norm"] in ("inside", "above"):
         cause = "frozen_layer"

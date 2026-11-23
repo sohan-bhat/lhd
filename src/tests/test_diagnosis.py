@@ -1,6 +1,6 @@
 import numpy as np
 
-from lhd.baseline import SIGNALS
+from lhd.baseline import NEVER_FIRED, SIGNALS
 from lhd.diagnosis import diagnose, positions
 
 
@@ -57,3 +57,18 @@ def test_diagnose_runaway_weights():
 
 def test_diagnose_unrecognized():
     assert diagnose(make_pos(grad_norm="above"))["cause"] == "unrecognized"
+
+
+def test_diagnose_never_fired_above_is_dead_units():
+    pos = {s: "inside" for s in SIGNALS}
+    pos[NEVER_FIRED] = "above"
+    assert diagnose(pos)["cause"] == "dead_units"
+
+
+def test_positions_never_fired_uses_the_floor_alone():
+    band = {"dense1": {s: {"low": np.full(3, 0.1), "high": np.full(3, 0.2)}
+                       for s in (*SIGNALS, NEVER_FIRED)}}
+    entry = {"epoch": 1, "layers": {"dense1": {s: 0.28 for s in (*SIGNALS, NEVER_FIRED)}}}
+    result = positions(entry, band, "dense1", margin=0.5, floor=0.05)
+    assert result[NEVER_FIRED] == "above"
+    assert result["dead_unit_fraction"] == "inside"

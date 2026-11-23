@@ -20,7 +20,7 @@ def test_flattened_params_order():
 def test_recorder_before_snapshot_inplace():
     net = TinyNet()
     adapter = TinyAdapter(net)
-    recorder = Recorder(adapter, probe_batch=np.array([]))
+    recorder = Recorder(adapter, probe_batch=np.ones((5, 3)))
     recorder.start_epoch()
     original_snapshot = np.copy(recorder._before["dense1"])
     net.W1 += 1.0
@@ -31,7 +31,7 @@ def test_after_batch_records_one_grad_norm_per_call():
     net = TinyNet()
     net.dW1 = np.ones((3, 4))
     adapter = TinyAdapter(net)
-    recorder = Recorder(adapter, probe_batch=np.array([]))
+    recorder = Recorder(adapter, probe_batch=np.ones((5, 3)))
     recorder.start_epoch()
     recorder.after_batch()
     recorder.after_batch()
@@ -109,3 +109,55 @@ def test_end_epoch_without_batches_raises():
     recorder.start_epoch()
     with pytest.raises(ValueError):
         recorder.end_epoch(epoch=1, train_accuracy=0.5, val_accuracy=0.4, seconds=1.0)
+
+def _dying_net():
+    """A TinyNet whose first hidden unit is dead on the probe from the start."""
+    net = TinyNet()
+    net.W1[:, 0] = 0.0
+    net.b1[0] = -1.0
+    net.dW1 = np.ones((3, 4))
+    return net
+
+
+def test_never_fired_counts_units_dead_before_training():
+    net = _dying_net()
+    recorder = Recorder(TinyAdapter(net), probe_batch=np.ones((5, 3)))
+    recorder.start_epoch()
+    recorder.after_batch()
+    entry = recorder.end_epoch(epoch=1, train_accuracy=0.5, val_accuracy=0.4, seconds=1.0)
+    assert entry["layers"]["dense1"]["never_fired_fraction"] >= 0.25
+
+
+def test_never_fired_drops_a_unit_once_it_fires():
+    net = _dying_net()
+    recorder = Recorder(TinyAdapter(net), probe_batch=np.ones((5, 3)))
+    recorder.start_epoch()
+    recorder.after_batch()
+    first = recorder.end_epoch(epoch=1, train_accuracy=0.5, val_accuracy=0.4, seconds=1.0)
+    net.b1[0] = 5.0
+    recorder.start_epoch()
+    recorder.after_batch()
+    second = recorder.end_epoch(epoch=2, train_accuracy=0.5, val_accuracy=0.4, seconds=1.0)
+    net.b1[0] = -1.0
+    recorder.start_epoch()
+    recorder.after_batch()
+    third = recorder.end_epoch(epoch=3, train_accuracy=0.5, val_accuracy=0.4, seconds=1.0)
+    never = [e["layers"]["dense1"]["never_fired_fraction"] for e in (first, second, third)]
+    dead = [e["layers"]["dense1"]["dead_unit_fraction"] for e in (first, second, third)]
+    assert never[1] == never[0] - 0.25
+    assert never[2] == never[1]
+    assert dead[2] == dead[0]
+
+
+def test_never_fired_ignores_units_that_die_during_training():
+    net = TinyNet()
+    net.dW1 = np.ones((3, 4))
+    recorder = Recorder(TinyAdapter(net), probe_batch=np.ones((5, 3)))
+    recorder.start_epoch()
+    before = recorder._never_fired["dense1"].copy()
+    net.W1[:] = 0.0
+    net.b1[:] = -1.0
+    recorder.after_batch()
+    entry = recorder.end_epoch(epoch=1, train_accuracy=0.5, val_accuracy=0.4, seconds=1.0)
+    assert entry["layers"]["dense1"]["dead_unit_fraction"] == 1.0
+    assert entry["layers"]["dense1"]["never_fired_fraction"] == float(np.mean(before))

@@ -78,6 +78,26 @@ def grad_norm(grad: np.ndarray) -> float:
     return _norm(grad)
 
 
+def dead_units(activations: np.ndarray, unit_axis: int = -1) -> np.ndarray:
+    """Which of a layer's units output zero for every input.
+
+    Parameters
+    ----------
+    activations : np.ndarray
+        The layer's outputs after ReLU, for the fixed probe batch.
+    unit_axis : int, default -1
+        Which axis of the array indexes the units.
+
+    Returns
+    -------
+    np.ndarray
+        One True or False per unit, True where the unit is dead.
+    """
+    flat = activations.swapaxes(unit_axis, -1)
+    flat = flat.reshape(-1, activations.shape[unit_axis])
+    return np.all(flat == 0, axis=0)
+
+
 def dead_unit_fraction(activations: np.ndarray, unit_axis: int = -1) -> float:
     """Fraction of a layer's units that output zero for every input.
 
@@ -97,7 +117,26 @@ def dead_unit_fraction(activations: np.ndarray, unit_axis: int = -1) -> float:
     float
         Number of dead units divided by total units, from 0 to 1.
     """
-    flat = activations.swapaxes(unit_axis, -1)
-    flat = flat.reshape(-1, activations.shape[unit_axis])
-    dead_units = np.all(flat == 0, axis=0)
-    return float(np.mean(dead_units))
+    return float(np.mean(dead_units(activations, unit_axis)))
+
+
+def never_fired_fraction(dead_each_time: np.ndarray) -> float:
+    """Fraction of a layer's units that were dead at every measurement.
+
+    Units die and come back during healthy training, so the fraction
+    dead at one moment varies a lot from run to run. A unit that has
+    been dead since before the first batch is a narrower thing: it
+    has never produced an output, so nothing after it has ever used it.
+
+    Parameters
+    ----------
+    dead_each_time : np.ndarray
+        One row per measurement and one column per unit, True where
+        the unit was dead. The first row is taken before training.
+
+    Returns
+    -------
+    float
+        Number of units dead in every row divided by total units.
+    """
+    return float(np.mean(np.all(dead_each_time, axis=0)))

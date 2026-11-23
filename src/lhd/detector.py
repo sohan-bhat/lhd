@@ -4,7 +4,20 @@ from __future__ import annotations
 import math
 from typing import Optional
 
-from lhd.baseline import SIGNALS
+from lhd.baseline import NEVER_FIRED
+
+FLOOR_ONLY = (NEVER_FIRED,)
+
+
+def signal_margin(signal: str, margin: float) -> float:
+    """The margin a signal's healthy range is widened by.
+
+    never_fired_fraction is a share of units, so its range is widened
+    by the floor alone. Multiplying a share by 1 + margin can put the
+    top of the range past every unit in the layer, where no run could
+    ever reach it. The four original signals keep the margin.
+    """
+    return 0.0 if signal in FLOOR_ONLY else margin
 
 
 def band_position(value: float, low: float, high: float,
@@ -62,7 +75,8 @@ class Detector:
     """Watches a run epoch by epoch and fires when a layer stays abnormal.
 
     A layer fires when any one of its signals is out of band for
-    `patience` epochs in a row. The detector fires once; later epochs
+    `patience` epochs in a row. The signals watched are the ones the
+    band has ranges for. The detector fires once; later epochs
     do not change the result.
 
     Attributes
@@ -100,17 +114,17 @@ class Detector:
 
         i = entry["epoch"] - 1
         for layer, layer_band in self.band.items():
-            for signal in SIGNALS:
+            for signal in layer_band:
                 value = entry["layers"][layer][signal]
                 low = layer_band[signal]["low"][i]
                 high = layer_band[signal]["high"][i]
                 key = (layer, signal)
-                if out_of_band(value, low, high, self.margin, self.floor):
+                if out_of_band(value, low, high, signal_margin(signal, self.margin), self.floor):
                     self._streaks[key] = self._streaks.get(key, 0) + 1
                 else:
                     self._streaks[key] = 0
 
-            reached = [s for s in SIGNALS if self._streaks[(layer, s)] >= self.patience]
+            reached = [s for s in layer_band if self._streaks[(layer, s)] >= self.patience]
             if reached:
                 self.fired = {"epoch": entry["epoch"], "layer": layer, "signals": reached}
                 return self.fired
