@@ -92,8 +92,13 @@ def same_as_saved(history: list[dict], saved: list[dict]) -> bool:
 
 def measure(spec: dict) -> dict:
     """Measure one run and write the result. Runs in a worker process."""
+    import torch
+
     from experiments.train import load_run, train_run
 
+    # One thread from the very first operation, as in the study. With
+    # more, sums are added in another order and the run stops matching.
+    torch.set_num_threads(1)
     start = time.perf_counter()
     dead = born_dead(spec)
     result = {"run_id": spec["run_id"], "born_dead": dead, "trained": False, "never_fired": {}}
