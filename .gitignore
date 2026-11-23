@@ -8,3 +8,5 @@ data/
 *.tmp
 results/runs/*/
 archive/
+results/never_fired/
+results/never_fired.log

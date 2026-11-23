@@ -9,6 +9,7 @@ healthy value for that epoch, `patience` epochs in a row.
 
 from __future__ import annotations
 
+import gzip
 import json
 import math
 from collections import defaultdict
@@ -18,7 +19,7 @@ from pathlib import Path
 import numpy as np
 
 from experiments.grid import cut_affects, dead_layers
-from lhd.baseline import healthy_band
+from lhd.baseline import NEVER_FIRED, SIGNALS, healthy_band
 from lhd.replay import replay
 
 RESULTS = Path(__file__).resolve().parents[2] / "results"
@@ -34,17 +35,45 @@ def load_runs(arch: str) -> list[dict]:
     """Every saved run for an architecture, sorted by run id.
 
     Reads the per-run files when they exist, and the compressed
-    bundle in git otherwise.
+    bundle in git otherwise. The fifth signal is kept in a file of
+    its own and is added to each history when that file exists.
     """
     paths = sorted((RESULTS / "runs" / arch).glob("*.json"))
     if not paths and (RESULTS / "runs" / f"{arch}.jsonl.gz").exists():
         from experiments.bundle import read_bundle
 
-        return sorted(read_bundle(arch), key=lambda run: run["metadata"]["run_id"])
+        return add_never_fired(arch, sorted(read_bundle(arch), key=lambda run: run["metadata"]["run_id"]))
     runs = []
     for path in paths:
         with open(path) as f:
             runs.append(json.load(f))
+    return add_never_fired(arch, runs)
+
+
+def never_fired_path(arch: str) -> Path:
+    """Where an architecture's never_fired_fraction values are kept."""
+    return RESULTS / "runs" / f"{arch}.never_fired.json.gz"
+
+
+def add_never_fired(arch: str, runs: list[dict]) -> list[dict]:
+    """Put never_fired_fraction into every history it was measured for.
+
+    The file maps run id -> layer -> one value per epoch, written by
+    experiments.never_fired. A layer the file leaves out had no dead
+    unit before training, so its value is 0 for every epoch.
+    """
+    path = never_fired_path(arch)
+    if not path.exists():
+        return runs
+    with gzip.open(path, "rt") as f:
+        stored = json.load(f)
+    for run in runs:
+        values = stored.get(run["metadata"]["run_id"])
+        if values is None:
+            continue
+        for i, entry in enumerate(run["history"]):
+            for layer, signals in entry["layers"].items():
+                signals[NEVER_FIRED] = values[layer][i] if layer in values else 0.0
     return runs
 
 
@@ -216,12 +245,16 @@ def _first(*epochs):
     return min(epochs) if epochs else None
 
 
-def reference(groups: dict[str, list[dict]]) -> dict:
-    """Everything built from calibration runs: LHD's band and the curve bands."""
+def reference(groups: dict[str, list[dict]], signals: tuple[str, ...] = SIGNALS) -> dict:
+    """Everything built from calibration runs: LHD's band and the curve bands.
+
+    `signals` are the ones LHD watches: the study's four by default,
+    or SIGNALS_V2 to add never_fired_fraction.
+    """
     histories = [run["history"] for run in groups["calibration"]]
     finals = [h[-1]["val_accuracy"] for h in histories]
     return {
-        "band": healthy_band(histories),
+        "band": healthy_band(histories, signals),
         "accuracy": curve_band(histories, "val_accuracy"),
         "loss": curve_band(histories, "val_loss"),
         "final_mean": float(np.mean(finals)),
@@ -308,10 +341,11 @@ def _judge(row: dict, fault: dict, arch: str) -> None:
     row["simple_gap"] = simple_c - lhd_c
 
 
-def score_arch(arch: str, settings: dict = SETTINGS, runs: list[dict] | None = None) -> list[dict]:
+def score_arch(arch: str, settings: dict = SETTINGS, runs: list[dict] | None = None,
+               signals: tuple[str, ...] = SIGNALS) -> list[dict]:
     """Rows for every fresh and fault run of an architecture."""
     groups = split_runs(runs if runs is not None else load_runs(arch))
-    ref = reference(groups)
+    ref = reference(groups, signals)
     twins = {r["metadata"]["seed"]: r["history"][-1]["val_accuracy"] for r in groups["fresh"]}
     return [score_run(run, ref, settings, twins) for run in groups["fresh"] + groups["fault"]]
 
