@@ -10,57 +10,57 @@ November 2026
 
 TL;DR Training takes the majority of the compute spent on a large model. As models advance, the compute needed for training increases exponentially, because each generation has more parameters and learns from more data, which creates a compounding effect. Most runs are also experimental, so a team often trains many times before shipping a viable model. Together, these facts make one kind of bug expensive to deal with, namely the silent failure. For instance, a layer in a convolutional neural network may stop learning while the outputs look normal. The failure of such a run shows only after the time and compute are used up. Layer Health Diagnostics, or LHD, checks each layer during training and stops a run when a layer breaks. Across 885 training runs on three networks, we detected 97.7% of the 470 planted faults with LHD, between 95.3% and 100% on each network, including all 105 with a loss of 2 points or more in accuracy, and we flagged 6 of the 150 healthy runs.
 
-We started this work after one such failure in a project of our own. While training SignNet, a small CNN for German traffic signs from the GTSRB dataset, we got 76% accuracy and spent weeks on tuning before we found the cause. A single convolutional layer had been left out of the optimizer, so the weights of that layer were never updated. Once we fixed that bug we got 87% with the same network, and since we saw no error in either run, the only sign of the bug was a lower accuracy than we should have had.
+I began this work after encountering one such failure in a project of my own. While training SignNet, a small convolutional network for German traffic signs from the GTSRB dataset, I obtained 76% accuracy and spent weeks on tuning before identifying the cause. A single convolutional layer had been omitted from the optimizer, so the weights of that layer were never updated. After correcting the omission I obtained 87% accuracy with the same network, and because neither run raised an error, the only indicator of the bug was an accuracy lower than the network could reach.
 
 ## Layer Health Diagnostics
 
-To tell a healthy layer from a broken one during a run, we log five signals for each layer after every epoch. The signals are weight change, gradient norm, weight norm, the fraction of dead units, and the fraction of always dead units. A dead unit has an output of zero for every input, and an always dead unit was dead before training and at every epoch since. We then compare each signal with the range we measured for that signal in healthy runs of the same network, and since we set that range from healthy runs only, we never need a broken run for the setup. If a signal is outside that range for three straight epochs, we stop the run and report the layer along with a likely cause, as [Figure 1](#figure-1) shows.
+To distinguish a healthy layer from a faulty one during a run, I record five signals for each layer after every epoch. The signals are weight change, gradient norm, weight norm, the fraction of dead units, and the fraction of always dead units. A dead unit produces an output of zero for every input, and an always dead unit was dead before training and at every epoch since. I then compare each signal with the range measured for that signal in healthy runs of the same network, and because that range is derived from healthy runs only, the setup never requires a faulty run. If a signal remains outside that range for three consecutive epochs, I terminate the run and report the layer together with a probable cause, as [Figure 1](#figure-1) shows.
 
 <!-- figure -->
 <a id="figure-1"></a>
 
 ![Weight change and validation accuracy for one CNN run with a frozen layer](img/how_lhd_works.png)
 
-Figure 1. In a CNN run with a frozen layer, weight change on the left is 0 for the whole run while validation accuracy on the right is still in the healthy range.
+Figure 1. In a CNN run with a frozen layer, weight change on the left remains at 0 for the entire run while validation accuracy on the right stays within the healthy range.
 <!-- /figure -->
 
 ## Results
 
-To test this, we used three networks, a fully connected network on Fashion-MNIST, a CNN on GTSRB, and a character transformer on Tiny Shakespeare, and trained 885 runs in total. For each network we first set the ranges from 20 healthy runs, and after that we broke 470 runs on purpose, kept 150 fresh healthy runs to count false alarms, and used the rest for other faults.
+To evaluate the method, I used three networks, a fully connected network on Fashion-MNIST, a CNN on GTSRB, and a character transformer on Tiny Shakespeare, and trained 885 runs in total. For each network I first derived the ranges from 20 healthy runs, then injected a fault into 470 runs, reserved 150 fresh healthy runs to count false alarms, and used the remainder for other faults.
 
-In each broken run we planted one fault, which is either a frozen layer, as in SignNet, or dead units, where we forced 10%, 25%, or 50% of a layer's units to an output of zero. For comparison, we also watched the accuracy curve of every run, and we flagged a run there when the validation accuracy was below the lowest healthy value for three straight epochs.
+Each faulty run contained one injected fault, either a frozen layer, as in SignNet, or dead units, where 10%, 25%, or 50% of a layer's units were forced to an output of zero. As a comparison, I also monitored the accuracy curve of every run and flagged a run when the validation accuracy fell below the lowest healthy value for three consecutive epochs.
 
-We first ran this whole test with only the first four signals, and after we saw which broken runs we had missed, we added the fifth signal, set the rule for that signal on runs that we never scored, and then scored every run one more time. For that reason, we show both versions side by side in the table.
+I first conducted the entire evaluation with only the first four signals. After examining the faulty runs that this version missed, I added the fifth signal, set the rule for that signal on runs that were never scored, and then scored every run once more. For that reason, both versions appear side by side in the table.
 
 | | LHD | Four signals | Accuracy curve |
 |---|---|---|---|
-| Broken runs detected, out of 470 | 459 | 411 | 166 |
+| Faulty runs detected, out of 470 | 459 | 411 | 166 |
 | Detected, out of the 105 runs with a loss of 2 points or more | 105 | 94 | 60 |
 | Healthy runs flagged, out of 150 | 6 | 3 | 7 |
 
-Overall, we detected 98% of the broken runs with LHD, usually at epoch 3, and in 98% of those we also named the layer where we had planted the fault. Additionally, on the 165 runs that we detected both ways, the alarm from LHD was 4.9 epochs earlier on average than the one from the accuracy curve. The cost of the fifth signal is in the last row of the table, since with five signals we flagged 6 of the 150 healthy runs, where with four we had flagged only 3.
+Overall, LHD detected 98% of the faulty runs, usually at epoch 3, and in 98% of those detections the reported layer was the layer containing the injected fault. On the 165 runs detected by both methods, the alarm from LHD preceded the alarm from the accuracy curve by 4.9 epochs on average. The cost of the fifth signal appears in the last row of the table, because the five signal version flagged 6 of the 150 healthy runs, whereas the four signal version flagged only 3.
 
-However, in 223 of the 470 broken runs we lost under half a point of accuracy, which is too little to see in the curve. For that reason, in the second row of the table we count only the 105 runs with a loss of 2 points or more.
+However, in 223 of the 470 faulty runs the loss in accuracy was under half a point, which is too small to observe in the curve. For that reason, the second row of the table counts only the 105 runs with a loss of 2 points or more.
 
-## Limits
+## Limitations
 
-Unfortunately, for frozen layers a much simpler test is better than LHD. When we only tested each layer for a weight change of exactly zero, we found all 200 frozen layers at epoch 1 with no false alarms, which is two epochs before LHD, so we do not need LHD for the original SignNet bug.
+For frozen layers, a much simpler test performs better than LHD does. When I tested each layer only for a weight change of exactly zero, the test identified all 200 frozen layers at epoch 1 with no false alarms, which is two epochs earlier than LHD, so LHD is unnecessary for the original SignNet bug.
 
-A fixed threshold does not work in the same way for dead units, because we also see dead units in healthy networks, and at very different rates in different layers, so no single threshold is right for every layer. With LHD we detected 96% of dead unit faults with 6 false alarms, whereas with the default rule of SageMaker Debugger we detected 40% of those faults with 22 false alarms.
+A fixed threshold is not equally effective for dead units, because dead units also occur in healthy networks, and at very different rates in different layers, so no single threshold suits every layer. LHD detected 96% of dead unit faults with 6 false alarms, whereas the default rule of SageMaker Debugger detected 40% of those faults with 22 false alarms.
 
-Still, we missed 11 broken runs with LHD, and in every one of those runs we had killed only 10% of a layer's units. For instance, in the dense layer of the CNN between 5% and 19% of units were always dead even in healthy runs, so with 10% of the units in that layer killed we detected only 2 of 10 runs.
+LHD still missed 11 faulty runs, and in every one of those runs only 10% of a layer's units had been disabled. For instance, in the dense layer of the CNN between 5% and 19% of units were always dead even in healthy runs, so with 10% of the units in that layer disabled, LHD detected only 2 of 10 runs.
 
-As for the 6 false alarms, three are from the first four signals, and two of those were in a CNN layer with only 16 filters, where a single dead filter is already over the threshold. The other three are from the fifth signal, all in the dense layer of the CNN, and in two of those we flagged the run only because fewer units were always dead than in any of the 20 healthy runs behind the range, which is not a fault at all.
+Of the 6 false alarms, three originate from the first four signals, and two of those occurred in a CNN layer with only 16 filters, where a single dead filter already exceeds the threshold. The other three originate from the fifth signal, all in the dense layer of the CNN, and in two of those the run was flagged only because fewer units were always dead than in any of the 20 healthy runs behind the range, which does not constitute a fault.
 
-Finally, we planted every fault here, and we made each one visible in the signals we log, so we have not yet tried LHD on real bugs. We also added the fifth signal only after we had seen the runs that we missed with four, and since we killed every unit before training, which is exactly the kind of dead unit that the fifth signal was built for, we do not know how much of this gain we would keep on other bugs. For example, when we killed half of the units in the dense layer of the CNN at epoch 6, we detected 0 of 5 runs with either version. Additionally, we never put a fault in the data, such as flipped labels, so we do not know whether we would detect one.
+Finally, I injected every fault in this study and made each one visible in the recorded signals, so LHD has not yet been evaluated on naturally occurring bugs. I also added the fifth signal only after examining the runs that the four signal version missed, and because every unit was disabled before training, which is exactly the kind of dead unit that the fifth signal targets, the share of this gain that would carry over to other bugs remains unknown. For example, when half of the units in the dense layer of the CNN were disabled at epoch 6, neither version detected any of the 5 runs. In addition, no fault was ever placed in the data, such as flipped labels, so the ability of LHD to detect such a fault remains untested.
 
 ## Related work
 
-Signals like these are already used in [AutoTrainer](https://doi.org/10.1109/ICSE43902.2021.00043), [DeepDiagnosis](https://doi.org/10.1145/3510003.3510071), and [SageMaker Debugger](https://docs.aws.amazon.com/sagemaker/latest/dg/debugger-built-in-rules.html), and the same signals are shown on a dashboard in [wandb](https://www.wandb.com/). In the first three the thresholds are preset, whereas in LHD we measure each layer's range from healthy runs of the same network.
+Comparable signals are already used in [AutoTrainer](https://doi.org/10.1109/ICSE43902.2021.00043), [DeepDiagnosis](https://doi.org/10.1145/3510003.3510071), and [SageMaker Debugger](https://docs.aws.amazon.com/sagemaker/latest/dg/debugger-built-in-rules.html), and [wandb](https://www.wandb.com/) displays the same signals on a dashboard. In the first three systems the thresholds are preset, whereas LHD derives the range of each layer from healthy runs of the same network.
 
 ## Code and data
 
-The code, every saved run, and every table are in [the repo](https://github.com/sohan-bhat/lhd).
+The code, every saved run, and every table are available in [the repo](https://github.com/sohan-bhat/lhd).
 
 ## Who did what
 
