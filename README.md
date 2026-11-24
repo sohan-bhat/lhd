@@ -16,7 +16,7 @@ Experiments begin after science fair review approval.
 ## Layout
 
     src/lhd/           the monitor itself, numpy only
-      signals.py         the four per-layer signals
+      signals.py         the per-layer signals, four from the study and a fifth added later
       recorder.py        logs every layer's signals each epoch
       baseline.py        healthy band from healthy runs only
       detector.py        fires after `patience` epochs out of band
@@ -37,7 +37,9 @@ Experiments begin after science fair review approval.
       figures.py         writes results/figures
       report.py          writes results/REPORT.md
       demo.py            trains live and stops when LHD fires
-      blog_demo.py       writes blog/demo.json, the four runs in the blog post's figure
+      never_fired.py     measures the fifth signal on every saved run
+      v2.py              scores four signals beside five, into results/v2.json
+      blog_demo.py       writes blog/demo.json, the five runs in the blog post's figure
     src/tests/         the tests for the library and the scoring
     results/           every saved run, the tables, figures, and report
     paper/             the long paper and the short paper
@@ -88,6 +90,22 @@ Finished runs are packed into one compressed file per architecture
 with `python -m experiments.bundle`, and the analysis reads those
 files when the per run folders are gone. Results land in
 `results/REPORT.md`, and the paper built from them in `paper/lhd.pdf`.
+
+## Version 2
+
+The study was planned and run with four signals, and with them 411 of
+the 470 broken runs were detected and 3 of 150 healthy runs flagged.
+A fifth signal, the share of a layer's units that have been dead since
+before training, was added after those results were in. With five
+signals 459 of the 470 were detected and 6 of 150 healthy runs flagged.
+The signal and its rule were chosen on runs outside the scored ones and
+committed before the scored runs were measured, and those runs were then
+scored once. Both versions and the limits of the comparison are in the
+last section of `results/REPORT.md` and in section 6 of the paper.
+
+    python -m experiments.never_fired --workers 8    measure the fifth signal, about nine hours
+    python -m experiments.never_fired --pack         pack the measurements for git
+    python -m experiments.v2                         score both versions
 
 To watch LHD stop a broken run live:
 
