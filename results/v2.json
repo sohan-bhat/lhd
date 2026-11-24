@@ -1,0 +1,827 @@
+{
+ "settings": {
+  "margin": 0.5,
+  "floor": 0.05,
+  "patience": 3
+ },
+ "versions": {
+  "four signals": {
+   "signals": [
+    "weight_change",
+    "weight_norm",
+    "grad_norm",
+    "dead_unit_fraction"
+   ],
+   "all": {
+    "broken": 470,
+    "caught": 411,
+    "right_layer": 403,
+    "median_epoch": 3.0,
+    "harmful": 105,
+    "harmful_caught": 94,
+    "healthy": 150,
+    "healthy_flagged": 3
+   },
+   "mlp": {
+    "broken": 130,
+    "caught": 109,
+    "right_layer": 109,
+    "median_epoch": 3.0,
+    "harmful": 10,
+    "harmful_caught": 10,
+    "healthy": 50,
+    "healthy_flagged": 1
+   },
+   "transformer": {
+    "broken": 170,
+    "caught": 170,
+    "right_layer": 170,
+    "median_epoch": 3.0,
+    "harmful": 0,
+    "harmful_caught": 0,
+    "healthy": 50,
+    "healthy_flagged": 0
+   },
+   "cnn": {
+    "broken": 170,
+    "caught": 132,
+    "right_layer": 124,
+    "median_epoch": 3.0,
+    "harmful": 95,
+    "harmful_caught": 84,
+    "healthy": 50,
+    "healthy_flagged": 2
+   },
+   "by_condition": {
+    "cnn dead10 conv1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn dead10 conv2": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn dead10 conv3": {
+     "caught": 1,
+     "runs": 10
+    },
+    "cnn dead10 fc1": {
+     "caught": 0,
+     "runs": 10
+    },
+    "cnn dead25 conv1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn dead25 conv2": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn dead25 conv3": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn dead25 fc1": {
+     "caught": 0,
+     "runs": 10
+    },
+    "cnn dead50 conv1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn dead50 conv2": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn dead50 conv3": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn dead50 fc1": {
+     "caught": 1,
+     "runs": 10
+    },
+    "cnn detach conv3": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn detach fc1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn frozen conv1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn frozen conv2": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn frozen conv3": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn frozen fc1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn frozen fc2": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn latedead50 conv1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn latedead50 conv2": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn latedead50 conv3": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn latedead50 fc1": {
+     "caught": 0,
+     "runs": 5
+    },
+    "cnn latefrozen conv1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn latefrozen conv2": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn latefrozen conv3": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn latefrozen fc1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn latefrozen fc2": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn lr10": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn lr100": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp dead10 fc1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp dead10 fc2": {
+     "caught": 0,
+     "runs": 10
+    },
+    "mlp dead10 fc3": {
+     "caught": 0,
+     "runs": 10
+    },
+    "mlp dead25 fc1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp dead25 fc2": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp dead25 fc3": {
+     "caught": 9,
+     "runs": 10
+    },
+    "mlp dead50 fc1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp dead50 fc2": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp dead50 fc3": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp detach fc2": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp detach fc4": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp frozen fc1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp frozen fc2": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp frozen fc3": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp frozen fc4": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp latedead50 fc1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp latedead50 fc2": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp latedead50 fc3": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp latefrozen fc1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp latefrozen fc2": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp latefrozen fc3": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp latefrozen fc4": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp lr10": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp lr100": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer dead10 b0.ff1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer dead10 b1.ff1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer dead25 b0.ff1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer dead25 b1.ff1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer dead50 b0.ff1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer dead50 b1.ff1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer detach blocks.1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer detach head": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer frozen b0.ff1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer frozen b0.ff2": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer frozen b0.proj": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer frozen b0.qkv": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer frozen b1.ff1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer frozen b1.ff2": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer frozen b1.proj": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer frozen b1.qkv": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer frozen head": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer frozen pos": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer frozen tok": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer latedead50 b0.ff1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latedead50 b1.ff1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen b0.ff1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen b0.ff2": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen b0.proj": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen b0.qkv": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen b1.ff1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen b1.ff2": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen b1.proj": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen b1.qkv": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen head": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen pos": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen tok": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer lr10": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer lr100": {
+     "caught": 5,
+     "runs": 5
+    }
+   },
+   "flagged_healthy_runs": [
+    "cnn-fresh-none-s1015",
+    "cnn-fresh-none-s1028",
+    "mlp-fresh-none-s1046"
+   ]
+  },
+  "five signals": {
+   "signals": [
+    "weight_change",
+    "weight_norm",
+    "grad_norm",
+    "dead_unit_fraction",
+    "never_fired_fraction"
+   ],
+   "all": {
+    "broken": 470,
+    "caught": 459,
+    "right_layer": 452,
+    "median_epoch": 3.0,
+    "harmful": 105,
+    "harmful_caught": 105,
+    "healthy": 150,
+    "healthy_flagged": 6
+   },
+   "mlp": {
+    "broken": 130,
+    "caught": 127,
+    "right_layer": 127,
+    "median_epoch": 3.0,
+    "harmful": 10,
+    "harmful_caught": 10,
+    "healthy": 50,
+    "healthy_flagged": 1
+   },
+   "transformer": {
+    "broken": 170,
+    "caught": 170,
+    "right_layer": 170,
+    "median_epoch": 3.0,
+    "harmful": 0,
+    "harmful_caught": 0,
+    "healthy": 50,
+    "healthy_flagged": 0
+   },
+   "cnn": {
+    "broken": 170,
+    "caught": 162,
+    "right_layer": 155,
+    "median_epoch": 3.0,
+    "harmful": 95,
+    "harmful_caught": 95,
+    "healthy": 50,
+    "healthy_flagged": 5
+   },
+   "by_condition": {
+    "cnn dead10 conv1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn dead10 conv2": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn dead10 conv3": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn dead10 fc1": {
+     "caught": 2,
+     "runs": 10
+    },
+    "cnn dead25 conv1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn dead25 conv2": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn dead25 conv3": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn dead25 fc1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn dead50 conv1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn dead50 conv2": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn dead50 conv3": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn dead50 fc1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn detach conv3": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn detach fc1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn frozen conv1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn frozen conv2": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn frozen conv3": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn frozen fc1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn frozen fc2": {
+     "caught": 10,
+     "runs": 10
+    },
+    "cnn latedead50 conv1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn latedead50 conv2": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn latedead50 conv3": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn latedead50 fc1": {
+     "caught": 0,
+     "runs": 5
+    },
+    "cnn latefrozen conv1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn latefrozen conv2": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn latefrozen conv3": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn latefrozen fc1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn latefrozen fc2": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn lr10": {
+     "caught": 5,
+     "runs": 5
+    },
+    "cnn lr100": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp dead10 fc1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp dead10 fc2": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp dead10 fc3": {
+     "caught": 7,
+     "runs": 10
+    },
+    "mlp dead25 fc1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp dead25 fc2": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp dead25 fc3": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp dead50 fc1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp dead50 fc2": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp dead50 fc3": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp detach fc2": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp detach fc4": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp frozen fc1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp frozen fc2": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp frozen fc3": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp frozen fc4": {
+     "caught": 10,
+     "runs": 10
+    },
+    "mlp latedead50 fc1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp latedead50 fc2": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp latedead50 fc3": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp latefrozen fc1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp latefrozen fc2": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp latefrozen fc3": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp latefrozen fc4": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp lr10": {
+     "caught": 5,
+     "runs": 5
+    },
+    "mlp lr100": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer dead10 b0.ff1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer dead10 b1.ff1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer dead25 b0.ff1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer dead25 b1.ff1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer dead50 b0.ff1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer dead50 b1.ff1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer detach blocks.1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer detach head": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer frozen b0.ff1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer frozen b0.ff2": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer frozen b0.proj": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer frozen b0.qkv": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer frozen b1.ff1": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer frozen b1.ff2": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer frozen b1.proj": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer frozen b1.qkv": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer frozen head": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer frozen pos": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer frozen tok": {
+     "caught": 10,
+     "runs": 10
+    },
+    "transformer latedead50 b0.ff1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latedead50 b1.ff1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen b0.ff1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen b0.ff2": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen b0.proj": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen b0.qkv": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen b1.ff1": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen b1.ff2": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen b1.proj": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen b1.qkv": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen head": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen pos": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer latefrozen tok": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer lr10": {
+     "caught": 5,
+     "runs": 5
+    },
+    "transformer lr100": {
+     "caught": 5,
+     "runs": 5
+    }
+   },
+   "flagged_healthy_runs": [
+    "cnn-fresh-none-s1005",
+    "cnn-fresh-none-s1015",
+    "cnn-fresh-none-s1028",
+    "cnn-fresh-none-s1035",
+    "cnn-fresh-none-s1039",
+    "mlp-fresh-none-s1046"
+   ]
+  }
+ }
+}
