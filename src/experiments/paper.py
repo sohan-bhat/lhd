@@ -151,6 +151,13 @@ class Data:
         self.alarms = read("false_alarms.csv")
         self.runs = read("runs.csv")
         self._signals = None
+        self.v2 = self.counts_v2 = None
+        if (RESULTS / "v2.json").exists():
+            with open(RESULTS / "v2.json") as f:
+                self.v2 = json.load(f)
+        if (RESULTS / "never_fired_counts.json").exists():
+            with open(RESULTS / "never_fired_counts.json") as f:
+                self.counts_v2 = json.load(f)
 
     def signals(self) -> list[dict]:
         """Every calibration and fresh run's signals, per epoch and layer."""
@@ -342,8 +349,15 @@ def abstract(d: Data) -> str:
     dead = d.detector("LHD", DEAD)
     harm_text = (f" On the {harm['broken_runs']} broken runs whose fault cost two or more points of final accuracy, LHD "
                  f"caught {harm['lhd_caught']} and the accuracy curve caught {harm['accuracy_caught']}." if harm else "")
+    v2_text = ""
+    if d.v2:
+        five = d.v2["versions"]["five signals"]["all"]
+        v2_text = (f" A fifth signal, added after the study and scored once on the same runs, raised detection to "
+                   f"{pct(five['caught'], five['broken'])} and the healthy runs flagged to {five['healthy_flagged']} of "
+                   f"{five['healthy']}. That result is reported in a section of its own, since the signal was not part "
+                   f"of the plan.")
     return f"""\\begin{{abstract}}
-During training, neural networks can develop defects that raise no error, so the run completes and returns a degraded model that is easy to mistake for a hard problem. This work presents LHD (Layer Health Diagnostics), a monitor that logs four signals for every layer at the end of each epoch (weight change, gradient norm, weight norm, and the fraction of dead units) and compares each one with the range it stays within during healthy runs of the same network. When a signal stays outside that range for three epochs in a row, LHD names the layer and a likely cause and stops the run. LHD was tested on {comp['total']} training runs of a fully connected network, a CNN, and a small transformer, in which frozen layers and dead units were planted in known layers.{harm_text} Across all {p['runs']} broken runs with these faults, LHD caught {rate(p['detected'])} (95\\% interval {interval(p['detected'])}) and named the planted layer in {rate(p['layer_ok'])} of the runs it caught, while it flagged {kofn(h['lhd_false_alarm'])} fresh healthy runs ({interval1(h['lhd_false_alarm'])}). On the {both['n']} runs that both LHD and the accuracy curve caught, LHD fired {both['mean']:.1f} epochs earlier on average. A check for weights that never change caught every frozen layer two epochs sooner, so LHD helps most with dead units, where it caught {pct(dead['k'], dead['n'])} of faults while the fixed thresholds used by existing tools either missed most of them or flagged many healthy runs.
+During training, neural networks can develop defects that raise no error, so the run completes and returns a degraded model that is easy to mistake for a hard problem. This work presents LHD (Layer Health Diagnostics), a monitor that logs four signals for every layer at the end of each epoch (weight change, gradient norm, weight norm, and the fraction of dead units) and compares each one with the range it stays within during healthy runs of the same network. When a signal stays outside that range for three epochs in a row, LHD names the layer and a likely cause and stops the run. LHD was tested on {comp['total']} training runs of a fully connected network, a CNN, and a small transformer, in which frozen layers and dead units were planted in known layers.{harm_text} Across all {p['runs']} broken runs with these faults, LHD caught {rate(p['detected'])} (95\\% interval {interval(p['detected'])}) and named the planted layer in {rate(p['layer_ok'])} of the runs it caught, while it flagged {kofn(h['lhd_false_alarm'])} fresh healthy runs ({interval1(h['lhd_false_alarm'])}). On the {both['n']} runs that both LHD and the accuracy curve caught, LHD fired {both['mean']:.1f} epochs earlier on average. A check for weights that never change caught every frozen layer two epochs sooner, so LHD helps most with dead units, where it caught {pct(dead['k'], dead['n'])} of faults while the fixed thresholds used by existing tools either missed most of them or flagged many healthy runs.{v2_text}
 \\end{{abstract}}
 """
 
@@ -994,14 +1008,96 @@ Fault & Runs & LHD & curve & check & rule \\\\
 """
 
 
+V2_COMMITS = ("19e4a05", "5cfdf12")
+
+
+def version2(d: Data) -> str:
+    """The fifth signal, added after the study, beside the study's four signals."""
+    if d.v2 is None:
+        return ""
+    four, five = d.v2["versions"]["four signals"], d.v2["versions"]["five signals"]
+    a4, a5, d4, d5 = four["all"], five["all"], four["detail"], five["detail"]
+    floor = d.v2["settings"]["floor"]
+    dead_low, dead_high = d.dead_range("cnn", "fc1")
+    start = d.v2["never_fired_healthy_range"]["cnn"]["fc1"]
+
+    def line(label: str, cell) -> str:
+        return f"{label} & {cell(four)} & {cell(five)} \\\\"
+
+    rows = [
+        line(f"Broken runs detected, of {a5['broken']}",
+             lambda v: f"{v['all']['caught']} ({pct(v['all']['caught'], v['all']['broken'], 1)})"),
+        line("Planted layer named, of the runs detected", lambda v: str(v["all"]["right_layer"])),
+        line(f"Detected, of the {a5['harmful']} runs that lost two or more points",
+             lambda v: str(v["all"]["harmful_caught"])),
+        line(f"Frozen layers detected, of {d5['frozen']['runs']}", lambda v: str(v["detail"]["frozen"]["caught"])),
+        line(f"Dead unit faults detected, of {d5['dead']['runs']}", lambda v: str(v["detail"]["dead"]["caught"])),
+        *[line(f"\\quad with {fam[4:]}\\% of a layer's units killed, of {d5['dead_by_share'][fam]['runs']}",
+               lambda v, fam=fam: str(v["detail"]["dead_by_share"][fam]["caught"])) for fam in DEAD],
+        line("Median alarm epoch", lambda v: f"{v['all']['median_epoch']:.0f}"),
+        "\\midrule",
+        line(f"Healthy runs flagged, of {a5['healthy']}", lambda v: str(v["all"]["healthy_flagged"])),
+    ]
+
+    missed = defaultdict(int)
+    for run_id in d5["missed"]:
+        arch, _, fam, layer, _ = run_id.split("-")
+        missed[(arch, fam, layer)] += 1
+    missed_text = listing([f"{n} with {fault_name(fam, layer)} of the {PROSE[arch]}"
+                           for (arch, fam, layer), n in sorted(missed.items(), key=lambda item: -item[1])])
+    new = [a for a in five["false_alarms"] if a["run_id"] not in four["flagged_healthy_runs"]]
+    below = sum(a["positions"].get("never_fired_fraction") == "below" for a in new)
+    where = listing(sorted({f"{a['layer']} of the {PROSE[a['run_id'].split('-')[0]]}" for a in new}))
+    late = five["by_condition"]["cnn latedead50 fc1"]
+    late_ref = " (Section~\\ref{sec:extra})" if d.more_complete() else ""
+
+    retrain = ""
+    if d.counts_v2:
+        runs = sum(c["runs"] for c in d.counts_v2.values())
+        trained = sum(c["trained"] for c in d.counts_v2.values())
+        retrain = (f" Third, the saved runs did not hold the new signal, so {trained} of the {runs} runs were trained "
+                   f"again on one thread, and each one repeated its saved run exactly at every epoch. The other "
+                   f"{runs - trained} runs had no dead unit before the first batch, so the signal is 0 at every epoch "
+                   f"without training.")
+
+    return f"""\\section{{A Fifth Signal Added After the Study}}
+\\label{{sec:v2}}
+
+Everything reported so far is the study as planned, with four signals. After those results were in, a fifth signal was added for the dead unit faults that were missed. The new signal is the fraction of a layer's units that were dead on the probe batch before training and at every epoch end since. In a healthy layer many units can be dead at any one epoch while few of them have been dead from the start. In fc1 of the CNN, for example, between {100 * dead_low:.0f} and {100 * dead_high:.0f}\\% of units were dead across the calibration runs, but only {100 * start['low']:.0f} to {100 * start['high']:.0f}\\% had been dead from the start, so killed units stand out more in the new signal. The four original signals, the settings, and the 20 calibration runs per network were left as they were, and the range of the new signal is widened by the floor of {floor} alone, with no margin.
+
+With five signals, {a5['caught']} of the {a5['broken']} broken runs were detected ({pct(a5['caught'], a5['broken'], 1)}), compared with {a4['caught']} ({pct(a4['caught'], a4['broken'], 1)}) with four (Table~\\ref{{tab:v2}}), and the planted layer was named in {a5['right_layer']} of them. All {a5['harmful']} runs that lost two or more points were detected, and the median alarm epoch stayed at {a5['median_epoch']:.0f}. The whole gain is in dead unit faults, of which {d5['dead']['caught']} of {d5['dead']['runs']} were detected in place of {d4['dead']['caught']}. The {len(d5['missed'])} runs still missed are {missed_text}. Healthy runs flagged went from {a4['healthy_flagged']} to {a5['healthy_flagged']} of {a5['healthy']}. The {WORDS.get(len(new), len(new))} new alarms are all from the fifth signal in {where}, and in {WORDS.get(below, below)} of them the value was below the healthy range, with fewer units dead from the start than in any calibration run, which is not a fault. The range of the fifth signal has no margin on its low side, and the rule was left as committed.
+
+These numbers carry limits that the main study does not. First, the fifth signal was designed after the misses of the four signal version were known, so this comparison was not planned before training. To keep the choice away from the scored runs, the signal and the rule for its range were chosen on a pilot, the calibration runs of the fully connected network and the CNN and 27 new runs on seeds 2000 to 2002, and both were committed ({commit_link(V2_COMMITS[0])} to {commit_link(V2_COMMITS[1])}) before the signal was measured on any scored run. The scored runs were then scored once, and the rule was not changed afterwards. Second, every dead unit in the {a5['broken']} broken runs was killed before the first batch, which is exactly the pattern the fifth signal measures, and a unit that dies later is never counted. With half of fc1 killed at epoch {LATE_ONSET} in the CNN{late_ref}, {late['caught']} of {late['runs']} runs were detected with either version.{retrain}
+
+\\begin{{table}}[t]
+\\centering
+\\small
+\\caption{{LHD with the four signals of the study and with the fifth signal added afterwards, scored on the same runs with the same settings and calibration runs.}}
+\\label{{tab:v2}}
+\\begin{{tabular}}{{@{{}}lrr@{{}}}}
+\\toprule
+ & Four signals & Five signals \\\\
+\\midrule
+{chr(10).join(rows)}
+\\bottomrule
+\\end{{tabular}}
+\\end{{table}}
+
+"""
+
+
 def discussion(d: Data) -> str:
     trans = [float(r["final_acc"]) for r in d.runs if r["arch"] == "transformer" and r["role"] == "fresh"]
     p, h = d.pooled["proposal"], d.pooled["healthy"]
+    v2_note = (" Section~\\ref{sec:v2} reports a fifth signal that was added for these misses after the study."
+               if d.v2 else "")
+    v2_ai = (" Claude also designed and wrote the fifth signal of Section~\\ref{sec:v2} and the code that measured "
+             "and scored it, after the author asked for a higher detection rate." if d.v2 else "")
     return f"""\\section{{Discussion and Limitations}}
 
 The results support the hypothesis for planted faults. Per layer signals exposed a broken layer within the first few epochs, usually before the accuracy curve showed anything, and LHD rarely flagged healthy runs. A frozen layer, however, is caught just as well and sooner by a check for weights that never change, so for that fault the only gain is that the same rules also cover it. For dead units, a range measured on healthy runs of the same network did better than every fixed threshold tested, including the defaults of three existing tools.
 
-The faults were planted to show up in the signals LHD measures, so the detection and diagnosis rates describe how well LHD separates these faults from normal variation, not how often it would catch bugs in real projects. Many planted faults also cost less than one point of accuracy, which means stopping those runs saves compute on runs that would have produced a nearly normal model. LHD misses dead units in layers where healthy runs already lose many units, because the healthy range treats that loss as normal. Building the range takes about 10 to 20 healthy runs of the same network, which costs more than LHD can save for a model trained only once, and it assumes those runs are themselves healthy. The floor of 0.05 is also too low for small layers. One dead filter out of 16 is 6.25\\%, already above the floor, so a later version should scale the floor to the layer's width. Finally, the networks are small and were trained for 15 to 20 epochs on a laptop CPU, the transformer reaches only about {100 * sum(trans) / len(trans):.0f}\\% next character accuracy, and large networks, long runs, other optimizers, and GPU training were not tested.
+The faults were planted to show up in the signals LHD measures, so the detection and diagnosis rates describe how well LHD separates these faults from normal variation, not how often it would catch bugs in real projects. Many planted faults also cost less than one point of accuracy, which means stopping those runs saves compute on runs that would have produced a nearly normal model. LHD misses dead units in layers where healthy runs already lose many units, because the healthy range treats that loss as normal.{v2_note} Building the range takes about 10 to 20 healthy runs of the same network, which costs more than LHD can save for a model trained only once, and it assumes those runs are themselves healthy. The floor of 0.05 is also too low for small layers. One dead filter out of 16 is 6.25\\%, already above the floor, so a later version should scale the floor to the layer's width. Finally, the networks are small and were trained for 15 to 20 epochs on a laptop CPU, the transformer reaches only about {100 * sum(trans) / len(trans):.0f}\\% next character accuracy, and large networks, long runs, other optimizers, and GPU training were not tested.
 
 \\section{{Conclusion}}
 
@@ -1009,7 +1105,7 @@ This work presented LHD, a monitor that compares four signals of every layer wit
 
 \\section*{{Use of generative AI}}
 
-The author came up with the idea, designed the study in an earlier proposal, and wrote the core LHD library (signals, detector, and diagnosis), with Claude, made by Anthropic, providing function outlines and docstrings. Claude wrote the experiment scripts that trained and scored the networks, ran the training runs, wrote the analysis and figure code, and drafted parts of this paper, including the results and related work. The author directed the study, decided what to test and change, and is responsible for all of its content.
+The author came up with the idea, designed the study in an earlier proposal, and wrote the core LHD library for the four original signals (signals, detector, and diagnosis), with Claude, made by Anthropic, providing function outlines and docstrings. Claude wrote the experiment scripts that trained and scored the networks, ran the training runs, wrote the analysis and figure code, and drafted parts of this paper, including the results and related work.{v2_ai} The author directed the study, decided what to test and change, and is responsible for all of its content.
 
 \\section*{{Code and data}}
 
@@ -1036,7 +1132,7 @@ def main(argv=None) -> None:
     args = parser.parse_args(argv)
     if args.table:
         d = Data()
-        text = "\n".join([method(d), setup(d), results(d)])
+        text = "\n".join([method(d), setup(d), results(d), version2(d)])
         found = tables(text)
         if args.table not in found:
             raise SystemExit(f"no table {args.table}; tables are {', '.join(sorted(found))}")
@@ -1052,7 +1148,7 @@ def main(argv=None) -> None:
     related = (PAPER / "related_work.tex").read_text()
     references = (PAPER / "references.tex").read_text()
     body = [preamble(), abstract(d), introduction(d), related, method(d), setup(d),
-            results(d), discussion(d), references, "\\end{document}\n"]
+            results(d), version2(d), discussion(d), references, "\\end{document}\n"]
     (PAPER / "lhd.tex").write_text("\n".join(body))
     print(f"wrote {PAPER / 'lhd.tex'}", flush=True)
     if TECTONIC.exists():
