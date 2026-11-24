@@ -403,6 +403,124 @@ def misses() -> list[str]:
     return lines
 
 
+V2_COMMITS = ("19e4a05", "5cfdf12")
+
+
+def _share(caught: int, runs: int) -> str:
+    return f"{100 * caught / runs:.1f}% ({caught}/{runs})"
+
+
+def version2_section() -> list[str]:
+    """The fifth signal, added after the study, beside the study's four signals."""
+    path, counts_path = RESULTS / "v2.json", RESULTS / "never_fired_counts.json"
+    if not path.exists():
+        return []
+    with open(path) as f:
+        result = json.load(f)
+    four, five = result["versions"]["four signals"], result["versions"]["five signals"]
+    settings = result["settings"]
+
+    def row(label: str, cell) -> str:
+        return f"| {label} | {cell(four)} | {cell(five)} |"
+
+    lines = [
+        "Everything above is the study as planned, with four signals. After those results were in, a fifth "
+        "signal was added, `never_fired_fraction`, the share of a layer's units that were dead on the probe "
+        "batch before training and at every epoch end since. The four original signals, the settings and the "
+        "20 calibration runs per network are the same as above. The range of the new signal is widened by the "
+        f"floor of {settings['floor']} alone, with no margin.",
+        "",
+        "| | Four signals, as planned | Five signals |",
+        "|---|---|---|",
+        row("Broken runs detected", lambda v: _share(v["all"]["caught"], v["all"]["broken"])),
+        row("Right layer when detected", lambda v: f"{v['all']['right_layer']}/{v['all']['caught']}"),
+        row("Detected, of runs that lost 2 points or more",
+            lambda v: f"{v['all']['harmful_caught']}/{v['all']['harmful']}"),
+        row("Healthy runs flagged", lambda v: f"{v['all']['healthy_flagged']}/{v['all']['healthy']}"),
+        row("Frozen layers detected", lambda v: f"{v['detail']['frozen']['caught']}/{v['detail']['frozen']['runs']}"),
+        row("Dead unit faults detected", lambda v: _share(v["detail"]["dead"]["caught"], v["detail"]["dead"]["runs"])),
+        *[row(f"With {fam[4:]}% of a layer's units killed",
+              lambda v, fam=fam: f"{v['detail']['dead_by_share'][fam]['caught']}/{v['detail']['dead_by_share'][fam]['runs']}")
+          for fam in ("dead10", "dead25", "dead50")],
+        row("Median alarm epoch", lambda v: f"{v['all']['median_epoch']:.0f}"),
+        row("Runs detected by LHD and by the accuracy curve", lambda v: str(v["detail"]["caught_both_ways"])),
+        row("Mean epochs before the accuracy curve on those runs",
+            lambda v: f"{v['detail']['mean_epochs_before_accuracy_curve']:.1f}"),
+        "",
+        "| Network | Detected, four signals | Detected, five signals | Healthy flagged, four | Healthy flagged, five |",
+        "|---|---|---|---|---|",
+        *[f"| {ARCH_NAMES[arch]} | {_share(four[arch]['caught'], four[arch]['broken'])} | "
+          f"{_share(five[arch]['caught'], five[arch]['broken'])} | "
+          f"{four[arch]['healthy_flagged']}/{four[arch]['healthy']} | "
+          f"{five[arch]['healthy_flagged']}/{five[arch]['healthy']} |" for arch in ARCH_ORDER],
+        "",
+        "Conditions (network, fault, layer) where the count of detected runs changed:",
+        "",
+        "| Condition | Four signals | Five signals | Runs |",
+        "|---|---|---|---|",
+        *[f"| {name} | {four['by_condition'][name]['caught']} | {cell['caught']} | {cell['runs']} |"
+          for name, cell in five["by_condition"].items() if cell["caught"] != four["by_condition"][name]["caught"]],
+        "",
+        "Healthy runs flagged with five signals, with every signal that was out of range at the alarm:",
+        "",
+        "| Run | Epoch | Layer | Cause named | Out of range |",
+        "|---|---|---|---|---|",
+        *[f"| {a['run_id']} | {a['epoch']} | {a['layer']} | {a['cause']} | "
+          + ", ".join(f"{signal} {place}" for signal, place in a["positions"].items() if place != "inside") + " |"
+          for a in five["false_alarms"]],
+        "",
+        "What to keep in mind when reading these numbers:",
+        "",
+        "- The fifth signal was designed after the misses of the four signal version were known, so the numbers "
+        "with five signals are not a test that was planned before training. The signal and the rule for its "
+        "range were chosen on a pilot, the calibration runs of the fully connected network and the CNN and 27 "
+        "new runs on seeds 2000 to 2002, which are not among the scored runs. Both were committed "
+        f"({V2_COMMITS[0]} to {V2_COMMITS[1]}) before the signal was measured on any scored run, and the scored "
+        "runs were then scored once, with no change to the rule afterwards.",
+        "- Every dead unit in the 470 broken runs was killed before the first batch, which is exactly the pattern "
+        "the fifth signal measures. A unit that dies later is never counted. With half of fc1 killed at epoch 6 "
+        f"in the CNN, {five['by_condition']['cnn latedead50 fc1']['caught']} of "
+        f"{five['by_condition']['cnn latedead50 fc1']['runs']} runs were detected with five signals, the same as "
+        "with four.",
+    ]
+    new = [a for a in five["false_alarms"] if a["run_id"] not in four["flagged_healthy_runs"]]
+    below = [a for a in new if a["positions"].get("never_fired_fraction") == "below"]
+    lines.append(
+        f"- Healthy runs flagged went from {four['all']['healthy_flagged']} to {five['all']['healthy_flagged']} of "
+        f"{five['all']['healthy']}. All {len(new)} new alarms are from the fifth signal in "
+        f"{', '.join(sorted({a['layer'] for a in new}))} of the CNN. In {len(below)} of them the value was below the "
+        "healthy range, fewer units dead from the start than in any calibration run, which is not a fault. The "
+        "range of the fifth signal has no margin on the low side, and the rule was left as committed.")
+    missed = defaultdict(int)
+    for run_id in five["detail"]["missed"]:
+        missed[run_id.rsplit("-s", 1)[0]] += 1
+    ranges = result["never_fired_healthy_range"]
+    lines.append(
+        f"- The {len(five['detail']['missed'])} broken runs still missed are "
+        + " and ".join(f"{n} with {name}" for name, n in sorted(missed.items()))
+        + ". In fc1 of the CNN, between "
+        f"{100 * ranges['cnn']['fc1']['low']:.0f}% and {100 * ranges['cnn']['fc1']['high']:.0f}% of units were dead "
+        "from the start in the calibration runs, so 10% more is inside the widened range in most runs.")
+    if counts_path.exists():
+        with open(counts_path) as f:
+            counts = json.load(f)
+        runs = sum(c["runs"] for c in counts.values())
+        trained = sum(c["trained"] for c in counts.values())
+        checks = sum(c["trained_as_a_check"] for c in counts.values())
+        lines.append(
+            f"- To measure the signal, {trained} of the {runs} runs were trained again on one thread, and each "
+            "one repeated its saved run exactly, with the same accuracies, losses and saved signals at every "
+            f"epoch. The other {runs - trained} runs had no dead unit before the first batch, so the signal is 0 at "
+            f"every epoch without training. {checks} runs with no dead unit at the start are among the "
+            f"{trained}, trained as a check, and the signal was 0 in all of them.")
+    lines += [
+        "",
+        "To rebuild this section, run `python -m experiments.never_fired --workers 8`, then the same command "
+        "with `--pack`, then `python -m experiments.v2`. The scores are in `results/v2.json`.",
+    ]
+    return lines
+
+
 def main() -> None:
     with open(RESULTS / "summary.json") as f:
         summary = json.load(f)
@@ -419,6 +537,9 @@ def main() -> None:
         f"margin {settings['margin']}, floor {settings['floor']}, patience {settings['patience']}. "
         "The healthy band uses calibration seeds 0 to 19 only. Fresh healthy runs and broken runs "
         "use seeds from 1000 up and never touch the band.",
+        "",
+        "A fifth signal was added after these results were in. Every section below is the study as planned, "
+        "with four signals, except the section on version 2 near the end, which scores both.",
         "",
         "## Pooled over all three architectures",
         "",
@@ -484,6 +605,10 @@ def main() -> None:
         "",
         "## Misses to read by hand",
         *misses(),
+        "",
+        "## Version 2, a fifth signal added after the study",
+        "",
+        *version2_section(),
         "",
         "## Figures",
         "",
