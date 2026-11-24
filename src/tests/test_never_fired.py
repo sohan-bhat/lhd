@@ -7,7 +7,7 @@ pytest.importorskip("torch")
 
 from experiments import evaluate  # noqa: E402
 from experiments.never_fired import all_specs, same_as_saved  # noqa: E402
-from experiments.v2 import headline, is_proposal  # noqa: E402
+from experiments.v2 import detail, headline, is_proposal  # noqa: E402
 from lhd.baseline import NEVER_FIRED, SIGNALS  # noqa: E402
 
 
@@ -71,3 +71,25 @@ def test_headline_counts():
             row(role="fresh", fault_type="none", detected=False, fired=False)]
     assert headline(rows) == {"broken": 3, "caught": 2, "right_layer": 1, "median_epoch": 3.0,
                               "harmful": 2, "harmful_caught": 2, "healthy": 2, "healthy_flagged": 1}
+
+
+def test_detail_counts_what_the_write_up_quotes():
+    rows = [
+        row(run_id="a", family="dead10", acc_detected=True, acc_epoch=9),
+        row(run_id="b", family="dead10", acc_detected=False, acc_epoch=None, layer_ok=False),
+        row(run_id="c", family="dead50", detected=False, acc_detected=True, acc_epoch=5),
+        row(run_id="d", family="frozen", fault_type="frozen", acc_detected=True, acc_epoch=4),
+        row(run_id="e", family="latedead50", onset=6, acc_detected=False, acc_epoch=None),
+        row(run_id="f", role="fresh", family="none", fault_type="none", acc_epoch=7),
+    ]
+    result = detail(rows)
+    assert result["accuracy_curve_caught"] == 3
+    assert result["accuracy_curve_healthy_flagged"] == 1
+    assert result["caught_both_ways"] == 2
+    assert result["mean_epochs_before_accuracy_curve"] == pytest.approx((6 + 1) / 2)
+    assert result["frozen"] == {"caught": 1, "runs": 1}
+    assert result["dead"] == {"caught": 2, "runs": 3}
+    assert result["dead_by_share"]["dead10"] == {"caught": 2, "runs": 2}
+    assert result["dead_by_share"]["dead50"] == {"caught": 0, "runs": 1}
+    assert result["missed"] == ["c"]
+    assert result["wrong_layer"] == ["b"]

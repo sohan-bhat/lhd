@@ -410,6 +410,143 @@
     "cnn-fresh-none-s1015",
     "cnn-fresh-none-s1028",
     "mlp-fresh-none-s1046"
+   ],
+   "detail": {
+    "accuracy_curve_caught": 166,
+    "accuracy_curve_healthy_flagged": 7,
+    "caught_both_ways": 162,
+    "mean_epochs_before_accuracy_curve": 4.635802469135802,
+    "frozen": {
+     "caught": 200,
+     "runs": 200
+    },
+    "dead": {
+     "caught": 211,
+     "runs": 270
+    },
+    "dead_by_share": {
+     "dead10": {
+      "caught": 51,
+      "runs": 90
+     },
+     "dead25": {
+      "caught": 79,
+      "runs": 90
+     },
+     "dead50": {
+      "caught": 81,
+      "runs": 90
+     }
+    },
+    "missed": [
+     "cnn-fault-dead10-conv3-s1000",
+     "cnn-fault-dead10-conv3-s1001",
+     "cnn-fault-dead10-conv3-s1002",
+     "cnn-fault-dead10-conv3-s1004",
+     "cnn-fault-dead10-conv3-s1005",
+     "cnn-fault-dead10-conv3-s1006",
+     "cnn-fault-dead10-conv3-s1007",
+     "cnn-fault-dead10-conv3-s1008",
+     "cnn-fault-dead10-conv3-s1009",
+     "cnn-fault-dead10-fc1-s1000",
+     "cnn-fault-dead10-fc1-s1001",
+     "cnn-fault-dead10-fc1-s1002",
+     "cnn-fault-dead10-fc1-s1003",
+     "cnn-fault-dead10-fc1-s1004",
+     "cnn-fault-dead10-fc1-s1005",
+     "cnn-fault-dead10-fc1-s1006",
+     "cnn-fault-dead10-fc1-s1007",
+     "cnn-fault-dead10-fc1-s1008",
+     "cnn-fault-dead10-fc1-s1009",
+     "cnn-fault-dead25-fc1-s1000",
+     "cnn-fault-dead25-fc1-s1001",
+     "cnn-fault-dead25-fc1-s1002",
+     "cnn-fault-dead25-fc1-s1003",
+     "cnn-fault-dead25-fc1-s1004",
+     "cnn-fault-dead25-fc1-s1005",
+     "cnn-fault-dead25-fc1-s1006",
+     "cnn-fault-dead25-fc1-s1007",
+     "cnn-fault-dead25-fc1-s1008",
+     "cnn-fault-dead25-fc1-s1009",
+     "cnn-fault-dead50-fc1-s1000",
+     "cnn-fault-dead50-fc1-s1001",
+     "cnn-fault-dead50-fc1-s1002",
+     "cnn-fault-dead50-fc1-s1003",
+     "cnn-fault-dead50-fc1-s1004",
+     "cnn-fault-dead50-fc1-s1005",
+     "cnn-fault-dead50-fc1-s1006",
+     "cnn-fault-dead50-fc1-s1007",
+     "cnn-fault-dead50-fc1-s1009",
+     "mlp-fault-dead10-fc2-s1000",
+     "mlp-fault-dead10-fc2-s1001",
+     "mlp-fault-dead10-fc2-s1002",
+     "mlp-fault-dead10-fc2-s1003",
+     "mlp-fault-dead10-fc2-s1004",
+     "mlp-fault-dead10-fc2-s1005",
+     "mlp-fault-dead10-fc2-s1006",
+     "mlp-fault-dead10-fc2-s1007",
+     "mlp-fault-dead10-fc2-s1008",
+     "mlp-fault-dead10-fc2-s1009",
+     "mlp-fault-dead10-fc3-s1000",
+     "mlp-fault-dead10-fc3-s1001",
+     "mlp-fault-dead10-fc3-s1002",
+     "mlp-fault-dead10-fc3-s1003",
+     "mlp-fault-dead10-fc3-s1004",
+     "mlp-fault-dead10-fc3-s1005",
+     "mlp-fault-dead10-fc3-s1006",
+     "mlp-fault-dead10-fc3-s1007",
+     "mlp-fault-dead10-fc3-s1008",
+     "mlp-fault-dead10-fc3-s1009",
+     "mlp-fault-dead25-fc3-s1001"
+    ],
+    "wrong_layer": [
+     "cnn-fault-dead50-fc1-s1008",
+     "cnn-fault-frozen-conv2-s1009",
+     "cnn-fault-frozen-conv3-s1007",
+     "cnn-fault-frozen-fc1-s1000",
+     "cnn-fault-frozen-fc1-s1002",
+     "cnn-fault-frozen-fc1-s1005",
+     "cnn-fault-frozen-fc1-s1006",
+     "cnn-fault-frozen-fc1-s1007"
+    ]
+   },
+   "false_alarms": [
+    {
+     "run_id": "mlp-fresh-none-s1046",
+     "epoch": 16,
+     "layer": "fc2",
+     "cause": "unrecognized",
+     "positions": {
+      "weight_change": "inside",
+      "weight_norm": "inside",
+      "grad_norm": "inside",
+      "dead_unit_fraction": "below"
+     }
+    },
+    {
+     "run_id": "cnn-fresh-none-s1015",
+     "epoch": 4,
+     "layer": "conv2",
+     "cause": "dead_units",
+     "positions": {
+      "weight_change": "inside",
+      "weight_norm": "inside",
+      "grad_norm": "inside",
+      "dead_unit_fraction": "above"
+     }
+    },
+    {
+     "run_id": "cnn-fresh-none-s1028",
+     "epoch": 3,
+     "layer": "conv2",
+     "cause": "dead_units",
+     "positions": {
+      "weight_change": "inside",
+      "weight_norm": "inside",
+      "grad_norm": "inside",
+      "dead_unit_fraction": "above"
+     }
+    }
    ]
   },
   "five signals": {
@@ -821,7 +958,225 @@
     "cnn-fresh-none-s1035",
     "cnn-fresh-none-s1039",
     "mlp-fresh-none-s1046"
+   ],
+   "detail": {
+    "accuracy_curve_caught": 166,
+    "accuracy_curve_healthy_flagged": 7,
+    "caught_both_ways": 165,
+    "mean_epochs_before_accuracy_curve": 4.866666666666666,
+    "frozen": {
+     "caught": 200,
+     "runs": 200
+    },
+    "dead": {
+     "caught": 259,
+     "runs": 270
+    },
+    "dead_by_share": {
+     "dead10": {
+      "caught": 79,
+      "runs": 90
+     },
+     "dead25": {
+      "caught": 90,
+      "runs": 90
+     },
+     "dead50": {
+      "caught": 90,
+      "runs": 90
+     }
+    },
+    "missed": [
+     "cnn-fault-dead10-fc1-s1000",
+     "cnn-fault-dead10-fc1-s1002",
+     "cnn-fault-dead10-fc1-s1003",
+     "cnn-fault-dead10-fc1-s1004",
+     "cnn-fault-dead10-fc1-s1005",
+     "cnn-fault-dead10-fc1-s1006",
+     "cnn-fault-dead10-fc1-s1007",
+     "cnn-fault-dead10-fc1-s1009",
+     "mlp-fault-dead10-fc3-s1001",
+     "mlp-fault-dead10-fc3-s1004",
+     "mlp-fault-dead10-fc3-s1008"
+    ],
+    "wrong_layer": [
+     "cnn-fault-frozen-conv2-s1009",
+     "cnn-fault-frozen-conv3-s1007",
+     "cnn-fault-frozen-fc1-s1000",
+     "cnn-fault-frozen-fc1-s1002",
+     "cnn-fault-frozen-fc1-s1005",
+     "cnn-fault-frozen-fc1-s1006",
+     "cnn-fault-frozen-fc1-s1007"
+    ]
+   },
+   "false_alarms": [
+    {
+     "run_id": "mlp-fresh-none-s1046",
+     "epoch": 16,
+     "layer": "fc2",
+     "cause": "unrecognized",
+     "positions": {
+      "weight_change": "inside",
+      "weight_norm": "inside",
+      "grad_norm": "inside",
+      "dead_unit_fraction": "below",
+      "never_fired_fraction": "inside"
+     }
+    },
+    {
+     "run_id": "cnn-fresh-none-s1005",
+     "epoch": 3,
+     "layer": "fc1",
+     "cause": "unrecognized",
+     "positions": {
+      "weight_change": "inside",
+      "weight_norm": "inside",
+      "grad_norm": "inside",
+      "dead_unit_fraction": "inside",
+      "never_fired_fraction": "below"
+     }
+    },
+    {
+     "run_id": "cnn-fresh-none-s1015",
+     "epoch": 4,
+     "layer": "conv2",
+     "cause": "dead_units",
+     "positions": {
+      "weight_change": "inside",
+      "weight_norm": "inside",
+      "grad_norm": "inside",
+      "dead_unit_fraction": "above",
+      "never_fired_fraction": "inside"
+     }
+    },
+    {
+     "run_id": "cnn-fresh-none-s1028",
+     "epoch": 3,
+     "layer": "conv2",
+     "cause": "dead_units",
+     "positions": {
+      "weight_change": "inside",
+      "weight_norm": "inside",
+      "grad_norm": "inside",
+      "dead_unit_fraction": "above",
+      "never_fired_fraction": "inside"
+     }
+    },
+    {
+     "run_id": "cnn-fresh-none-s1035",
+     "epoch": 3,
+     "layer": "fc1",
+     "cause": "dead_units",
+     "positions": {
+      "weight_change": "inside",
+      "weight_norm": "inside",
+      "grad_norm": "inside",
+      "dead_unit_fraction": "inside",
+      "never_fired_fraction": "above"
+     }
+    },
+    {
+     "run_id": "cnn-fresh-none-s1039",
+     "epoch": 3,
+     "layer": "fc1",
+     "cause": "unrecognized",
+     "positions": {
+      "weight_change": "inside",
+      "weight_norm": "inside",
+      "grad_norm": "inside",
+      "dead_unit_fraction": "inside",
+      "never_fired_fraction": "below"
+     }
+    }
    ]
+  }
+ },
+ "never_fired_healthy_range": {
+  "mlp": {
+   "fc1": {
+    "low": 0.0,
+    "high": 0.0
+   },
+   "fc2": {
+    "low": 0.0,
+    "high": 0.015625
+   },
+   "fc3": {
+    "low": 0.0,
+    "high": 0.078125
+   },
+   "fc4": {
+    "low": 0.0,
+    "high": 0.0
+   }
+  },
+  "transformer": {
+   "tok": {
+    "low": 0.0,
+    "high": 0.0
+   },
+   "pos": {
+    "low": 0.0,
+    "high": 0.0
+   },
+   "b0.qkv": {
+    "low": 0.0,
+    "high": 0.0
+   },
+   "b0.proj": {
+    "low": 0.0,
+    "high": 0.0
+   },
+   "b0.ff1": {
+    "low": 0.0,
+    "high": 0.0
+   },
+   "b0.ff2": {
+    "low": 0.0,
+    "high": 0.0
+   },
+   "b1.qkv": {
+    "low": 0.0,
+    "high": 0.0
+   },
+   "b1.proj": {
+    "low": 0.0,
+    "high": 0.0
+   },
+   "b1.ff1": {
+    "low": 0.0,
+    "high": 0.0
+   },
+   "b1.ff2": {
+    "low": 0.0,
+    "high": 0.0
+   },
+   "head": {
+    "low": 0.0,
+    "high": 0.0
+   }
+  },
+  "cnn": {
+   "conv1": {
+    "low": 0.0,
+    "high": 0.0
+   },
+   "conv2": {
+    "low": 0.0,
+    "high": 0.0
+   },
+   "conv3": {
+    "low": 0.0,
+    "high": 0.03125
+   },
+   "fc1": {
+    "low": 0.046875,
+    "high": 0.1875
+   },
+   "fc2": {
+    "low": 0.0,
+    "high": 0.0
+   }
   }
  }
 }
