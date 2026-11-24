@@ -2,7 +2,7 @@
 
 Each run is replayed through LHD with all five signals and the study's
 settings, so the figure shows what LHD reported and nothing else. The
-runs are a frozen layer (the one in the paper's Figure 1), dead units,
+runs are a frozen layer (the one pick_example chooses), dead units,
 a healthy run, a broken run LHD missed, and a healthy run LHD flagged.
 """
 
@@ -13,7 +13,6 @@ from pathlib import Path
 
 from experiments.evaluate import (SETTINGS, curve_alarm, family, load_runs,
                                   reference, score_arch, split_runs)
-from experiments.paper_figures import pick_example
 from lhd.baseline import NEVER_FIRED, SIGNALS_V2
 from lhd.detector import signal_margin
 from lhd.replay import replay
@@ -40,6 +39,33 @@ def _widened(band: dict, signal: str) -> tuple[list[float], list[float]]:
     if signal in SHARES:
         high = high.clip(max=1.0)
     return _round(low), _round(high)
+
+
+def pick_example(rows: list[dict], groups: dict, ref: dict) -> dict | None:
+    """A CNN run with a frozen layer that LHD detected in the right layer with
+    the right cause, whose accuracy at the alarm epoch was still inside the
+    calibration range. Among those, the one the accuracy curve noticed
+    latest (or never), then the one that lost the most accuracy."""
+    by_id = {run["metadata"]["run_id"]: run for run in groups["fault"]}
+    picks = []
+    for row in rows:
+        if not (row["arch"] == "cnn" and row["family"] == "frozen" and row["detected"]
+                and row["layer_ok"] and row["cause_ok"] and row["run_id"] in by_id):
+            continue
+        run = by_id[row["run_id"]]
+        report = replay(run["history"], ref["band"], **SETTINGS)
+        if report is None:
+            continue
+        i = report["epoch"] - 1
+        value = run["history"][i]["val_accuracy"]
+        if not ref["accuracy"]["low"][i] <= value <= ref["accuracy"]["high"][i]:
+            continue
+        picks.append((-(row["acc_censored"] - row["lhd_censored"]), -(row["acc_drop_vs_twin"] or 0),
+                      row["run_id"], run, report))
+    if not picks:
+        return None
+    _, _, run_id, run, report = min(picks, key=lambda p: p[:3])
+    return {"run": run, "report": report}
 
 
 def _example(key: str, run: dict, ref: dict, layer: str, signal: str) -> dict:

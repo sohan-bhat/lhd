@@ -1,7 +1,7 @@
 PY := .venv-exp/bin/python
 export PYTHONPATH := src
 
-.PHONY: setup test runs unpack results paper paper-short table1 table2 table3 table4 table5
+.PHONY: setup test runs unpack results
 
 setup:
 	python3.10 -m venv .venv-exp
@@ -26,24 +26,3 @@ results:
 	$(PY) -m experiments.figures
 	$(PY) -m experiments.methods
 	$(PY) -m experiments.report
-
-paper:
-	$(PY) -m experiments.paper
-
-paper-short:
-	$(PY) -m experiments.paper_short
-
-table1:
-	$(PY) -m experiments.paper --table tab:rules
-
-table2:
-	$(PY) -m experiments.paper --table tab:networks
-
-table3:
-	$(PY) -m experiments.paper --table tab:headline
-
-table4:
-	$(PY) -m experiments.paper --table tab:detectors
-
-table5:
-	$(PY) -m experiments.paper --table tab:ablation

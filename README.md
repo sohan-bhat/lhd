@@ -42,7 +42,6 @@ Experiments begin after science fair review approval.
       blog_demo.py       writes blog/demo.json, the five runs in the blog post's figure
     src/tests/         the tests for the library and the scoring
     results/           every saved run, the tables, figures, and report
-    paper/             the long paper and the short paper
     blog/              the blog post
 
 ## Where everything is
@@ -50,24 +49,17 @@ Experiments begin after science fair review approval.
 Every LHD file lives in this folder.
 
     blog/lhd.md                      the blog post, the short version of the project
-    paper/lhd.pdf                    the long paper, tagged v0-long
-    paper/short/lhd_short.pdf        the short paper, six pages of main text
-    paper/short/lhd_extended.pdf     the extended results the short paper points to
     results/REPORT.md                the full report from every run
     results/METHODS.md               the methods record
     results/LHD_data.xlsx            every table in one workbook
     archive/                         the Google Docs proposal draft and the AI use
                                      disclosure, kept here and not on GitHub
 
-The website serves its own copies of the paper and the proposal from
-the portfolio repository.
-
 ## Running the experiments
 
 The experiments use the exact package versions in
 `requirements-experiments.txt` on Python 3.10, since PyTorch has no
 Intel Mac wheels past 2.2. The core library still needs only numpy.
-The paper is compiled with tectonic.
 
     make setup
     make test
@@ -75,9 +67,6 @@ The paper is compiled with tectonic.
     make runs       train every run, more than 100 CPU hours, resumable
     make unpack     or skip training and unpack the saved runs
     make results    tables, figures, methods record, and report
-    make paper      the paper in paper/lhd.pdf
-    make paper-short  the short paper and extended results in paper/short
-    make table3     print one table of the paper, from table1 to table5
 
 Datasets download on first use into `data/`. Each run is saved to
 `results/runs/<arch>/<run id>.json`, and finished runs are skipped,
@@ -89,7 +78,7 @@ proposal's faults on five more seeds.
 Finished runs are packed into one compressed file per architecture
 with `python -m experiments.bundle`, and the analysis reads those
 files when the per run folders are gone. Results land in
-`results/REPORT.md`, and the paper built from them in `paper/lhd.pdf`.
+`results/REPORT.md`.
 
 ## Version 2
 
@@ -101,7 +90,7 @@ signals 459 of the 470 were detected and 6 of 150 healthy runs flagged.
 The signal and its rule were chosen on runs outside the scored ones and
 committed before the scored runs were measured, and those runs were then
 scored once. Both versions and the limits of the comparison are in the
-last section of `results/REPORT.md` and in section 6 of the paper.
+last section of `results/REPORT.md`.
 
     python -m experiments.never_fired --workers 8    measure the fifth signal, about nine hours
     python -m experiments.never_fired --pack         pack the measurements for git
