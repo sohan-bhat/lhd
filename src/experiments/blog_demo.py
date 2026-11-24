@@ -1,9 +1,9 @@
-"""Writes blog/demo.json, the four runs shown in the blog post's figure.
+"""Writes blog/demo.json, the five runs shown in the blog post's figure.
 
-Each run is replayed through LHD with the study's settings, so the
-figure shows what LHD reported and nothing else. The runs are a
-frozen layer (the one in the paper's Figure 1), dead units, a healthy
-run, and a broken run LHD missed.
+Each run is replayed through LHD with all five signals and the study's
+settings, so the figure shows what LHD reported and nothing else. The
+runs are a frozen layer (the one in the paper's Figure 1), dead units,
+a healthy run, a broken run LHD missed, and a healthy run LHD flagged.
 """
 
 from __future__ import annotations
@@ -14,6 +14,8 @@ from pathlib import Path
 from experiments.evaluate import (SETTINGS, curve_alarm, family, load_runs,
                                   reference, score_arch, split_runs)
 from experiments.paper_figures import pick_example
+from lhd.baseline import NEVER_FIRED, SIGNALS_V2
+from lhd.detector import signal_margin
 from lhd.replay import replay
 
 OUT = Path(__file__).resolve().parents[2] / "blog" / "demo.json"
@@ -23,18 +25,20 @@ NETWORK = {
     "cnn": "CNN on GTSRB",
 }
 DIGITS = 5
+SHARES = ("dead_unit_fraction", NEVER_FIRED)
 
 
 def _round(values) -> list[float]:
     return [round(float(v), DIGITS) for v in values]
 
 
-def _widened(band: dict, cap: float | None = None) -> tuple[list[float], list[float]]:
+def _widened(band: dict, signal: str) -> tuple[list[float], list[float]]:
     """The healthy range as the detector uses it, widened by margin and floor."""
-    low = band["low"] * (1 - SETTINGS["margin"])
-    high = band["high"] * (1 + SETTINGS["margin"]) + SETTINGS["floor"]
-    if cap is not None:
-        high = high.clip(max=cap)
+    margin = signal_margin(signal, SETTINGS["margin"])
+    low = band["low"] * (1 - margin)
+    high = band["high"] * (1 + margin) + SETTINGS["floor"]
+    if signal in SHARES:
+        high = high.clip(max=1.0)
     return _round(low), _round(high)
 
 
@@ -42,7 +46,7 @@ def _example(key: str, run: dict, ref: dict, layer: str, signal: str) -> dict:
     """One run's curves, its healthy ranges, and what LHD reported."""
     meta, history = run["metadata"], run["history"]
     report = replay(history, ref["band"], **SETTINGS)
-    low, high = _widened(ref["band"][layer][signal], cap=1.0 if signal == "dead_unit_fraction" else None)
+    low, high = _widened(ref["band"][layer][signal], signal)
     return {
         "key": key,
         "run_id": meta["run_id"],
@@ -67,12 +71,13 @@ def _example(key: str, run: dict, ref: dict, layer: str, signal: str) -> dict:
 
 
 def build() -> list[dict]:
-    """The four examples, in the order the figure shows them."""
+    """The five examples, in the order the figure shows them."""
     refs, groups, rows = {}, {}, {}
     for arch in ("cnn", "mlp"):
-        groups[arch] = split_runs(load_runs(arch))
-        refs[arch] = reference(groups[arch])
-        rows[arch] = score_arch(arch)
+        runs = load_runs(arch)
+        groups[arch] = split_runs(runs)
+        refs[arch] = reference(groups[arch], SIGNALS_V2)
+        rows[arch] = score_arch(arch, runs=runs, signals=SIGNALS_V2)
 
     def run_of(arch: str, run_id: str) -> dict:
         both = groups[arch]["fresh"] + groups[arch]["fault"]
@@ -81,13 +86,19 @@ def build() -> list[dict]:
     frozen = pick_example(rows["cnn"], groups["cnn"], refs["cnn"])["run"]
     layer = frozen["metadata"]["fault"]["layer"]
     dead = run_of("mlp", "mlp-fault-dead25-fc1-s1000")
-    healthy = run_of("cnn", f"cnn-fresh-none-s{frozen['metadata']['seed']}")
     missed = run_of("cnn", "cnn-fault-dead10-fc1-s1000")
+    # The healthy run is the frozen run's twin, or the next seed LHD stayed silent on,
+    # and the flagged run is the first healthy CNN run the fifth signal flagged.
+    fresh = sorted((r for r in rows["cnn"] if r["role"] == "fresh"), key=lambda r: r["seed"])
+    seed = frozen["metadata"]["seed"]
+    quiet = next(r for r in fresh if r["seed"] >= seed and not r["fired"])
+    loud = next(r for r in fresh if r["fired"] and NEVER_FIRED in r["lhd_signals"].split("+"))
     return [
         _example("frozen", frozen, refs["cnn"], layer, "weight_change"),
         _example("dead", dead, refs["mlp"], "fc1", "dead_unit_fraction"),
-        _example("healthy", healthy, refs["cnn"], layer, "weight_change"),
-        _example("missed", missed, refs["cnn"], "fc1", "dead_unit_fraction"),
+        _example("healthy", run_of("cnn", quiet["run_id"]), refs["cnn"], layer, "weight_change"),
+        _example("missed", missed, refs["cnn"], "fc1", NEVER_FIRED),
+        _example("flagged", run_of("cnn", loud["run_id"]), refs["cnn"], loud["lhd_layer"], NEVER_FIRED),
     ]
 
 
