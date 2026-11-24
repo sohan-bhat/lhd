@@ -13,6 +13,7 @@ as a check that it really is 0.
 Usage:
     python -m experiments.never_fired --workers 8    measure what is missing
     python -m experiments.never_fired --pack         write results/runs/<arch>.never_fired.json.gz
+                                                     and results/never_fired_counts.json
 """
 
 from __future__ import annotations
@@ -30,6 +31,7 @@ from experiments.grid import ARCH_ORDER, build_grid
 from lhd.baseline import NEVER_FIRED, SIGNALS
 
 OUT = RESULTS / "never_fired"
+COUNTS = RESULTS / "never_fired_counts.json"
 PHASES = ("core", "seeds", "more")
 CHECK_EVERY = 10
 CURVES = ("train_accuracy", "val_accuracy", "train_loss", "val_loss")
@@ -160,8 +162,11 @@ def main(argv=None) -> None:
     archs = tuple(args.arch or ARCH_ORDER)
 
     if args.pack:
-        for arch in archs:
-            print(arch, pack(arch))
+        counts = {arch: pack(arch) for arch in archs}
+        for arch, count in counts.items():
+            print(arch, count)
+        if archs == tuple(ARCH_ORDER):
+            COUNTS.write_text(json.dumps(counts, indent=1) + "\n")
         return
 
     specs = all_specs(archs)

@@ -1,0 +1,17 @@
+{
+ "mlp": {
+  "runs": 255,
+  "trained": 255,
+  "trained_as_a_check": 0
+ },
+ "transformer": {
+  "runs": 325,
+  "trained": 95,
+  "trained_as_a_check": 35
+ },
+ "cnn": {
+  "runs": 305,
+  "trained": 305,
+  "trained_as_a_check": 0
+ }
+}
