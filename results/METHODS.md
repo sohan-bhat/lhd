@@ -1,6 +1,6 @@
 # LHD study, methods record
 
-This file records how every number in the study was produced. It is written by `python -m experiments.methods` from the code and the saved runs, so it always matches the data. It is a record of facts to write a paper from, not paper text.
+This file records how every number in the study was produced. It is written by `python -m experiments.methods` from the code and the saved runs, so it always matches the data. It is a record of facts, not prose.
 
 ## 1. What the study tests
 
@@ -223,7 +223,7 @@ Python 3.10.16, PyTorch 2.2.2, NumPy 1.26.4, SciPy 1.13.1, Matplotlib 3.10.0. Al
 
 | Proposal says | The study does | Why |
 |---|---|---|
-| the zero activation fraction is how much of a layer's outputs are exactly zero | the share of a layer's units that output exactly zero for every probe input, so a unit counts only when it is dead for all inputs | this is how the LHD library's signal was written. The proposal's sentence that dead units read near one fits both versions. The paper should describe the one in the code |
+| the zero activation fraction is how much of a layer's outputs are exactly zero | the share of a layer's units that output exactly zero for every probe input, so a unit counts only when it is dead for all inputs | this is how the LHD library's signal was written. The proposal's sentence that dead units read near one fits both versions. A write-up should describe the one in the code |
 | LHD stops the run once a fault is confirmed | every run trains to the end and LHD's alarm is found by replaying the saved run | so every detector can be scored on the same full runs. Replay matches live LHD, which `src/tests/test_replay.py` checks, and `src/experiments/demo.py` shows a live run being stopped |
 | thresholds are set just outside the healthy range | the range is widened by a margin of 0.5 and a floor of 0.05 before a value counts as out | thresholds right at the range's edge flag many healthy runs, which section 11's sweep shows |
 | a layer is flagged after numerous consecutive epochs | 3 consecutive epochs | taken from the LHD library's tests |

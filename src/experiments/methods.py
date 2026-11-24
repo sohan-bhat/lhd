@@ -5,7 +5,7 @@ Usage:
 
 Run after experiments.export. Every number is read from the code or
 the exported tables, so the record always matches the saved runs.
-It is a record to write a paper from, not paper prose.
+It is a record of facts, not prose.
 """
 
 from __future__ import annotations
@@ -128,7 +128,7 @@ def main() -> None:
         "",
         "This file records how every number in the study was produced. It is written by "
         "`python -m experiments.methods` from the code and the saved runs, so it always matches the "
-        "data. It is a record of facts to write a paper from, not paper text.",
+        "data. It is a record of facts, not prose.",
         "",
         "## 1. What the study tests",
         "",
@@ -364,7 +364,7 @@ def main() -> None:
              "the share of a layer's units that output exactly zero for every probe input, so a unit "
              "counts only when it is dead for all inputs",
              "this is how the LHD library's signal was written. The proposal's sentence that dead units "
-             "read near one fits both versions. The paper should describe the one in the code"],
+             "read near one fits both versions. A write-up should describe the one in the code"],
             ["LHD stops the run once a fault is confirmed",
              "every run trains to the end and LHD's alarm is found by replaying the saved run",
              "so every detector can be scored on the same full runs. Replay matches live LHD, which "
