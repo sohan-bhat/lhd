@@ -14,7 +14,30 @@ I began this work after one such silent failure occurred in a project of my own.
 
 ## Layer Health Diagnostics
 
-LHD records five signals for each layer after every epoch, namely weight change, gradient norm, weight norm, the dead-unit fraction, and the always-dead fraction. A dead unit has an output of zero for every input, and an always-dead unit has been dead before training and at every epoch since. Each signal is compared with a healthy range, which is the range measured for that signal in healthy runs of the same network. Every healthy range is calibrated on healthy runs only, so calibration never requires a faulty run. A detection occurs when a signal remains outside the healthy range for three consecutive epochs, after which the run is terminated and the layer is reported together with a probable cause, as [Figure 1](#figure-1) shows.
+LHD works in four stages, which are recording, calibration, detection, and diagnosis. During a run, LHD records the five signals in the table below for each layer after every epoch. A dead unit has an output of zero for every input of a fixed probe batch of 256 examples, and an always-dead unit has been dead before training and at every epoch since.
+
+| Signal | Definition | Fault that the signal exposes |
+|---|---|---|
+| Weight change | Movement of the weights of a layer relative to their size | A layer that receives no weight updates |
+| Gradient norm | Size of the gradient of a layer for one batch | A layer that receives almost no learning signal |
+| Weight norm | Overall size of the weights of a layer | Weights that grow far beyond their usual size |
+| Dead-unit fraction | Share of units with an output of zero for every probe input | Units that stopped responding during training |
+| Always-dead fraction | Share of units that were dead at every measurement | Units that never responded at all |
+
+Calibration gives every signal a healthy range for each layer and each epoch, measured on 20 healthy runs of the same network. The lowest and the highest value across those runs form the range, which is then widened so that ordinary noise does not cause a detection. The lower bound is multiplied by 0.5, and the upper bound is multiplied by 1.5 and raised by 0.05. A lower bound above zero therefore stays above zero, so a weight change of exactly zero always falls outside the healthy range. Because calibration uses healthy runs only, the setup never requires a faulty run.
+
+A detection occurs when a signal remains outside the healthy range for three consecutive epochs. The run is then terminated, and the layer is reported together with a probable cause. The cause follows from the pattern of the signals at the detection, checked in the order of the table below.
+
+| Signal pattern at the detection | Reported cause |
+|---|---|
+| Any signal is not a finite number | Diverged training |
+| Dead-unit fraction or always-dead fraction above the healthy range | Dead units |
+| Weight change below the range, gradient norm inside or above the range | Frozen layer |
+| Weight change and gradient norm both below the range | Vanishing gradient |
+| Weight norm above the range | Runaway weights |
+| Any other pattern | Unrecognized cause |
+
+[Figure 1](#figure-1) shows one run with a frozen-layer fault in the second convolutional layer of the CNN. The weight change of that layer is exactly 0 from the first epoch, which lies below the healthy range, while validation accuracy stays inside the healthy range for the entire run. LHD raised the detection at epoch 3 and reported a frozen layer in that layer, whereas the accuracy baseline recorded no detection in 15 epochs.
 
 <!-- figure -->
 <a id="figure-1"></a>
@@ -24,13 +47,21 @@ LHD records five signals for each layer after every epoch, namely weight change,
 Figure 1. In a CNN run with a frozen-layer fault, weight change on the left remains at 0 for the entire run while validation accuracy on the right stays within the healthy range.
 <!-- /figure -->
 
-## Results
+## Experimental setup
 
-The evaluation used three networks: a fully connected network on Fashion-MNIST, a CNN on GTSRB, and a character transformer on Tiny Shakespeare. I trained 885 runs in total and calibrated the healthy ranges of each network on 20 healthy runs. A fault was then injected into 470 runs, 150 held-out healthy runs were reserved to measure false positives, and the remaining runs were used to test other kinds of faults.
+The evaluation used the three networks in the table below, which cover image classification with dense and convolutional layers and next character prediction with attention layers. I trained 885 runs in total and calibrated the healthy ranges of each network on 20 healthy runs. A fault was then injected into 470 runs, 50 held-out healthy runs per network were reserved to measure false positives, and the remaining runs were used to test other kinds of faults.
+
+| Network | Dataset | Parameters | Watched layers | Epochs per run |
+|---|---|---|---|---|
+| Fully connected network | Fashion-MNIST | 242,762 | 4 | 20 |
+| CNN | GTSRB traffic signs | 41,659 | 5 | 15 |
+| Character transformer | Tiny Shakespeare | 112,577 | 11 | 15 |
 
 Each faulty run contained exactly one injected fault, either a frozen-layer fault or a dead-unit fault. A frozen-layer fault reproduces the SignNet bug, in which one layer receives no weight updates, and a dead-unit fault forces 10%, 25%, or 50% of the units in one layer to an output of zero. The accuracy baseline follows the validation accuracy curve of every run and records a detection when validation accuracy falls below the lowest healthy value for three consecutive epochs.
 
-I first conducted the entire evaluation with a four-signal variant that omits the always-dead fraction. After examining the false negatives of that variant, I added the always-dead fraction as the fifth signal, set the rule for that signal on runs that were never scored, and then scored every run once more. The table below therefore shows both variants side by side with the accuracy baseline.
+I first conducted the entire evaluation with a four-signal variant that omits the always-dead fraction. After examining the false negatives of that variant, I added the always-dead fraction as the fifth signal, set the rule for that signal on runs that were never scored, and then scored every run once more. The first results table therefore shows both variants side by side with the accuracy baseline.
+
+## Results
 
 | | LHD | Four-signal variant | Accuracy baseline |
 |---|---|---|---|
@@ -38,15 +69,34 @@ I first conducted the entire evaluation with a four-signal variant that omits th
 | Detected, out of the 105 runs with an accuracy loss of 2 points or more | 105 | 94 | 60 |
 | False positives, out of 150 healthy runs | 6 | 3 | 7 |
 
-The table shows that LHD detected 459 of the 470 faulty runs, or 98%, with a typical detection epoch of 3. In 98% of those detections, the reported layer was the layer that contained the injected fault. On the 165 runs detected by both methods, the detection from LHD preceded the detection from the accuracy baseline by 4.9 epochs on average. The cost of the fifth signal appears in the last row of the table, where LHD produced 6 false positives on the 150 healthy runs and the four-signal variant produced only 3.
+The table shows that LHD detected 459 of the 470 faulty runs, or 98%, against 166 for the accuracy baseline. The median detection epoch was 3 on every network, which is one fifth of a 15 epoch run and less than one sixth of a 20 epoch run. On the 165 runs detected by both methods, the detection from LHD preceded the detection from the accuracy baseline by 4.9 epochs on average.
 
-In 223 of the 470 faulty runs, the accuracy loss was under half a point, which is too small to observe in the accuracy curve. The second row of the table therefore counts only the 105 runs with an accuracy loss of 2 points or more.
+The accuracy baseline detected 166 faulty runs, and 165 of those runs were also detected by LHD. LHD therefore detected 294 faulty runs that the accuracy baseline never detected, while the accuracy baseline detected 1 run that LHD did not. The character transformer shows the difference most clearly, because none of the 170 faulty transformer runs lost 2 points of accuracy and LHD still detected all 170.
+
+| Network | Faulty runs detected | Correct layer reported | False positives |
+|---|---|---|---|
+| Fully connected network | 127 of 130 | 127 of 127 | 1 of 50 |
+| CNN | 162 of 170 | 155 of 162 | 5 of 50 |
+| Character transformer | 170 of 170 | 170 of 170 | 0 of 50 |
+
+The detection rate held across all three networks, with 97.7% on the fully connected network, 95.3% on the CNN, and 100% on the character transformer. In 452 of the 459 detections, or 98%, the reported layer was the layer that contained the injected fault. All 7 detections with a different reported layer were frozen-layer faults in the CNN.
+
+| Injected fault | Runs | Detected by LHD |
+|---|---|---|
+| Frozen-layer fault | 200 | 200 |
+| Dead-unit fault with 50% of the units disabled | 90 | 90 |
+| Dead-unit fault with 25% of the units disabled | 90 | 90 |
+| Dead-unit fault with 10% of the units disabled | 90 | 79 |
+
+LHD detected every frozen-layer fault and every dead-unit fault that disabled 25% or 50% of the units in a layer. For dead-unit faults overall, LHD detected 259 of 270 runs, or 96%, with 6 false positives. The default rule of SageMaker Debugger detected 40% of the same faults with 22 false positives, because dead units also occur in healthy networks at rates that differ widely between layers, so no single threshold suits every layer.
+
+The second row of the first table isolates the faults that matter most for the final model. In 223 of the 470 faulty runs, the accuracy loss was under half a point, which is too small to observe in the accuracy curve. In 105 runs the accuracy loss was 2 points or more, and LHD detected all 105 of those runs, whereas the four-signal variant detected 94 and the accuracy baseline detected 60. Of those 105 runs, 95 came from the CNN and 10 came from the fully connected network.
+
+The fifth signal accounts for the difference between the two variants, with 48 additional detections at the cost of 3 additional false positives. Recording the four original signals took 2.2% of the run time on the CNN, 5.9% on the character transformer, and 11.6% on the fully connected network.
 
 ## Limitations
 
 The results of this study carry six limitations that later work should address. First, a much simpler test performs better than LHD for frozen-layer faults. A zero-change test, which checks each layer only for a weight change of exactly zero, identified all 200 frozen layers at epoch 1 with no false positives, which is two epochs earlier than LHD. LHD is therefore unnecessary for detecting the original SignNet bug.
-
-The same shortcut does not transfer to dead-unit faults, because dead units also occur in healthy networks at rates that differ widely between layers, so no single threshold suits every layer. LHD detected 96% of dead-unit faults with 6 false positives, whereas the default rule of SageMaker Debugger detected 40% of those faults with 22 false positives.
 
 Second, LHD still produced 11 false negatives, and in every one of those runs only 10% of the units in a layer had been disabled. In the dense layer of the CNN, between 5% and 19% of units were always dead even in healthy runs, so LHD detected only 2 of the 10 runs with 10% of the units in that layer disabled.
 
