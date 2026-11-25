@@ -116,4 +116,4 @@ Comparable signals are already used in [AutoTrainer](https://doi.org/10.1109/ICS
 
 ## Who did what
 
-I came up with the idea, designed the experiments, and wrote the core LHD library for the first four signals (signals, detector, and diagnosis) from Claude's function outlines and docstrings. Claude, made by Anthropic, wrote the experiment, analysis, and figure code, ran the training runs, designed and wrote the fifth signal, and drafted this post. I directed the project, decided what to test and change, and I'm responsible for all of its content.
+I came up with the idea, and I designed the experiments and wrote the core LHD library for the first four signals (signals, detector, and diagnosis) from Claude's function outlines and docstrings. The experiment, analysis, and figure code was written by Claude, a model from Anthropic. The training runs were run by Claude, the fifth signal was designed and written by Claude, and this post was drafted by Claude. I directed the project, and I decided what to test and change, and I'm responsible for all of its content.
