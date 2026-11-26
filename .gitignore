@@ -10,7 +10,3 @@ results/runs/*/
 archive/
 results/never_fired/
 results/never_fired.log
-paper/
-src/experiments/paper.py
-src/experiments/paper_short.py
-src/experiments/paper_figures.py
