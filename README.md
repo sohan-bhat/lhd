@@ -25,7 +25,7 @@ Experiments begin after science fair review approval.
       replay.py          runs a saved history through LHD after the fact
       faults.py          plants a frozen layer or dead units
       torch_adapter.py   lets LHD watch any PyTorch model
-    src/experiments/   the study from the proposal
+    src/experiments/   the study
       models.py          CNN, fully connected network, small transformer
       data.py            GTSRB, Fashion-MNIST, Tiny Shakespeare
       train.py           one run with one planted fault
@@ -52,8 +52,6 @@ Every LHD file lives in this folder.
     results/REPORT.md                the full report from every run
     results/METHODS.md               the methods record
     results/LHD_data.xlsx            every table in one workbook
-    archive/                         the Google Docs proposal draft and the AI use
-                                     disclosure, kept here and not on GitHub
 
 ## Running the experiments
 
@@ -71,9 +69,9 @@ Intel Mac wheels past 2.2. The core library still needs only numpy.
 Datasets download on first use into `data/`. Each run is saved to
 `results/runs/<arch>/<run id>.json`, and finished runs are skipped,
 so the runner can be stopped and restarted at any time. The core
-phase is the study in the proposal. The more phase adds late faults,
+phase is the planned study. The more phase adds late faults,
 cut gradients, and learning rate blowups. The seeds phase repeats the
-proposal's faults on five more seeds.
+core phase's faults on five more seeds.
 
 Finished runs are packed into one compressed file per architecture
 with `python -m experiments.bundle`, and the analysis reads those
